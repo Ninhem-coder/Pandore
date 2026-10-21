@@ -129,3 +129,6 @@ AGENTS.md
 backend/data/history.json
 backend/data/app_library.json
 backend/data/watched_cves.json
+
+# Static build of the demo mode (npm run build:demo).
+frontend/dist-demo/

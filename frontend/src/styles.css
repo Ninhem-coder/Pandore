@@ -19605,3 +19605,20 @@ tr.compliance-detail-row > td {
     overflow-wrap: anywhere;
   }
 }
+
+/* Mode démo (2026-10-22, `npm run demo`) : badge permanent dans l'en-tête de page, pour qu'aucune
+   capture d'écran faite en démo ne puisse passer pour des données réelles. */
+.demo-badge {
+  display: inline-block;
+  margin: 0 0 8px 8px;
+  padding: 4px 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  vertical-align: top;
+}

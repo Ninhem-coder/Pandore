@@ -38,8 +38,12 @@ py -V:3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-dev.txt
 ```
 
-You do not need a Microsoft 365 tenant to run the tests. You do need one (or a test tenant) to
-try the dashboard against real data.
+You do not need a Microsoft 365 tenant to run the tests. For user-interface work, the
+[demo mode](docs/demo.md) (`npm run demo`) runs the dashboard with fictional data and no
+backend. A tenant (ideally a test tenant) is only needed to check behaviour against real data.
+
+If you add an API call to the dashboard, add the matching route to `frontend/src/demo/server.js`
+so the demo keeps working. Never use real tenant data in the demo dataset or in screenshots.
 
 ## Running the checks
 

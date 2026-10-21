@@ -7,6 +7,7 @@ import GlobalSearch from "../components/GlobalSearch.jsx";
 import { IconRefresh } from "../components/icons.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
 import { resolveSearchTab, bumpSearchNav, bumpVanitasNav } from "../navigation.js";
+import { DEMO_MODE } from "../api.js";
 
 // Code-splitting (2026-09-12) — chaque page d'onglet est chargée à la demande (`React.lazy`)
 // plutôt qu'empaquetée dans le bundle initial : le premier chargement ne télécharge plus que
@@ -179,12 +180,15 @@ export default function Dashboard() {
   // `user`/`logout` ne sont plus lus ICI depuis le 2026-09-09 (déplacés dans le pied de la
   // sidebar, voir plus bas) — `SettingsModal` lit `user` lui-même via son propre `useAuth()`.
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  // Mode démo uniquement : `?page=<clé d'onglet>` ouvre directement une page (captures d'écran
+  // automatisées, voir docs/demo.md). Ignoré hors démo — la navigation reste un état React.
+  const demoPage = DEMO_MODE ? new URLSearchParams(window.location.search).get("page") : null;
+  const [activeTab, setActiveTab] = useState(() => (demoPage && TABS[demoPage] ? demoPage : "overview"));
   // Bascule "Tenant Intune" / "Vanitas" (2026-09-04, jalon 5, maquette approuvée) — état
   // SÉPARÉ de `activeTab` : les deux arbres de navigation (Sidebar/VanitasSidebar) gardent
   // chacun leur propre position, pas de conflit d'un côté si on va-et-vient de l'autre.
-  const [source, setSource] = useState("intune");
-  const [vanitasTab, setVanitasTab] = useState("vanitas-overview");
+  const [source, setSource] = useState(() => (demoPage && VANITAS_TABS[demoPage] ? "vanitas" : "intune"));
+  const [vanitasTab, setVanitasTab] = useState(() => (demoPage && VANITAS_TABS[demoPage] ? demoPage : "vanitas-overview"));
   const [stamp, setStamp] = useState(() => formatStamp(new Date()));
   const data = useDashboardData();
   // Recherche globale (2026-08-20, voir GlobalSearch.jsx) : `token` incrémente à CHAQUE
@@ -192,7 +196,11 @@ export default function Dashboard() {
   // suite sur la même CVE depuis un autre onglet) — sans lui, un `useEffect` côté onglet
   // cible gardé sur `[query]` seul ne redéclencherait rien la deuxième fois puisque la
   // dépendance n'aurait pas changé.
-  const [searchNav, setSearchNav] = useState(null);
+  // Mode démo : `?page=device-overview&device=<nom>` ouvre directement la fiche d'un appareil.
+  const [searchNav, setSearchNav] = useState(() => {
+    const demoDevice = DEMO_MODE ? new URLSearchParams(window.location.search).get("device") : null;
+    return demoDevice && demoPage ? { tab: demoPage, query: demoDevice, token: 1 } : null;
+  });
   // Navigation Vanitas avec payload (2026-09-11, voir bumpVanitasNav ci-dessus) — même motif
   // que `searchNav`, arbre séparé.
   const [vanitasNav, setVanitasNav] = useState(null);
@@ -400,6 +408,7 @@ export default function Dashboard() {
                   pour Pandore (`--amber`, l'accent déjà en place partout côté Intune),
                   bleu/teal pour Vanitas (`--hud-accent`, cohérent avec le rail replié). */}
               <p className={`eyebrow${source === "vanitas" ? " eyebrow-vanitas" : " eyebrow-pandore"}`}>{titles.eyebrow}</p>
+              {DEMO_MODE && <span className="demo-badge">Mode démo · données fictives</span>}
               <h1>{titles.title}</h1>
             </div>
             {/* La recherche globale a été essayée en plein milieu du masthead, puis collée

@@ -17,6 +17,17 @@
 // message générique suffisait pour les erreurs déjà connues d'avance (ex. LoginForm.jsx, qui
 // affiche volontairement un message fixe pour ne pas confirmer l'existence d'un compte), mais
 // la gestion des comptes a de VRAIES validations métier à faire remonter telles quelles.
+// Mode démo (`npm run demo`, `VITE_DEMO=true`) : toutes les requêtes sont servies par un faux
+// backend dans le navigateur (demo/server.js) à partir de données FICTIVES — aucun appel réseau,
+// aucun tenant nécessaire. Sert aux captures d'écran et à la découverte du produit. Le module de
+// démo n'est chargé (import dynamique) que dans ce mode : hors démo, Vite élimine cette branche.
+export const DEMO_MODE = import.meta.env.VITE_DEMO === "true";
+
+async function demo(method, path, body) {
+  const { demoRequest } = await import("./demo/server.js");
+  return demoRequest(method, path, body);
+}
+
 async function errorMessage(res, path) {
   try {
     const data = await res.json();
@@ -30,6 +41,7 @@ async function errorMessage(res, path) {
 }
 
 async function getJSON(path) {
+  if (DEMO_MODE) return demo("GET", path);
   const res = await fetch(path, { credentials: "include" });
   if (!res.ok) {
     throw new Error(await errorMessage(res, path));
@@ -41,6 +53,7 @@ async function getJSON(path) {
 // reste de l'app n'ayant jusqu'ici que des lectures. Même contrat d'erreur que getJSON (lève
 // sur échec réseau/HTTP, laisse l'appelant gérer l'état loading/erreur).
 async function postJSON(path, body) {
+  if (DEMO_MODE) return demo("POST", path, body);
   const res = await fetch(path, {
     method: "POST",
     credentials: "include",
@@ -57,6 +70,7 @@ async function postJSON(path, body) {
 // même contrat que postJSON, verbe HTTP différent (remplace intégralement la ressource plutôt
 // que d'en créer une nouvelle).
 async function putJSON(path, body) {
+  if (DEMO_MODE) return demo("PUT", path, body);
   const res = await fetch(path, {
     method: "PUT",
     credentials: "include",
@@ -70,6 +84,7 @@ async function putJSON(path, body) {
 }
 
 async function deleteJSON(path) {
+  if (DEMO_MODE) return demo("DELETE", path);
   const res = await fetch(path, { method: "DELETE", credentials: "include" });
   if (!res.ok) {
     throw new Error(await errorMessage(res, path));
@@ -82,6 +97,7 @@ async function deleteJSON(path) {
 // contrairement à postJSON : le navigateur fixe lui-même la boundary multipart sur un body
 // `FormData`, la poser manuellement casserait l'encodage.
 async function postForm(path, formData) {
+  if (DEMO_MODE) return demo("POST", path);
   const res = await fetch(path, { method: "POST", credentials: "include", body: formData });
   if (!res.ok) {
     throw new Error(await errorMessage(res, path));

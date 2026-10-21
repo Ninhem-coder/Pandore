@@ -37,6 +37,7 @@ detection on the endpoints you manage.
 - [Why Pandore](#why-pandore)
 - [Key features](#key-features)
 - [How it works](#how-it-works)
+- [Screenshots](#screenshots)
 - [Technology stack](#technology-stack)
 - [Getting started](#getting-started)
 - [Configuration](#configuration)
@@ -110,6 +111,30 @@ trustworthy view:
 The full picture, with data-flow and sequence diagrams, is in
 [docs/architecture.md](docs/architecture.md).
 
+## Screenshots
+
+> Captured in [demo mode](docs/demo.md): every device, user and alert below is **fictional**
+> (generated data, `DEMO-` device names). The interface is in French.
+
+| Dashboard | Device page (Intune + Defender) |
+|---|---|
+| <img src="docs/images/screenshots/dashboard.png" alt="Dashboard with KPIs, compliance and exposure trends, devices at risk and signals" width="100%"> | <img src="docs/images/screenshots/device.png" alt="360-degree device page combining Intune and Defender data for one device" width="100%"> |
+| **Compliance** | **Defender alerts** |
+| <img src="docs/images/screenshots/compliance.png" alt="Compliance page with fleet compliance rate, priorities and failing policies" width="100%"> | <img src="docs/images/screenshots/alerts.png" alt="Defender alerts with severity and status filters" width="100%"> |
+| **Vanitas — overview** | **Vanitas — suspicious activity** |
+| <img src="docs/images/screenshots/vanitas-overview.png" alt="Vanitas overview with risk posture, agents, signals and trends" width="100%"> | <img src="docs/images/screenshots/vanitas-suspicious.png" alt="Vanitas suspicious activity triage list" width="100%"> |
+
+<details>
+<summary>More screenshots</summary>
+
+| Secure Score | Vulnerabilities |
+|---|---|
+| <img src="docs/images/screenshots/secure-score.png" alt="Secure Score page" width="100%"> | <img src="docs/images/screenshots/vulnerabilities.png" alt="Vulnerability inventory" width="100%"> |
+| **Vanitas — devices** | **Vanitas — Windows updates** |
+| <img src="docs/images/screenshots/vanitas-devices.png" alt="Vanitas enrolled devices" width="100%"> | <img src="docs/images/screenshots/vanitas-updates.png" alt="Vanitas Windows update policies per group" width="100%"> |
+
+</details>
+
 ## Technology stack
 
 | Layer | Technology | Why |
@@ -132,6 +157,17 @@ The full picture, with data-flow and sequence diagrams, is in
 | Dashboard | **Node.js 22 LTS or newer** (tested with 24 LTS) |
 | Microsoft 365 | Two Entra ID app registrations (Graph/Intune and Defender for Endpoint) with admin-consented **application** permissions — see [docs/installation.md](docs/installation.md#1-create-the-entra-id-app-registrations) |
 | Vanitas (optional) | Python 3.12 for the server · **.NET 8 SDK** on Windows to build the agent and its MSI |
+
+### Try it without a tenant
+
+The [demo mode](docs/demo.md) runs the dashboard with fictional data — no backend, no Microsoft
+365 tenant, no secret:
+
+```powershell
+cd frontend
+npm install
+npm run demo                    # http://localhost:5180
+```
 
 ### Quick start (Pandore only)
 
@@ -190,9 +226,6 @@ variable, its default and its effect is listed in [docs/configuration.md](docs/c
 
 A page-by-page tour and MCP setup are in [docs/usage.md](docs/usage.md).
 
-> [!NOTE]
-> **Screenshots** are intentionally not included yet: every screen of a running instance shows
-> real device and user names. See the [roadmap](#roadmap) for a planned demo mode.
 
 ## Project structure
 
@@ -224,7 +257,7 @@ A longer description of each component is in [docs/architecture.md](docs/archite
 These are ideas, **not existing features**:
 
 - English user interface (the UI text is currently French).
-- A demo mode with generated sample data, to allow safe public screenshots and trials.
+- A hosted public demo (the static `npm run build:demo` output) on GitHub Pages.
 - Continuous integration for the .NET agent and the MSI build.
 - Packaging that simplifies first-time setup (for example a single launcher script).
 
