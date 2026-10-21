@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "defender-local": {
+      "command": "C:\\path\\to\\Pandore\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "defender.mcp_server"],
+      "cwd": "C:\\path\\to\\Pandore\\backend"
+    },
+    "intune-local": {
+      "command": "C:\\path\\to\\Pandore\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "intune.mcp_server"],
+      "cwd": "C:\\path\\to\\Pandore\\backend"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+pydantic>=2.9
+httpx>=0.28
+python-dotenv>=1.2
+python-multipart>=0.0.12
+cryptography>=43.0
+# Migrations de schéma (2026-09-12) — remplace les scripts `scripts/migrate_add_*.py` faits main
+# et le `Base.metadata.create_all()` de bootstrap : source unique de vérité pour le schéma, avec
+# suivi de "quelles migrations ont tourné" (table alembic_version). Voir alembic/ + db.init_db().
+alembic>=1.13

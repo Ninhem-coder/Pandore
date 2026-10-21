@@ -1,0 +1,26 @@
+<Project Sdk="WixToolset.Sdk/4.0.5">
+
+  <!--
+    Jalon 5 : packaging du vrai Windows Service (voir README d'endpoint-agent/).
+    Construit à partir du publish self contained single file de EndpointAgent (win x64),
+    voir ../EndpointAgent/publish/ : `dotnet publish -c Release -r win-x64
+    -p:SelfContained=true -p:PublishSingleFile=true` avant de builder ce projet.
+  -->
+
+  <!-- WixToolset.Sdk inclut déjà automatiquement tous les *.wxs du dossier (comme le SDK .NET
+       le fait pour les *.cs) — un <Compile Include="Product.wxs" /> explicite ici DOUBLE le
+       fichier et produit une cascade de "Duplicate symbol" (repéré en buildant, pas anticipé). -->
+  <PropertyGroup>
+    <OutputName>EndpointAgent</OutputName>
+    <Platform>x64</Platform>
+  </PropertyGroup>
+
+  <!-- Jalon 5, étape 11 — extension nécessaire pour <util:ServiceConfig> (politique de
+       récupération du service, redémarrage automatique après arrêt). ServiceInstall/
+       ServiceControl restent des éléments du schéma de base, pas besoin de cette extension
+       pour eux. -->
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Util.wixext" Version="4.0.5" />
+  </ItemGroup>
+
+</Project>

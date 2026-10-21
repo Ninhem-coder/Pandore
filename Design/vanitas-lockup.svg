@@ -1,0 +1,44 @@
+<svg width="380" height="120" viewBox="0 0 380 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="vsweep" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(58 58) rotate(-45) scale(32)">
+      <stop offset="0%" stop-color="#39E6D2" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#39E6D2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vping" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#D14FE0" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#D14FE0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Icon: radar / reticle -->
+  <g transform="translate(28,28)">
+    <path d="M30 30 L30 -2 A32 32 0 0 1 52 8 Z" fill="url(#vsweep)"/>
+    <circle cx="30" cy="30" r="32" fill="none" stroke="#213038" stroke-width="1.5"/>
+    <circle cx="30" cy="30" r="19" fill="none" stroke="#39E6D2" stroke-width="2.5"/>
+    <g stroke="#39E6D2" stroke-width="2.5" stroke-linecap="round">
+      <line x1="30" y1="2" x2="30" y2="11"/>
+      <line x1="30" y1="49" x2="30" y2="58"/>
+      <line x1="2" y1="30" x2="11" y2="30"/>
+      <line x1="49" y1="30" x2="58" y2="30"/>
+    </g>
+    <circle cx="30" cy="30" r="3" fill="#39E6D2"/>
+    <circle cx="46" cy="14" r="9" fill="url(#vping)"/>
+    <circle cx="46" cy="14" r="3" fill="#D14FE0"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="114" y="66"
+        font-family="'JetBrains Mono', 'Fira Code', ui-monospace, Consolas, monospace"
+        font-size="34"
+        font-weight="700"
+        letter-spacing="1"
+        fill="#39E6D2">VANITAS<tspan fill="#D14FE0">_</tspan></text>
+
+  <!-- Caption -->
+  <text x="116" y="86"
+        font-family="'JetBrains Mono', 'Fira Code', ui-monospace, Consolas, monospace"
+        font-size="12"
+        font-weight="500"
+        letter-spacing="3.5"
+        fill="#8FA3A8">RIEN N&#8217;&#201;CHAPPE.</text>
+</svg>

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net8.0-windows (pas net8.0) : EndpointAgent.csproj cible net8.0-windows (WMI/registre/
+         EventLog), un projet de test ne peut référencer un projet windows-specific que s'il
+         partage au moins ce TFM (sinon NETSDK1023 à la restauration). Sans conséquence pour la
+         portabilité des tests eux-mêmes : SuspiciousActivityRuleEngineTests n'exerce QUE
+         SuspiciousActivityRuleEngine, qui n'a aucune dépendance Windows (voir son commentaire
+         d'en-tête) — seul le TFM du PROJET est contraint par la référence, pas le code testé. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EndpointAgent\EndpointAgent.csproj" />
+  </ItemGroup>
+
+</Project>

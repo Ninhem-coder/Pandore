@@ -1,0 +1,131 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+ 
+# dependencies
+*node_modules
+/.pnp
+.pnp.js
+ 
+# testing
+/coverage
+ 
+# production
+/build
+ 
+# misc
+.DS_Store
+*.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.gitlab-ci.yml
+.claude
+
+# Assistant de packaging Win32 (2026-08-26) — scratch par job (installeurs uploadés/téléchargés,
+# .intunewin générés) : jamais committé, contient potentiellement des binaires volumineux et des
+# fichiers sources tiers.
+backend/.packaging_workdir/
+backend/.token_cache/
+
+# Bibliothèque d'applications (2026-08-26) — livrables binaires (.intunewin + instructions)
+# des entrées "packagées", gitignorés comme le scratch de packaging ci-dessus. L'INDEX
+# backend/data/app_library.json reste, lui, versionné (même convention que
+# backend/data/history.json/watched_cves.json — quelques Ko de JSON, pas des binaires).
+backend/data/app_library/
+
+# Build Vite (2026-08-27) — sortie générée par `npx vite build`, jamais committée.
+frontend/dist/
+
+# Authentification multi-comptes (2026-09-07, backend/auth/) — comptes (hash de mot de passe
+# argon2) et sessions actives, jamais destinés à git contrairement à app_library.json (aucun
+# secret dedans, celui-ci si).
+backend/data/auth_users.json
+backend/data/auth_sessions.json
+
+# Profils Vanitas (2026-09-10, auth/vanitas_profiles.py) — configuration d'instance propre à
+# ce déploiement (les profils que Nicolas définit lui-même), même raisonnement que les deux
+# fichiers ci-dessus : jamais un artefact à versionner, contrairement à app_library.json.
+backend/data/vanitas_profiles.json
+
+# Cache de résolution des noms d'app Android (2026-09-02, intune/app_names.py) — pure donnée
+# DÉRIVÉE/regénérable (scraping Google Play Store), contrairement à app_library.json/
+# history.json/watched_cves.json qui portent de l'intention utilisateur réelle. Se reconstruit
+# tout seul au fil des chargements de la fiche appareil, aucune perte à le supprimer.
+backend/data/app_name_cache.json
+
+# État des alertes Vanitas (2026-09-08, vanitas/alert_state.py) — pure donnée dérivée
+# (dernier état connu par agent + journal borné des alertes déclenchées), régénérable, même
+# raisonnement que app_name_cache.json ci-dessus.
+backend/data/vanitas_alert_state.json
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Endpoint Agent — projet séparé (2026-09-03) : base SQLite locale de dev, jamais committée
+# (contient l'inventaire réel des postes enrôlés au fil des tests), et artefacts de build .NET.
+endpoint-agent/server/data/
+endpoint-agent/agent/**/bin/
+endpoint-agent/agent/**/obj/
+endpoint-agent/agent/**/publish/
+endpoint-agent/server/.server.out.log
+endpoint-agent/server/.server.err.log
+endpoint-agent/server/.vanitas_server.out.log
+endpoint-agent/server/.vanitas_server.err.log
+
+# Cache local NuGet des extensions WiX (dotnet build sur Installer.wixproj) — binaire tiers
+# téléchargé, jamais du code source.
+.wix/
+
+# Cache de bytecode Python — régénéré automatiquement à chaque exécution, spécifique à
+# l'interpréteur/la version locale (plusieurs .pyc pour un même module selon qu'on a tourné en
+# 3.10 ou 3.14 sur ce poste) : jamais utile en version control, aucune perte à le supprimer.
+__pycache__/
+*.pyc
+
+# Environnements virtuels Python (backend/.venv/, endpoint-agent/server/.venv/) — des milliers
+# de fichiers, dont des binaires spécifiques à la plateforme et des shims à CHEMINS ABSOLUS
+# propres à ce poste : jamais destinés à git (un `git add -A` les aspirerait sinon). Se
+# recréent via `python -m venv .venv` + `pip install -r requirements.txt`. Motifs génériques
+# (venv/env/.venv, à n'importe quelle profondeur) pour couvrir toute convention future.
+.venv/
+venv/
+env/
+ENV/
+
+# Logs des serveurs locaux (backend/frontend) lancés en arrière-plan pendant une session de
+# dev/debug (nohup ... > .xxx.out.log 2> .xxx.err.log) — jamais destinés à être committés.
+.api_server.out.log
+.api_server.err.log
+.vite.out.log
+.vite.err.log
+# Logs of locally launched servers (backend/.pandore_server.*.log, etc.) and test caches.
+*.out.log
+*.err.log
+.pytest_cache/
+
+# ──────────────────────────────────────────────────────────────────────────────────────────
+# Internal / private files — excluded from the PUBLIC repository by default (2026-10-21,
+# public-release preparation). They stay on disk and keep working locally; remove a line here
+# only after reviewing the file for personal data and tenant-specific details.
+#   - docs/internal/HISTORY.md : development journal (French) with real tenant details,
+#                                 device names and e-mail addresses.
+#   - AUDIT_REPORT.md          : internal security audit listing findings with file:line refs.
+#   - README.old               : superseded README, still contains Git conflict markers.
+#   - _to_delete/              : components already staged for deletion by the maintainer.
+#   - endpoint-agent/_mockups/ : early HTML mockups populated with real device names.
+#   - CLAUDE.md / AGENTS.md    : AI-assistant instructions specific to the maintainer.
+# ──────────────────────────────────────────────────────────────────────────────────────────
+docs/internal/HISTORY.md
+AUDIT_REPORT.md
+README.old
+_to_delete/
+endpoint-agent/_mockups/
+CLAUDE.md
+AGENTS.md
+# Runtime data of the maintainer's own tenant (daily metrics, packaged-app index, watched CVEs).
+# The backend recreates each file on first write and treats a missing file as empty
+# (common/history.py, intune/app_library.py, defender/watchlist.py).
+backend/data/history.json
+backend/data/app_library.json
+backend/data/watched_cves.json

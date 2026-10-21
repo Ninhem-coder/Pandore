@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="t d">
+  <title id="t">How Pandore fits together</title>
+  <desc id="d">Pandore's backend pulls data from Microsoft Graph (Intune), the Defender for Endpoint API, CERT-FR advisories and the Vanitas server, and serves it to a React dashboard, Claude Desktop over MCP and optional e-mail alerts. Vanitas agents on Windows endpoints talk to the Vanitas server over mTLS; the Vanitas server uses the NVD API for CVE data.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#6E7690"/>
+    </marker>
+    <style>
+      .h { font: 600 13px Consolas, Menlo, monospace; fill: #6E7690; letter-spacing: 1.5px; }
+      .t { font: 600 16px "Segoe UI", Helvetica, Arial, sans-serif; fill: #F3EFE8; }
+      .s { font: 13px "Segoe UI", Helvetica, Arial, sans-serif; fill: #A9AFC0; }
+      .r { font: 14px "Segoe UI", Helvetica, Arial, sans-serif; fill: #F3EFE8; }
+      .lbl { font: 12px "Segoe UI", Helvetica, Arial, sans-serif; fill: #6E7690; }
+      .box { fill: #131A2E; stroke: #2A3450; stroke-width: 1.5; }
+      .core { fill: #1A2338; stroke: #F6B27E; stroke-width: 1.5; }
+      .vbox { fill: #0F1417; stroke: #213038; stroke-width: 1.5; }
+      .vcore { fill: #141B1F; stroke: #39E6D2; stroke-width: 1.5; }
+      .ln { stroke: #6E7690; stroke-width: 1.5; fill: none; }
+    </style>
+  </defs>
+  <rect width="1280" height="640" rx="20" fill="#0A0E1A"/>
+
+  <text x="40" y="52" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="24" font-weight="600" fill="#F3EFE8">How Pandore fits together</text>
+
+  <!-- Column headers -->
+  <text x="40" y="100" class="h">DATA SOURCES</text>
+  <text x="470" y="100" class="h">PANDORE BACKEND · PYTHON / FASTAPI</text>
+  <text x="930" y="100" class="h">CLIENTS</text>
+
+  <!-- Sources -->
+  <rect x="40" y="118" width="330" height="72" rx="12" class="box"/>
+  <text x="58" y="148" class="t">Microsoft Graph · Intune</text>
+  <text x="58" y="172" class="s">Devices, compliance, apps, Secure Score</text>
+
+  <rect x="40" y="206" width="330" height="72" rx="12" class="box"/>
+  <text x="58" y="236" class="t">Defender for Endpoint API</text>
+  <text x="58" y="260" class="s">Machines, alerts, vulnerabilities, hunting</text>
+
+  <rect x="40" y="294" width="330" height="72" rx="12" class="box"/>
+  <text x="58" y="324" class="t">CERT-FR advisories</text>
+  <text x="58" y="348" class="s">Public advisories matched to inventory</text>
+
+  <!-- Backend -->
+  <rect x="470" y="118" width="360" height="248" rx="14" class="core"/>
+  <text x="490" y="150" class="t">Pandore API</text>
+  <text x="490" y="190" class="r">REST API · session auth and roles</text>
+  <text x="490" y="226" class="r">Modules: intune · defender · vanitas</text>
+  <text x="490" y="262" class="r">MCP servers (stdio)</text>
+  <text x="490" y="298" class="r">Daily history · CVE watchlist · alerts</text>
+  <text x="490" y="340" class="lbl">Runs locally on 127.0.0.1:8000</text>
+
+  <!-- Clients -->
+  <rect x="930" y="118" width="310" height="72" rx="12" class="box"/>
+  <text x="948" y="148" class="t">React dashboard</text>
+  <text x="948" y="172" class="s">Vite single-page app</text>
+
+  <rect x="930" y="206" width="310" height="72" rx="12" class="box"/>
+  <text x="948" y="236" class="t">Claude Desktop</text>
+  <text x="948" y="260" class="s">Same functions exposed over MCP</text>
+
+  <rect x="930" y="294" width="310" height="72" rx="12" class="box"/>
+  <text x="948" y="324" class="t">E-mail alerts</text>
+  <text x="948" y="348" class="s">Vanitas alerts over SMTP (optional)</text>
+
+  <!-- Source -> backend arrows -->
+  <path d="M370 154 H466" class="ln" marker-end="url(#arrow)"/>
+  <path d="M370 242 H466" class="ln" marker-end="url(#arrow)"/>
+  <path d="M370 330 H466" class="ln" marker-end="url(#arrow)"/>
+  <!-- Backend -> clients arrows -->
+  <path d="M830 154 H926" class="ln" marker-end="url(#arrow)"/>
+  <path d="M830 242 H926" class="ln" marker-end="url(#arrow)"/>
+  <path d="M830 330 H926" class="ln" marker-end="url(#arrow)"/>
+
+  <!-- Vanitas section -->
+  <line x1="40" y1="414" x2="1240" y2="414" stroke="#1E2740" stroke-width="1"/>
+  <text x="40" y="446" class="h" style="fill:#39E6D2">VANITAS · SELF-HOSTED ENDPOINT AGENT (OPTIONAL)</text>
+
+  <rect x="40" y="466" width="330" height="120" rx="12" class="vbox"/>
+  <text x="58" y="496" class="t">Windows endpoints</text>
+  <text x="58" y="522" class="s">Vanitas agent · .NET 8 Windows service</text>
+  <text x="58" y="544" class="s">Inventory, compliance scripts, patching,</text>
+  <text x="58" y="566" class="s">detection, remote commands</text>
+
+  <rect x="470" y="466" width="360" height="120" rx="14" class="vcore"/>
+  <text x="490" y="496" class="t">Vanitas server</text>
+  <text x="490" y="522" class="s">FastAPI + SQLite (Alembic migrations)</text>
+  <text x="490" y="544" class="s">Enrollment, private CA, command queue,</text>
+  <text x="490" y="566" class="s">CVE matching, suspicious events</text>
+
+  <rect x="930" y="466" width="310" height="120" rx="12" class="vbox"/>
+  <text x="948" y="496" class="t">NVD API</text>
+  <text x="948" y="522" class="s">CVE data for installed software</text>
+
+  <!-- agent -> server -->
+  <path d="M370 526 H466" class="ln" marker-end="url(#arrow)"/>
+  <text x="378" y="514" class="lbl">mTLS, outbound</text>
+  <!-- NVD -> server -->
+  <path d="M930 526 H834" class="ln" marker-end="url(#arrow)"/>
+  <!-- server -> backend -->
+  <path d="M650 466 V370" class="ln" marker-end="url(#arrow)"/>
+  <text x="660" y="436" class="lbl">HTTPS + shared token, server-to-server</text>
+
+  <text x="40" y="620" class="lbl">Diagram drawn from the source code (backend/, frontend/, endpoint-agent/). Arrows show the direction of data.</text>
+</svg>

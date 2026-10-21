@@ -1,0 +1,1016 @@
+<title>Charte Pandore & Vanitas</title>
+<meta name="description" content="Système de design complet pour l'application Pandore — deux univers, PANDORE et VANITAS, un seul ADN.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  /* ============ DOC CHROME TOKENS (deliberate single dark world — see rationale in §15) ============ */
+  :root{
+    --doc-bg:#0B0B0D;
+    --doc-surface:#131316;
+    --doc-surface-2:#191A1E;
+    --doc-border:#2A2A30;
+    --doc-text:#EDEDEC;
+    --doc-text-dim:#9C9CA6;
+    --doc-text-faint:#616169;
+    --doc-ink:#8A7F6A; /* neutral catalog gold-grey — NOT a product accent */
+    --doc-mono:'Inter',ui-monospace,monospace;
+
+    --pd-bg1:#0A0E1A; --pd-bg2:#0D1220; --pd-bg3:#10162A;
+    --pd-surface:#131A2E; --pd-surface-el:#1A2338; --pd-surface-int:#202B45;
+    --pd-border:#2A3450; --pd-divider:#1E2740;
+    --pd-text1:#F3EFE8; --pd-text2:#A9AFC0; --pd-text3:#6E7690;
+    --pd-accent:#F6B27E; --pd-accent2:#EE9A5C;
+    --pd-success:#48C98A; --pd-warning:#E7A33C; --pd-error:#EA5C5C; --pd-info:#4C9FE0;
+    --pd-disabled-bg:#262B36; --pd-disabled-text:#4C4F58;
+
+    --vn-bg1:#07090B; --vn-bg2:#0A0D10; --vn-bg3:#0D1114;
+    --vn-surface:#0F1417; --vn-surface-el:#141B1F; --vn-surface-int:#19232A;
+    --vn-border:#213038; --vn-divider:#161E23;
+    --vn-text1:#E4EDEE; --vn-text2:#8FA3A8; --vn-text3:#556A70;
+    --vn-accent:#39E6D2; --vn-accent2:#D14FE0;
+    --vn-success:#48C98A; --vn-warning:#E7A33C; --vn-error:#EA5C5C; --vn-info:#4C9FE0;
+    --vn-disabled-bg:#111719; --vn-disabled-text:#3E4B4F;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--doc-bg);
+    color:var(--doc-text);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{text-wrap:balance; font-weight:600; color:var(--doc-text); margin:0;}
+  p{margin:0; max-width:66ch;}
+  a{color:inherit;}
+  ::selection{background:var(--doc-ink); color:#0B0B0D;}
+  :focus-visible{outline:2px solid var(--doc-ink); outline-offset:2px;}
+
+  .wrap{max-width:1280px; margin:0 auto; padding-inline:32px;}
+  @media (max-width:720px){ .wrap{padding-inline:16px;} }
+
+  /* ---------- Layout: sticky TOC + content ---------- */
+  .shell{display:grid; grid-template-columns:220px 1fr; gap:56px; align-items:start; padding-block:40px 120px;}
+  @media (max-width:920px){ .shell{grid-template-columns:1fr;} }
+
+  nav.toc{
+    position:sticky; top:24px; max-height:calc(100vh - 48px); overflow-y:auto;
+    display:flex; flex-direction:column; gap:2px; padding-right:8px;
+  }
+  @media (max-width:920px){
+    nav.toc{position:static; max-height:none; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; gap:6px; padding-bottom:12px; border-bottom:1px solid var(--doc-border); margin-bottom:8px;}
+  }
+  nav.toc a{
+    font-size:12.5px; color:var(--doc-text-faint); text-decoration:none; padding:5px 8px; border-radius:6px;
+    white-space:nowrap; border-left:2px solid transparent;
+  }
+  @media (max-width:920px){ nav.toc a{border-left:none; border-bottom:2px solid transparent; flex:0 0 auto;} }
+  nav.toc a:hover{color:var(--doc-text); background:var(--doc-surface);}
+  nav.toc .toc-label{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--doc-text-faint); padding:10px 8px 4px;}
+  @media (max-width:920px){ nav.toc .toc-label{display:none;} }
+
+  main{min-width:0;}
+  section{padding-block:64px; border-top:1px solid var(--doc-border);}
+  section:first-of-type{border-top:none; padding-top:0;}
+
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--doc-ink); font-weight:600; margin-bottom:14px;
+  }
+  .eyebrow::before{content:""; width:16px; height:1px; background:var(--doc-ink);}
+  h2.title{font-size:clamp(26px,3.4vw,38px); letter-spacing:-.01em; margin-bottom:8px;}
+  .lede{color:var(--doc-text-dim); font-size:16.5px; margin-bottom:36px; max-width:70ch;}
+  h3.sub{font-size:15px; text-transform:uppercase; letter-spacing:.08em; color:var(--doc-text-dim); margin:40px 0 16px; font-weight:600;}
+  h3.sub:first-of-type{margin-top:0;}
+
+  ul.plain{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px;}
+  ul.plain li{padding-left:18px; position:relative; color:var(--doc-text); font-size:15px;}
+  ul.plain li::before{content:"—"; position:absolute; left:0; color:var(--doc-text-faint);}
+  ul.plain li b{color:var(--doc-text); font-weight:600;}
+  ul.plain li .muted{color:var(--doc-text-dim);}
+
+  /* ---------- Hero ---------- */
+  .hero{padding-block:72px 56px; position:relative;}
+  .hero-grid{display:grid; grid-template-columns:1.3fr 1fr; gap:48px; align-items:end;}
+  @media (max-width:820px){ .hero-grid{grid-template-columns:1fr;} }
+  .hero h1{font-size:clamp(40px,6vw,72px); line-height:.98; letter-spacing:-.02em;}
+  .hero h1 .amp{color:var(--doc-text-faint); font-weight:400; font-style:italic; font-family:Georgia,'Times New Roman',serif; padding:0 6px;}
+  .hero-sub{margin-top:20px; color:var(--doc-text-dim); font-size:17px; max-width:52ch;}
+  .hero-meta{display:flex; flex-direction:column; gap:10px; font-size:13px; color:var(--doc-text-faint); border-left:1px solid var(--doc-border); padding-left:20px;}
+  .hero-meta b{color:var(--doc-text-dim); font-weight:600;}
+  .hero-split{
+    margin-top:44px; display:grid; grid-template-columns:1fr 1fr; border-radius:18px; overflow:hidden;
+    box-shadow:0 30px 70px -30px rgba(0,0,0,.7);
+  }
+  @media (max-width:600px){ .hero-split{grid-template-columns:1fr;} }
+  .hero-half{padding:28px 24px; min-height:150px; display:flex; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden;}
+  .hero-half.pd{background:radial-gradient(120% 140% at 15% 0%,var(--pd-bg3),var(--pd-bg1) 65%);}
+  .hero-half.vn{background:radial-gradient(120% 140% at 85% 0%,var(--vn-bg3),var(--vn-bg1) 65%);}
+  .hero-half::after{content:""; position:absolute; inset:0; opacity:.5; pointer-events:none;}
+  .hero-half.pd::after{background:radial-gradient(60% 60% at 100% 100%, rgba(246,178,126,.16), transparent 70%);}
+  .hero-half.vn::after{background:radial-gradient(60% 60% at 0% 100%, rgba(57,230,210,.16), transparent 70%);}
+  .hero-half .hh-name{font-family:'Poppins',sans-serif; font-weight:600; font-size:22px; letter-spacing:.02em; position:relative;}
+  .hero-half.vn .hh-name{font-family:'JetBrains Mono',monospace; font-weight:700; font-style:normal; font-size:20px; text-transform:uppercase; letter-spacing:.04em;}
+  .hero-half .hh-tag{font-size:12.5px; margin-top:6px; position:relative;}
+  .hero-half.pd .hh-name, .hero-half.pd .hh-tag{color:var(--pd-accent);}
+  .hero-half.vn .hh-name, .hero-half.vn .hh-tag{color:var(--vn-accent);}
+  .hero-half .hh-word{font-size:12px; color:var(--doc-text-faint); position:relative; margin-top:auto; padding-top:18px;}
+
+  /* ---------- Cards / generic panels ---------- */
+  .panel{background:var(--doc-surface); border:1px solid var(--doc-border); border-radius:14px; padding:22px 24px;}
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  .grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  .grid-4{display:grid; grid-template-columns:repeat(4,1fr); gap:14px;}
+  @media (max-width:760px){ .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;} }
+
+  table{width:100%; border-collapse:collapse; font-size:14px;}
+  th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--doc-text-faint); font-weight:600; padding:8px 12px; border-bottom:1px solid var(--doc-border);}
+  td{padding:10px 12px; border-bottom:1px solid var(--doc-border); color:var(--doc-text-dim); vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  td b, td strong{color:var(--doc-text); font-weight:600;}
+  .tbl-wrap{overflow-x:auto; border:1px solid var(--doc-border); border-radius:12px;}
+  .tbl-wrap table{min-width:560px;}
+  code, .mono{font-family:var(--doc-mono); font-variant-numeric:tabular-nums; font-size:.92em;}
+
+  /* ---------- Theme toggle (drives live component/swatch previews) ---------- */
+  .theme-toggle{display:inline-flex; border:1px solid var(--doc-border); border-radius:999px; padding:3px; gap:2px; background:var(--doc-surface); margin-bottom:28px;}
+  .theme-toggle button{
+    font:inherit; font-size:13px; font-weight:600; border:none; background:transparent; color:var(--doc-text-faint);
+    padding:8px 18px; border-radius:999px; cursor:pointer; transition:background .2s, color .2s;
+  }
+  .theme-toggle button.active{background:var(--doc-surface-2); color:var(--doc-text);}
+  .theme-toggle button[data-t="pandore"].active{color:var(--pd-accent);}
+  .theme-toggle button[data-t="vanitas"].active{color:var(--vn-accent);}
+
+  /* ---------- Swatches ---------- */
+  .swatch{border-radius:12px; overflow:hidden; border:1px solid var(--doc-border); background:var(--doc-surface);}
+  .swatch .fill{height:64px; position:relative;}
+  .swatch .fill.checker{
+    background-image:linear-gradient(45deg,#2a2a30 25%,transparent 25%),linear-gradient(-45deg,#2a2a30 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#2a2a30 75%),linear-gradient(-45deg,transparent 75%,#2a2a30 75%);
+    background-size:12px 12px; background-position:0 0,0 6px,6px -6px,-6px 0px;
+  }
+  .swatch .meta{padding:10px 12px; display:flex; flex-direction:column; gap:2px;}
+  .swatch .meta .name{font-size:12.5px; font-weight:600; color:var(--doc-text);}
+  .swatch .meta .hex{font-size:11.5px; color:var(--doc-text-faint); font-family:var(--doc-mono);}
+  .swatch-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;}
+
+  /* ---------- Live preview stage (colored per active theme) ---------- */
+  .stage{
+    border-radius:20px; padding:36px; transition:background .4s ease;
+    background:var(--stage-bg1); position:relative; overflow:hidden; border:1px solid var(--doc-border);
+  }
+  .stage::before{content:""; position:absolute; inset:0; background:var(--stage-glow); pointer-events:none;}
+  [data-theme="pandore"] .stage{ --stage-bg1:radial-gradient(140% 100% at 100% 0%, var(--pd-bg3), var(--pd-bg1) 60%); --stage-glow:radial-gradient(45% 55% at 85% -10%, rgba(246,178,126,.14), transparent 70%); }
+  [data-theme="vanitas"] .stage{ --stage-bg1:radial-gradient(140% 100% at 100% 0%, var(--vn-bg3), var(--vn-bg1) 60%); --stage-glow:radial-gradient(45% 55% at 85% -10%, rgba(57,230,210,.14), transparent 70%); }
+  .stage-inner{position:relative; z-index:1;}
+  .stage-label{font-size:11px; text-transform:uppercase; letter-spacing:.1em; margin-bottom:18px;}
+  [data-theme="pandore"] .stage-label{color:var(--pd-text3);}
+  [data-theme="vanitas"] .stage-label{color:var(--vn-text3);}
+
+  /* Buttons */
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center;}
+  .btn{font:inherit; font-weight:600; font-size:14px; border-radius:10px; padding:11px 20px; border:1px solid transparent; cursor:pointer; transition:transform .12s ease, filter .12s ease;}
+  .btn:hover{filter:brightness(1.08);}
+  [data-theme="pandore"] .btn-primary{background:linear-gradient(135deg,var(--pd-accent),var(--pd-accent2)); color:#1A0F06; font-family:'Poppins',sans-serif;}
+  [data-theme="pandore"] .btn-ghost{background:var(--pd-surface-int); color:var(--pd-text1); border-color:var(--pd-border); font-family:'Poppins',sans-serif;}
+  [data-theme="pandore"] .btn-outline{background:transparent; color:var(--pd-accent); border-color:var(--pd-accent2); font-family:'Poppins',sans-serif;}
+  [data-theme="vanitas"] .btn-primary{background:linear-gradient(135deg,var(--vn-accent),#1FA894); color:#04100E; font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.04em; font-size:12.5px;}
+  [data-theme="vanitas"] .btn-ghost{background:var(--vn-surface-int); color:var(--vn-text1); border-color:var(--vn-border); font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.04em; font-size:12.5px;}
+  [data-theme="vanitas"] .btn-outline{background:transparent; color:var(--vn-accent); border-color:var(--vn-accent); font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.04em; font-size:12.5px;}
+
+  .card-demo{border-radius:16px; padding:20px; width:240px; border:1px solid; display:flex; flex-direction:column; gap:10px;}
+  [data-theme="pandore"] .card-demo{background:var(--pd-surface); border-color:var(--pd-border); box-shadow:0 0 0 1px rgba(246,178,126,.03), 0 20px 40px -24px rgba(246,178,126,.25);}
+  [data-theme="vanitas"] .card-demo{background:var(--vn-surface); border-color:var(--vn-border); box-shadow:0 20px 40px -26px rgba(0,0,0,.6);}
+  .card-demo .cd-top{display:flex; justify-content:space-between; align-items:flex-start;}
+  .card-demo .cd-title{font-size:14px; font-weight:600;}
+  [data-theme="pandore"] .card-demo .cd-title{color:var(--pd-text1); font-family:'Poppins',sans-serif;}
+  [data-theme="vanitas"] .card-demo .cd-title{color:var(--vn-text1);}
+  .card-demo .cd-sub{font-size:12px;}
+  [data-theme="pandore"] .card-demo .cd-sub{color:var(--pd-text3);}
+  [data-theme="vanitas"] .card-demo .cd-sub{color:var(--vn-text3);}
+  .card-demo .cd-num{font-size:30px; font-weight:700; font-variant-numeric:tabular-nums;}
+  [data-theme="pandore"] .card-demo .cd-num{color:var(--pd-accent);}
+  [data-theme="vanitas"] .card-demo .cd-num{color:var(--vn-accent);}
+
+  .chip{display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; padding:5px 11px; border-radius:999px;}
+  .chip .dot{width:6px; height:6px; border-radius:50%;}
+  .badge-row{display:flex; gap:8px; flex-wrap:wrap;}
+
+  .input-demo{border-radius:10px; padding:12px 14px; font-size:13.5px; border:1px solid; width:220px;}
+  [data-theme="pandore"] .input-demo{background:var(--pd-bg3); border-color:var(--pd-border); color:var(--pd-text2); font-family:'Inter',sans-serif;}
+  [data-theme="vanitas"] .input-demo{background:var(--vn-bg3); border-color:var(--vn-border); color:var(--vn-text2); font-family:'Inter',sans-serif;}
+
+  .toast-demo{border-radius:12px; padding:14px 16px; font-size:13px; display:flex; gap:10px; align-items:flex-start; width:260px; border:1px solid;}
+  [data-theme="pandore"] .toast-demo{background:var(--pd-surface-el); border-color:var(--pd-border); color:var(--pd-text1);}
+  [data-theme="vanitas"] .toast-demo{background:var(--vn-surface-el); border-color:var(--vn-border); color:var(--vn-text1);}
+
+  .type-specimen{display:flex; flex-direction:column; gap:2px;}
+  [data-theme="pandore"] .type-specimen .ts-h{font-family:'Poppins',sans-serif; color:var(--pd-text1);}
+  [data-theme="vanitas"] .type-specimen .ts-h{font-family:'JetBrains Mono',monospace; color:var(--vn-text1); font-style:normal;}
+  .type-specimen .ts-meta{font-size:11.5px; font-family:var(--doc-mono);}
+  [data-theme="pandore"] .type-specimen .ts-meta{color:var(--pd-text3);}
+  [data-theme="vanitas"] .type-specimen .ts-meta{color:var(--vn-text3);}
+
+  .shape-row{display:flex; gap:18px; flex-wrap:wrap; align-items:flex-end;}
+  .shape{display:flex; flex-direction:column; align-items:center; gap:8px;}
+  .shape .box{width:64px; height:64px;}
+  .shape .lbl{font-size:11px; font-family:var(--doc-mono);}
+  [data-theme="pandore"] .shape .box{background:linear-gradient(135deg,var(--pd-surface-int),var(--pd-surface));border:1px solid var(--pd-border);}
+  [data-theme="vanitas"] .shape .box{background:linear-gradient(135deg,var(--vn-surface-int),var(--vn-surface));border:1px solid var(--vn-border);}
+  [data-theme="pandore"] .shape .lbl{color:var(--pd-text3);}
+  [data-theme="vanitas"] .shape .lbl{color:var(--vn-text3);}
+
+  /* Compare table (shared vs distinct) */
+  .compare{display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--doc-border); border-radius:14px; overflow:hidden;}
+  @media (max-width:700px){ .compare{grid-template-columns:1fr;} }
+  .compare > div{padding:26px 24px;}
+  .compare .pd-col{background:linear-gradient(180deg,var(--pd-bg2),var(--pd-bg1)); border-right:1px solid var(--doc-border);}
+  @media (max-width:700px){ .compare .pd-col{border-right:none; border-bottom:1px solid var(--doc-border);} }
+  .compare .vn-col{background:linear-gradient(180deg,var(--vn-bg2),var(--vn-bg1));}
+  .compare h4{font-size:13px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:14px;}
+  .compare .pd-col h4{color:var(--pd-accent); font-family:'Poppins',sans-serif;}
+  .compare .vn-col h4{color:var(--vn-accent); font-family:'JetBrains Mono',monospace; font-style:normal; font-size:13px;}
+  .compare dl{margin:0; display:flex; flex-direction:column; gap:12px;}
+  .compare dt{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--doc-text-faint); margin-bottom:2px;}
+  .compare dd{margin:0; font-size:13.5px; color:var(--doc-text-dim); line-height:1.5;}
+  .compare .pd-col dd{color:#C9CCE0;}
+  .compare .vn-col dd{color:#C9BFC5;}
+
+  .shared-strip{margin-top:0; background:var(--doc-surface-2); border-top:1px solid var(--doc-border); padding:20px 24px; display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;}
+  .shared-strip b{color:var(--doc-ink); font-size:11px; text-transform:uppercase; letter-spacing:.08em;}
+  .shared-strip span{font-size:13px; color:var(--doc-text-dim);}
+
+  .do-dont{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  @media (max-width:700px){ .do-dont{grid-template-columns:1fr;} }
+  .do-dont .panel{padding:24px;}
+  .do-dont ol{margin:0; padding:0; list-style:none; counter-reset:item; display:flex; flex-direction:column; gap:12px;}
+  .do-dont li{counter-increment:item; padding-left:30px; position:relative; font-size:14px; color:var(--doc-text-dim); line-height:1.5;}
+  .do-dont li::before{content:counter(item,decimal-leading-zero); position:absolute; left:0; top:0; font-family:var(--doc-mono); font-size:11px; font-weight:600;}
+  .do-dont.do li::before{color:var(--pd-success);}
+  .do-dont.dont li::before{color:var(--pd-error);}
+  .do-dont li b{color:var(--doc-text); font-weight:600;}
+  .do-dont h4{font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:16px;}
+  .do-dont.do h4{color:var(--pd-success);}
+  .do-dont.dont h4{color:var(--pd-error);}
+
+  .fiche{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;}
+  @media (max-width:700px){ .fiche{grid-template-columns:1fr;} }
+  .fiche-card{border-radius:16px; padding:26px; border:1px solid var(--doc-border);}
+  .fiche-card.pd{background:linear-gradient(160deg,var(--pd-bg3),var(--pd-bg1));}
+  .fiche-card.vn{background:linear-gradient(160deg,var(--vn-bg3),var(--vn-bg1));}
+  .fiche-card h4{font-size:20px; margin-bottom:16px;}
+  .fiche-card.pd h4{color:var(--pd-accent); font-family:'Poppins',sans-serif;}
+  .fiche-card.vn h4{color:var(--vn-accent); font-family:'JetBrains Mono',monospace; font-style:normal; text-transform:uppercase; letter-spacing:.04em; font-size:16px;}
+  .fiche-card table td, .fiche-card table th{border-color:rgba(255,255,255,.08); padding:7px 4px;}
+  .fiche-card.pd table td:first-child{color:var(--pd-text3);}
+  .fiche-card.pd table td:last-child{color:var(--pd-text1);}
+  .fiche-card.vn table td:first-child{color:var(--vn-text3);}
+  .fiche-card.vn table td:last-child{color:var(--vn-text1);}
+  .fiche-card table td:first-child{width:36%; font-size:11px; text-transform:uppercase; letter-spacing:.05em;}
+  .fiche-card table td:last-child{font-size:13px;}
+
+  .num-steps{display:flex; flex-direction:column; gap:0;}
+  .num-steps .step{display:grid; grid-template-columns:44px 1fr; gap:16px; padding:16px 0; border-bottom:1px solid var(--doc-border);}
+  .num-steps .step:last-child{border-bottom:none;}
+  .num-steps .n{font-family:var(--doc-mono); color:var(--doc-ink); font-size:13px; padding-top:2px;}
+  .num-steps .step p{font-size:14.5px; color:var(--doc-text-dim);}
+  .num-steps .step b{color:var(--doc-text); font-weight:600;}
+
+  .footnote{margin-top:14px; font-size:12.5px; color:var(--doc-text-faint); font-style:italic;}
+</style>
+
+<div class="wrap hero">
+  <div class="hero-grid">
+    <div>
+      <div class="eyebrow">Design system · v1.0 · sept. 2026</div>
+      <h1>Pandore<span class="amp">&amp;</span>Vanitas</h1>
+      <p class="hero-sub">Charte graphique complète de l'application — deux univers visuels bâtis sur un seul ADN : ouvrir ce qui est caché (<b>Pandore</b>), et regarder en face ce qui s'y délite (<b>Vanitas</b>).</p>
+    </div>
+    <div class="hero-meta">
+      <div><b>Client</b><br>Pandore — supervision sécurité &amp; conformité IT</div>
+      <div><b>Portée</b><br>Foundations, composants, motion, accessibilité, architecture DS</div>
+      <div><b>Méthode</b><br>Reconstruite à partir du code existant (logo, tokens sémantiques) — aucune image de référence fournie, voir §1</div>
+    </div>
+  </div>
+
+  <div class="hero-split">
+    <div class="hero-half pd">
+      <div class="hh-name">PANDORE</div>
+      <div class="hh-tag">L'instant où la boîte s'entrouvre</div>
+      <div class="hh-word">#F6B27E · #0A0E1A · Poppins</div>
+    </div>
+    <div class="hero-half vn">
+      <div class="hh-name">VANITAS_</div>
+      <div class="hh-tag">Rien n'échappe.</div>
+      <div class="hh-word">#39E6D2 · #07090B · JetBrains Mono</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap shell">
+  <nav class="toc">
+    <div class="toc-label">Sommaire</div>
+    <a href="#s1">1 — Analyse</a>
+    <a href="#s2">2 — ADN de marque</a>
+    <a href="#s3">3 — Les deux univers</a>
+    <a href="#s4">4 — Design tokens</a>
+    <a href="#s5">5 — Typographie</a>
+    <a href="#s6">6 — Spacing &amp; grid</a>
+    <a href="#s7">7 — Shape language</a>
+    <a href="#s8">8 — Surfaces &amp; matières</a>
+    <a href="#s9">9 — Iconographie</a>
+    <a href="#s10">10 — Composants UI</a>
+    <a href="#s11">11 — Motifs &amp; illustration</a>
+    <a href="#s12">12 — Motion design</a>
+    <a href="#s13">13 — Responsive</a>
+    <a href="#s14">14 — Accessibilité</a>
+    <a href="#s15">15 — Dark / Light</a>
+    <a href="#s16">16 — Architecture DS</a>
+    <a href="#s17">17 — Fiche récap</a>
+    <a href="#s18">18 — Do / Don't</a>
+    <a href="#s19">Prochaines étapes</a>
+  </nav>
+
+  <main>
+
+  <section id="s1">
+    <div class="eyebrow">01</div>
+    <h2 class="title">Analyse de la référence</h2>
+    <p class="lede">Aucune image de moodboard n'a été fournie dans le projet ni trouvée dans le dossier connecté. Hypothèse de travail retenue (validée avec toi) : je reconstruis l'ADN visuel à partir des deux seuls artefacts graphiques déjà réels — le logo SVG <code>pandore-logo.svg</code> et les tokens sémantiques déjà en production dans <code>theme.js</code> — plutôt que d'inventer une direction hors-sol. Tout ce qui suit est donc justifié par du code existant, pas par une image.</p>
+
+    <h3 class="sub">Ce que le logo dit déjà</h3>
+    <ul class="plain">
+      <li><b>Fond quasi-noir à dominante bleu-nuit</b> (<code>#0A0E1A → #0D1220</code>) — pas un noir neutre : une teinte froide, profonde, qui évoque un poste de contrôle plongé dans le noir plutôt qu'un simple "dark mode" par défaut.</li>
+      <li><b>Un dégradé chaud pêche/ambre</b> (<code>#F6B27E → #EE9A5C</code>) réservé à un seul élément : l'icône. C'est la seule source de lumière du logo — traitement à conserver : l'accent est une <i>lumière qui perce l'obscurité</i>, pas une couleur parmi d'autres.</li>
+      <li><b>Un bouclier construit en deux facettes courbes qui se chevauchent</b> — le commentaire du fichier SVG le nomme explicitement : "echoing finary's folded-leaf motif". Géométrie organique-géométrique : des courbes de Bézier, pas des polygones durs. Aucun angle droit dans la forme principale.</li>
+      <li><b>Une clé en espace négatif</b> découpée dans le bouclier — sécurité au sens propre (verrou), et au sens du récit Pandore : ce qui est fermé peut s'ouvrir, ce qui est cousu peut se découdre.</li>
+      <li><b>Typo du wordmark</b> : famille "Century Gothic, Futura, Poppins, Trebuchet MS" — une sans-serif géométrique, arrondie, à la casse haute légèrement espacée (<code>letter-spacing:0.8</code>). Registre confiant, pas technique/monospace.</li>
+    </ul>
+
+    <h3 class="sub">Ce que les tokens sémantiques disent déjà</h3>
+    <ul class="plain">
+      <li><b>Une palette fonctionnelle déjà stabilisée en prod</b> : succès <code>#48C98A</code>, avertissement <code>#E7A33C</code>, erreur <code>#EA5C5C</code>, info <code>#4C9FE0</code>, neutre <code>#6B6E76</code>/<code>#7C8896</code> — utilisée dans une dizaine d'onglets (conformité Intune, Secure Score, alertes Defender, CVE, exposition). <span class="muted">Contrainte non négociable : ces couleurs ne peuvent pas bouger sans casser la lisibilité acquise par l'utilisateur actuel.</span></li>
+      <li><b>Une seconde famille chaude en réserve</b> : <code>#E08052</code>, <code>#C98C36</code>, <code>#A97431</code> — déjà utilisée pour des paliers secondaires (palette "libre" des camemberts). Elle confirme que l'ambre/ocre n'est pas qu'un accent de logo isolé, mais une famille chromatique déjà tissée dans le produit.</li>
+      <li><b>Un usage systématique du "glow"</b> : chaque seuil de gravité porte une valeur <code>glow</code> en <code>rgba()</code> distincte de sa couleur pleine — la lumière est pensée comme un halo, pas comme une ombre portée classique.</li>
+      <li><b>Le domaine du produit</b> : un dashboard de sécurité IT (conformité, alertes, score d'exposition, CVE) utilisé en continu par un profil junior en cybersécurité. Densité d'information élevée, lecture de chiffres en continu → la lisibilité prime sur l'ornement.</li>
+    </ul>
+
+    <h3 class="sub">Niveau de minimalisme, contraste, densité</h3>
+    <ul class="plain">
+      <li><b>Minimalisme fonctionnel</b>, pas minimalisme austère : fond sombre uni, peu de texture, mais un seul geste décoratif assumé (le dégradé chaud + glow) qui porte toute l'émotion de la marque.</li>
+      <li><b>Contraste élevé</b> entre fond quasi-noir et texte clair chaud, nécessaire pour un usage prolongé sur écran en environnement de bureau/SOC.</li>
+      <li><b>Registre</b> : proche des dashboards "dark glass" 2020s (type Linear, Vercel, ou Finary — cité dans le code) plutôt que du skeuomorphisme ou du néo-brutalisme. Pas d'époque rétro convoquée ; c'est un présent technologique, tourné vers la donnée en temps réel.</li>
+    </ul>
+    <p class="footnote">Éléments distingués : les principes fondamentaux (fond sombre froid, accent chaud unique, courbes organiques, glow) sont repris ci-dessous comme ADN commun. Les éléments purement décoratifs du logo (le bouclier lui-même, la clé) sont traités en §9/§11 comme iconographie de marque, pas comme composants d'interface.</p>
+  </section>
+
+  <section id="s2">
+    <div class="eyebrow">02</div>
+    <h2 class="title">ADN de la marque</h2>
+    <p class="lede">Le nom du produit porte déjà tout le récit : ouvrir une boîte scellée pour affronter ce qu'elle contient. On prolonge ce récit en deux temps plutôt qu'en un seul — l'ouverture (Pandore) puis la vigie qui surveille ce qui en sort (Vanitas) — d'où les deux univers du §3.</p>
+
+    <h3 class="sub">Mots-clés de direction artistique</h3>
+    <div class="badge-row" style="margin-bottom:8px;">
+      <span class="chip" style="background:#1A1A1E;color:#EDEDEC;border:1px solid #2A2A30;">Clinique</span>
+      <span class="chip" style="background:#1A1A1E;color:#EDEDEC;border:1px solid #2A2A30;">Tactique</span>
+      <span class="chip" style="background:#1A1A1E;color:#EDEDEC;border:1px solid #2A2A30;">Précis</span>
+      <span class="chip" style="background:#1A1A1E;color:#EDEDEC;border:1px solid #2A2A30;">Incandescent</span>
+      <span class="chip" style="background:#1A1A1E;color:#EDEDEC;border:1px solid #2A2A30;">Confidentiel</span>
+      <span class="chip" style="background:#1A1A1E;color:#EDEDEC;border:1px solid #2A2A30;">Chirurgical</span>
+      <span class="chip" style="background:#1A1A1E;color:#EDEDEC;border:1px solid #2A2A30;">Vigilant</span>
+      <span class="chip" style="background:#1A1A1E;color:#EDEDEC;border:1px solid #2A2A30;">Alerte</span>
+    </div>
+
+    <div class="grid-2" style="margin-top:28px;">
+      <div class="panel">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--doc-text-faint);margin-bottom:8px;">En une phrase</div>
+        <p style="font-size:16px;color:var(--doc-text);">Une salle de contrôle sombre où une seule lumière chaude désigne ce qu'il faut regarder — et un second poste, plus froid et plus dense, où cette même vigilance devient un signal permanent : rien n'échappe à l'écran.</p>
+      </div>
+      <div class="panel">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--doc-text-faint);margin-bottom:8px;">Description approfondie</div>
+        <p style="font-size:14px;">L'interface ne cherche pas à rassurer par la douceur, ni à intimider par la dureté. Elle installe un fond quasi-noir stable et neutre, puis réserve la couleur à ce qui a une signification opérationnelle : un score, une alerte, un état. Le geste de marque — le dégradé en glow, ambre côté Pandore, cyan côté Vanitas — n'est jamais décoratif au sens gratuit : il marque toujours un point d'attention (logo, action primaire, valeur mise en avant, statut surveillé).</p>
+      </div>
+    </div>
+
+    <h3 class="sub">Émotions recherchées / sensations utilisateur</h3>
+    <div class="grid-2">
+      <ul class="plain">
+        <li>Sentiment de <b>maîtrise</b> face à un volume de données autrement anxiogène.</li>
+        <li><b>Confiance instrumentale</b> — l'outil d'un professionnel, pas un jouet.</li>
+        <li>Une pointe de <b>tension contenue</b> : on surveille quelque chose qui compte.</li>
+      </ul>
+      <ul class="plain">
+        <li>Le design doit <b>absolument communiquer</b> : rigueur, continuité de surveillance, hiérarchie claire de la gravité.</li>
+        <li>Le design doit <b>absolument éviter</b> : ludification excessive, gadgets visuels, tout ce qui banaliserait une alerte critique en la noyant sous de la décoration.</li>
+      </ul>
+    </div>
+
+    <h3 class="sub">Principes de design fondamentaux (valables dans les deux univers)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th style="width:26%">Principe</th><th>Ce qu'il impose</th></tr>
+        <tr><td><b>La couleur signale, elle ne décore pas</b></td><td>Toute couleur saturée à l'écran doit porter un sens (sévérité, statut, accent d'action). Le reste de l'UI reste en neutres.</td></tr>
+        <tr><td><b>Une seule source de lumière</b></td><td>Le glow/dégradé de marque n'apparaît qu'à un seul endroit visible à la fois par zone d'écran — jamais deux halos concurrents.</td></tr>
+        <tr><td><b>Courbe plutôt qu'angle droit, jamais bulle</b></td><td>Rayons de bordure modérés (§7) hérités du bouclier — ni le carré strict d'un terminal, ni l'arrondi total d'une app grand public.</td></tr>
+        <tr><td><b>Le fond ne change jamais de famille</b></td><td>Pandore et Vanitas restent tous deux "quasi-noir" — seule la teinte sous-jacente (bleu vs violet) change (§3).</td></tr>
+        <tr><td><b>Les tokens fonctionnels sont sacrés</b></td><td>Succès/avertissement/erreur/info gardent la même valeur hexadécimale dans les deux thèmes (§4) — la sévérité d'une alerte ne doit jamais dépendre du thème actif.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="s3">
+    <div class="eyebrow">03</div>
+    <h2 class="title">Les deux univers</h2>
+    <p class="lede">Pandore et Vanitas ne sont pas deux jeux de couleurs sur un même gabarit : ce sont deux postes de la même salle de contrôle. <b>Pandore</b> est l'ouverture — la boîte que l'on ouvre, l'alerte qui arrive, la supervision au présent. <b>Vanitas</b> est la vigie qui ne cligne jamais : le poste d'observation permanente, celui qui regarde ce qui tente d'échapper au contrôle — un poste plus froid, plus dense, à la limite du tactique, conçu pour rester allumé pendant des heures sans fatiguer l'œil. Sa devise le dit sans détour : « Rien n'échappe. »</p>
+
+    <div class="compare">
+      <div class="pd-col">
+        <h4>Pandore</h4>
+        <dl>
+          <dt>Personnalité</dt><dd>Alerte, précise, tournée vers l'instant — la vigie qui vient de repérer quelque chose.</dd>
+          <dt>Émotion</dt><dd>Tension contenue, curiosité opérationnelle, clarté.</dd>
+          <dt>Symbolique</dt><dd>Le pithos entrouvert, la lueur qui s'en échappe, le bouclier-clé du logo.</dd>
+          <dt>Atmosphère</dt><dd>Salle de contrôle nocturne, écran unique dans le noir.</dd>
+          <dt>Usage produit</dt><dd>Vue par défaut : tableau de bord temps réel, alertes actives, scores du jour.</dd>
+        </dl>
+      </div>
+      <div class="vn-col">
+        <h4>Vanitas</h4>
+        <dl>
+          <dt>Personnalité</dt><dd>Froide, exhaustive, en état de veille permanent — le HUD qui ne relâche jamais la surveillance.</dd>
+          <dt>Émotion</dt><dd>Vigilance dense, alerte tactique, confiance dans l'exhaustivité du scan.</dd>
+          <dt>Symbolique</dt><dd>Le balayage radar, le signal cyan qui traverse le noir, le poste enrôlé qui ne peut plus se cacher.</dd>
+          <dt>Atmosphère</dt><dd>Poste de commandement, console d'EDR, moniteur d'un seul opérateur au milieu de la nuit.</dd>
+          <dt>Usage produit</dt><dd>Surveillance continue du parc : postes enrôlés, conformité en direct, vulnérabilités, journal d'activité.</dd>
+        </dl>
+      </div>
+      <div class="shared-strip">
+        <b>ADN commun</b>
+        <span>Fond quasi-noir · rayons de bordure identiques · grille et espacements identiques · glow plutôt qu'ombre portée · tokens de sévérité identiques · Inter pour toute donnée chiffrée</span>
+      </div>
+    </div>
+
+    <h3 class="sub">Ce qui change, et pourquoi</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th style="width:20%">Dimension</th><th>Pandore</th><th>Vanitas</th><th style="width:26%">Pourquoi ce changement</th></tr>
+        <tr><td><b>Teinte du fond</b></td><td>Noir à dominante bleu-nuit</td><td>Noir quasi pur, légèrement bleu-vert</td><td>Pandore reste chaleureux même dans le noir ; Vanitas vise le noir HUD le plus neutre possible, terrain le plus sombre pour que le cyan porte tout seul.</td></tr>
+        <tr><td><b>Accent</b></td><td>Ambre vif dégradé (lumière qui jaillit)</td><td>Cyan électrique + magenta (signal qui balaie l'écran)</td><td>Rupture de teinte volontaire, chaud→froid : le même geste (« une seule couleur désigne ce qui compte ») change de registre sans changer de logique (§2).</td></tr>
+        <tr><td><b>Typo de titraille</b></td><td>Poppins — géométrique, confiante</td><td>JetBrains Mono, tout capitales — technique, système</td><td>Pandore parle au présent opérationnel avec une voix humaine ; Vanitas parle comme une machine qui rapporte des faits, jamais un habillage.</td></tr>
+        <tr><td><b>Motion</b></td><td>Réactif, easing avec léger rebond sur succès</td><td>Net, linéaire, sans rebond — un balayage plutôt qu'un ressort</td><td>Le rebond humanise Pandore ; Vanitas reste mécanique, un signal qui confirme, jamais un geste qui célèbre (§12).</td></tr>
+        <tr><td><b>Effets de surface</b></td><td>Glow net, bords lumineux</td><td>Glow cyan plus serré, léger scanline, contours plus durs</td><td>Vanitas simule un moniteur de contrôle plutôt qu'une lumière ambiante (§8).</td></tr>
+      </table>
+    </div>
+
+    <h3 class="sub">Passer de l'un à l'autre sans casser la cohérence</h3>
+    <p style="font-size:14.5px;color:var(--doc-text-dim);max-width:70ch;">Le changement de thème s'opère à structure UI identique — mêmes composants, mêmes emplacements, mêmes tailles — seuls les tokens de couleur, la police de titraille et les courbes d'easing changent (voir §16, mécanique <code>data-theme</code>). Un utilisateur qui bascule de Pandore vers Vanitas ne doit jamais réapprendre où se trouve un bouton : il doit seulement sentir que l'ambiance a changé de registre, comme on passe d'un bulletin en direct à un rapport d'archives.</p>
+  </section>
+
+  <section id="s4">
+    <div class="eyebrow">04</div>
+    <h2 class="title">Design tokens — Couleurs</h2>
+    <p class="lede">Nomenclature sémantique à deux niveaux : <code>color.{catégorie}.{rôle}</code> pointe vers une valeur de thème (<code>--pd-*</code> / <code>--vn-*</code>), jamais vers un hex en dur dans les composants.</p>
+
+    <div class="theme-toggle" role="group" aria-label="Choix du thème affiché">
+      <button data-t="pandore" class="active">Pandore</button>
+      <button data-t="vanitas">Vanitas</button>
+    </div>
+
+    <div id="theme-stage-colors" data-theme="pandore">
+      <h3 class="sub">Backgrounds &amp; surfaces</h3>
+      <div class="swatch-grid" id="sw-bg"></div>
+      <h3 class="sub">Bordures &amp; texte</h3>
+      <div class="swatch-grid" id="sw-text"></div>
+      <h3 class="sub">Accent de marque</h3>
+      <div class="swatch-grid" id="sw-accent"></div>
+      <h3 class="sub">Sémantique (identique dans les deux thèmes)</h3>
+      <div class="swatch-grid" id="sw-semantic"></div>
+    </div>
+
+    <h3 class="sub">Table des tokens sémantiques</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Token</th><th>Pandore</th><th>Vanitas</th><th>Usage</th></tr>
+        <tr><td class="mono">color.bg.primary</td><td class="mono">#0A0E1A</td><td class="mono">#07090B</td><td>Fond d'application</td></tr>
+        <tr><td class="mono">color.bg.secondary</td><td class="mono">#0D1220</td><td class="mono">#0A0D10</td><td>Sections, zones de dégradé</td></tr>
+        <tr><td class="mono">color.bg.tertiary</td><td class="mono">#10162A</td><td class="mono">#0D1114</td><td>Fond de panneaux imbriqués</td></tr>
+        <tr><td class="mono">color.surface</td><td class="mono">#131A2E</td><td class="mono">#0F1417</td><td>Carte, base de composant</td></tr>
+        <tr><td class="mono">color.surface.elevated</td><td class="mono">#1A2338</td><td class="mono">#141B1F</td><td>Modale, popover, toast</td></tr>
+        <tr><td class="mono">color.surface.interactive</td><td class="mono">#202B45</td><td class="mono">#19232A</td><td>Hover d'une surface</td></tr>
+        <tr><td class="mono">color.border</td><td class="mono">#2A3450</td><td class="mono">#213038</td><td>Contour de composant</td></tr>
+        <tr><td class="mono">color.divider</td><td class="mono">#1E2740</td><td class="mono">#161E23</td><td>Séparateur interne</td></tr>
+        <tr><td class="mono">color.text.primary</td><td class="mono">#F3EFE8</td><td class="mono">#E4EDEE</td><td>Texte principal</td></tr>
+        <tr><td class="mono">color.text.secondary</td><td class="mono">#A9AFC0</td><td class="mono">#8FA3A8</td><td>Texte de support</td></tr>
+        <tr><td class="mono">color.text.tertiary</td><td class="mono">#6E7690</td><td class="mono">#556A70</td><td>Légendes, métadonnées</td></tr>
+        <tr><td class="mono">color.action.primary</td><td class="mono">#F6B27E → #EE9A5C</td><td class="mono">#39E6D2 → #1FA894</td><td>Bouton primaire, focus, lien actif</td></tr>
+        <tr><td class="mono">color.action.secondary</td><td class="mono">#EE9A5C</td><td class="mono">#D14FE0</td><td>Accent secondaire, série 2 d'un graphe</td></tr>
+        <tr><td class="mono">color.status.success</td><td class="mono">#48C98A</td><td class="mono">#48C98A</td><td>Conforme, résolu</td></tr>
+        <tr><td class="mono">color.status.warning</td><td class="mono">#E7A33C</td><td class="mono">#E7A33C</td><td>Période de grâce, moyen</td></tr>
+        <tr><td class="mono">color.status.error</td><td class="mono">#EA5C5C</td><td class="mono">#EA5C5C</td><td>Non conforme, critique</td></tr>
+        <tr><td class="mono">color.status.info</td><td class="mono">#4C9FE0</td><td class="mono">#4C9FE0</td><td>En cours, informationnel</td></tr>
+        <tr><td class="mono">color.disabled</td><td class="mono">#4C4F58 / bg #262B36</td><td class="mono">#3E4B4F / bg #111719</td><td>Champs et actions désactivés</td></tr>
+      </table>
+    </div>
+    <p class="footnote">RGB/HSL : chaque token peut être dérivé automatiquement du hex (ex. <code>color.action.primary</code> Pandore = <code>rgb(246,178,126)</code> / <code>hsl(24°,89%,73%)</code>) — à générer par le pipeline de tokens (§16), pas à maintenir à la main.</p>
+  </section>
+
+  <section id="s5">
+    <div class="eyebrow">05</div>
+    <h2 class="title">Typographie</h2>
+    <p class="lede"><b>Inter</b> porte toute donnée lue (tableaux, chiffres, UI dense) dans les deux thèmes — chiffres tabulaires, haute lisibilité en petite taille. La titraille change de voix par thème : <b>Poppins</b> pour Pandore (géométrique, déjà présente dans le wordmark), <b>JetBrains Mono</b> pour Vanitas — une monospace technique, toujours en capitales, celle d'un terminal ou d'un rapport de scan plutôt que d'un titre éditorial : Vanitas ne signe jamais une phrase, il l'imprime. Alternatives système si les polices ne chargent pas : <code>Poppins → "Century Gothic", Futura, sans-serif</code> ; <code>JetBrains Mono → "Cascadia Code", "Fira Code", ui-monospace, monospace</code> ; <code>Inter → -apple-system, "Segoe UI", sans-serif</code>.</p>
+
+    <div class="theme-toggle">
+      <button data-t="pandore" class="active">Pandore</button>
+      <button data-t="vanitas">Vanitas</button>
+    </div>
+
+    <div class="stage" id="theme-stage-type" data-theme="pandore">
+      <div class="stage-inner" id="type-specimens"></div>
+    </div>
+
+    <h3 class="sub">Échelle typographique</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Niveau</th><th>Taille / Line-height</th><th>Poids</th><th>Tracking</th><th>Usage</th></tr>
+        <tr><td><b>Display</b></td><td>48 / 52px</td><td>600</td><td>-0.02em</td><td>Écran d'accueil, changement de thème</td></tr>
+        <tr><td><b>H1</b></td><td>34 / 40px</td><td>600</td><td>-0.01em</td><td>Titre de page</td></tr>
+        <tr><td><b>H2</b></td><td>26 / 32px</td><td>600</td><td>-0.01em</td><td>Titre de section</td></tr>
+        <tr><td><b>H3</b></td><td>20 / 28px</td><td>600</td><td>0</td><td>Titre de carte / panneau</td></tr>
+        <tr><td><b>H4</b></td><td>16 / 24px</td><td>600</td><td>0</td><td>Sous-titre, en-tête de tableau</td></tr>
+        <tr><td><b>Body large</b></td><td>16 / 26px</td><td>400 (Inter)</td><td>0</td><td>Texte de lecture, descriptions</td></tr>
+        <tr><td><b>Body</b></td><td>14 / 22px</td><td>400 (Inter)</td><td>0</td><td>Texte courant UI</td></tr>
+        <tr><td><b>Body small</b></td><td>13 / 18px</td><td>400 (Inter)</td><td>0</td><td>Aide contextuelle</td></tr>
+        <tr><td><b>Caption</b></td><td>12 / 16px</td><td>500 (Inter)</td><td>0.01em</td><td>Légendes, horodatages</td></tr>
+        <tr><td><b>Label</b></td><td>11 / 14px</td><td>600 (Inter)</td><td>0.08em, MAJ.</td><td>Étiquettes de champ, eyebrows</td></tr>
+        <tr><td><b>Button</b></td><td>14 / 20px</td><td>600</td><td>0.01em</td><td>Libellés de bouton</td></tr>
+        <tr><td><b>Navigation</b></td><td>13 / 20px</td><td>500-600</td><td>0.01em</td><td>Items de menu / sidebar</td></tr>
+      </table>
+    </div>
+    <p class="footnote">Display/H1/H2/Button/Navigation utilisent la police de titraille du thème actif (Poppins ou JetBrains Mono) ; H3 et en dessous restent en Inter dans les deux thèmes pour préserver la densité de lecture des tableaux de données — seul le poids et la couleur d'accent varient. Sous Vanitas, Display/H1/H2/Navigation passent aussi en capitales avec un tracking élargi (+0.04em), cohérent avec le wordmark <span class="mono">VANITAS_</span>.</p>
+  </section>
+
+  <section id="s6">
+    <div class="eyebrow">06</div>
+    <h2 class="title">Spacing &amp; grid</h2>
+    <p class="lede">Une seule échelle d'espacement pour les deux thèmes — c'est une des colonnes vertébrales de l'ADN commun (§3).</p>
+    <h3 class="sub">Échelle (base 4px)</h3>
+    <div class="row" style="margin-bottom:28px;">
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">4</div><div style="font-size:11px;color:var(--doc-text-faint);">xs</div></div>
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">8</div><div style="font-size:11px;color:var(--doc-text-faint);">sm</div></div>
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">12</div><div style="font-size:11px;color:var(--doc-text-faint);">md</div></div>
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">16</div><div style="font-size:11px;color:var(--doc-text-faint);">lg</div></div>
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">24</div><div style="font-size:11px;color:var(--doc-text-faint);">xl</div></div>
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">32</div><div style="font-size:11px;color:var(--doc-text-faint);">2xl</div></div>
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">48</div><div style="font-size:11px;color:var(--doc-text-faint);">3xl</div></div>
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">64</div><div style="font-size:11px;color:var(--doc-text-faint);">4xl</div></div>
+      <div class="panel" style="text-align:center;padding:14px 10px;"><div class="mono" style="font-size:18px;">96</div><div style="font-size:11px;color:var(--doc-text-faint);">5xl</div></div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Paramètre</th><th>Mobile (&lt;600px)</th><th>Tablette (600–1024px)</th><th>Desktop (≥1024px)</th></tr>
+        <tr><td><b>Marges de page</b></td><td>16px</td><td>24px</td><td>32px</td></tr>
+        <tr><td><b>Gouttières de grille</b></td><td>12px</td><td>16px</td><td>24px</td></tr>
+        <tr><td><b>Colonnes de grille</b></td><td>4</td><td>8</td><td>12</td></tr>
+        <tr><td><b>Largeur de conteneur max.</b></td><td>100%</td><td>100%</td><td>1280px (1440px pour dashboards larges)</td></tr>
+        <tr><td><b>Espacement interne de carte</b></td><td>16px</td><td>20px</td><td>24px</td></tr>
+        <tr><td><b>Espacement entre sections</b></td><td>32px</td><td>48px</td><td>64px</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="s7">
+    <div class="eyebrow">07</div>
+    <h2 class="title">Shape language</h2>
+    <p class="lede">Le bouclier du logo est fait de courbes, jamais d'angles francs — l'échelle de rayons en hérite directement : ni le 0px d'un terminal, ni le "pill" total d'une app grand public.</p>
+
+    <div class="theme-toggle">
+      <button data-t="pandore" class="active">Pandore</button>
+      <button data-t="vanitas">Vanitas</button>
+    </div>
+    <div class="stage" id="theme-stage-shapes" data-theme="pandore">
+      <div class="stage-inner shape-row">
+        <div class="shape"><div class="box" style="border-radius:6px;"></div><div class="lbl">radius.sm — 6px<br>inputs, chips</div></div>
+        <div class="shape"><div class="box" style="border-radius:12px;"></div><div class="lbl">radius.md — 12px<br>boutons, badges</div></div>
+        <div class="shape"><div class="box" style="border-radius:20px;"></div><div class="lbl">radius.lg — 20px<br>cartes</div></div>
+        <div class="shape"><div class="box" style="border-radius:28px;"></div><div class="lbl">radius.xl — 28px<br>modales</div></div>
+        <div class="shape"><div class="box" style="border-radius:999px;width:64px;height:32px;"></div><div class="lbl">radius.full<br>avatars, pills</div></div>
+      </div>
+    </div>
+
+    <div class="tbl-wrap" style="margin-top:24px;">
+      <table>
+        <tr><th>Élément</th><th>Rayon</th><th>Note</th></tr>
+        <tr><td>Boutons</td><td>12px (md)</td><td>Identique dans les deux thèmes</td></tr>
+        <tr><td>Champs / inputs</td><td>10px</td><td>Légèrement plus serré que les boutons — signale "saisie", pas "action"</td></tr>
+        <tr><td>Cartes</td><td>16–20px</td><td>20px pour une carte "hero" (KPI), 16px pour une carte de liste dense</td></tr>
+        <tr><td>Modales / drawers</td><td>24–28px</td><td>Plus le composant est grand, plus le rayon respire</td></tr>
+        <tr><td>Badges / chips</td><td>999px (pill)</td><td>Forme fermée = statut figé, lisible d'un coup d'œil</td></tr>
+        <tr><td>Avatars</td><td>999px (cercle)</td><td>—</td></tr>
+        <tr><td>Éléments flottants (toast, tooltip)</td><td>12–14px</td><td>Toujours inférieur au rayon des cartes qu'ils survolent</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="s8">
+    <div class="eyebrow">08</div>
+    <h2 class="title">Surfaces &amp; matières</h2>
+    <p class="lede">Un seul principe : la lumière est un <b>glow</b>, jamais une ombre portée classique — c'est déjà l'usage dans <code>theme.js</code> (<code>glow: rgba(...)</code> par seuil). Vanitas durcit ce même principe plutôt que d'en changer : le glow s'y resserre en un signal de moniteur, avec un léger scanline qui rappelle un écran de contrôle.</p>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Effet</th><th>Quand l'utiliser</th><th>Quand l'éviter</th><th>Intensité</th></tr>
+        <tr><td><b>Glow (halo coloré)</b></td><td>Autour d'un état actif à fort enjeu (alerte critique, score du jour, action primaire au survol)</td><td>Jamais sur plus d'un élément visible à la fois par zone</td><td>Pandore : net, rayon 24-40px, opacité .35–.55. Vanitas : plus serré et plus saturé, rayon 16-28px, opacité .30–.45</td></tr>
+        <tr><td><b>Glass / blur</b></td><td>Barres flottantes (topbar, drawer par-dessus contenu), pour signaler "superposé"</td><td>Jamais sur le contenu de fond lui-même — le texte sous verre perd en lisibilité</td><td>backdrop-blur 12-16px, fond à 70-80% d'opacité</td></tr>
+        <tr><td><b>Gradient de fond</b></td><td>Sur les grands aplats (hero, fond d'app) pour éviter un noir plat sans profondeur</td><td>Jamais sur une carte ou un composant de petite taille (lisibilité du texte)</td><td>Radial, 2 stops, écart de luminosité faible (10-15%)</td></tr>
+        <tr><td><b>Scanline / grille technique</b></td><td>Réservé à Vanitas, lignes horizontales très fines en overlay sur les grands fonds ou les en-têtes de panneau — évoque un moniteur de surveillance</td><td>Jamais en Pandore (registre trop "instrument" pour son ton opérationnel-humain)</td><td>opacité 2-3% maximum, jamais sur texte</td></tr>
+        <tr><td><b>Inner shadow</b></td><td>Champ de saisie au focus, pour signaler "creux" plutôt que "surélevé"</td><td>Jamais cumulée avec un glow externe sur le même élément</td><td>1-2px, faible opacité (.2)</td></tr>
+        <tr><td><b>Bordure hairline</b></td><td>Systématique sur cartes et champs — sépare sans alourdir</td><td>—</td><td>1px, <code>color.border</code></td></tr>
+        <tr><td><b>Ombre portée classique</b></td><td>Uniquement sous les éléments réellement flottants (modale, menu contextuel), jamais sous une carte au repos</td><td>Sur toute surface au même plan que le fond</td><td>0 20-30px 40-70px, opacité faible sur noir pur (pas de couleur teintée)</td></tr>
+      </table>
+    </div>
+    <p class="footnote">Objectif explicite : jamais plus de deux effets de surface cumulés sur un même composant (ex. bordure + glow est acceptable ; bordure + glow + ombre + scanline ne l'est pas).</p>
+  </section>
+
+  <section id="s9">
+    <div class="eyebrow">09</div>
+    <h2 class="title">Iconographie</h2>
+    <div class="grid-2">
+      <ul class="plain">
+        <li><b>Style</b> : outline, jamais rempli en défaut (le remplissage est réservé à l'état sélectionné/actif).</li>
+        <li><b>Épaisseur de trait</b> : 1.5px à 24px de grille (proportionnel au-delà), cohérent avec le poids visuel d'Inter 500.</li>
+        <li><b>Grille</b> : 24×24px, zone de sécurité de 2px, aligné optiquement (pas seulement mathématiquement) au texte adjacent.</li>
+        <li><b>Angles</b> : coins arrondis à 2px sur les traits — jamais un angle droit franc, en écho au bouclier du logo.</li>
+        <li><b>Niveau de détail</b> : bas — une icône doit rester lisible à 16px dans une cellule de tableau dense.</li>
+      </ul>
+      <ul class="plain">
+        <li><b>Icônes fonctionnelles</b> (statuts, actions) : couleur sémantique du token concerné, jamais l'accent de marque — pour ne pas confondre "action de marque" et "état système".</li>
+        <li><b>Icônes de navigation</b> : neutres (<code>text.secondary</code>), passent à <code>action.primary</code> uniquement à l'état actif/sélectionné.</li>
+        <li><b>Icônes décoratives</b> : réservées aux états vides et à l'onboarding, jamais dans les tableaux de données.</li>
+        <li><b>Symboles Pandore</b> : la clé, le bouclier fendu, l'éclat/rai de lumière — associés aux actions d'ouverture (lancer un scan, ouvrir un détail).</li>
+        <li><b>Symboles Vanitas</b> : le balayage radar (scan en cours), le réticule de visée (poste ciblé/enrôlé), le pulse de signal (activité détectée) — associés aux vues de surveillance continue et de détection.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="s10">
+    <div class="eyebrow">10</div>
+    <h2 class="title">Composants UI</h2>
+    <p class="lede">Même anatomie et mêmes dimensions dans les deux thèmes ; seuls couleurs, police de libellé et courbes de survol changent. Aperçu vivant ci-dessous, table de spécification en dessous.</p>
+
+    <div class="theme-toggle">
+      <button data-t="pandore" class="active">Pandore</button>
+      <button data-t="vanitas">Vanitas</button>
+    </div>
+
+    <div class="stage" id="theme-stage-components" data-theme="pandore">
+      <div class="stage-inner">
+        <div class="stage-label">Buttons</div>
+        <div class="row" style="margin-bottom:32px;">
+          <button class="btn btn-primary">Lancer le scan</button>
+          <button class="btn btn-ghost">Exporter</button>
+          <button class="btn btn-outline">Voir le détail</button>
+        </div>
+
+        <div class="stage-label">Card &amp; badges</div>
+        <div class="row" style="margin-bottom:32px;align-items:stretch;">
+          <div class="card-demo">
+            <div class="cd-top">
+              <div>
+                <div class="cd-title">Exposure Score</div>
+                <div class="cd-sub">12 appareils à risque élevé</div>
+              </div>
+              <span class="chip" id="chip-demo-1"></span>
+            </div>
+            <div class="cd-num">42</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div class="input-demo">nicolas@tenant.local</div>
+            <div class="toast-demo"><span id="toast-dot"></span><div><b style="display:block;font-size:13px;margin-bottom:2px;">Scan terminé</b><span style="opacity:.75;">3 nouvelles alertes détectées</span></div></div>
+          </div>
+        </div>
+
+        <div class="stage-label">Badges de statut</div>
+        <div class="badge-row" id="status-chips"></div>
+      </div>
+    </div>
+
+    <h3 class="sub">Table de spécification (buttons, cards, inputs — extrait)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Composant</th><th>Dimensions</th><th>États</th><th>Différence Pandore / Vanitas</th></tr>
+        <tr><td><b>Button primary</b></td><td>h.40px · pad.11×20 · radius.12</td><td>default / hover (+8% luminosité) / active (scale .98) / focus (ring 2px accent) / disabled (opacité .4)</td><td>Poppins vs JetBrains Mono capitales comme police de libellé ; dégradé ambre vs dégradé cyan</td></tr>
+        <tr><td><b>Icon button</b></td><td>36×36px · radius.10</td><td>identiques + tooltip au survol &gt;400ms</td><td>Aucune</td></tr>
+        <tr><td><b>Card</b></td><td>radius.16-20 · pad.20-24 · bordure 1px</td><td>default / hover (surface.interactive) / selected (bordure accent 1.5px)</td><td>Glow ambre net et diffus en Pandore ; glow cyan plus serré et scanline discret au survol en Vanitas (§8)</td></tr>
+        <tr><td><b>Input</b></td><td>h.42px · pad.12×14 · radius.10</td><td>default / focus (bordure accent + inner shadow) / error (bordure error) / disabled</td><td>Curseur de focus ambre vs cyan</td></tr>
+        <tr><td><b>Tabs</b></td><td>h.40px · soulignement 2px</td><td>default / hover / active (texte + soulignement accent)</td><td>Aucune sur la structure, couleur d'accent différente</td></tr>
+        <tr><td><b>Sidebar</b></td><td>largeur 240px (72px replié)</td><td>item default / hover / actif (fond surface.interactive + barre latérale 2px accent)</td><td>Aucune</td></tr>
+        <tr><td><b>Modal</b></td><td>largeur 480/640/800px · radius.24-28</td><td>ouverture 200ms scale .96→1 · fermeture 150ms</td><td>Vanitas : ouverture 15% plus rapide, pas d'effet scale — un panneau qui s'affiche, pas qui s'ouvre (§12)</td></tr>
+        <tr><td><b>Toast</b></td><td>largeur 320-360px · radius.12</td><td>entrée translateY+fade · auto-dismiss 5s (sauf erreur = manuel)</td><td>Aucune sur la structure</td></tr>
+        <tr><td><b>Badge / chip statut</b></td><td>h.22-24px · radius.999 · pad.5×11</td><td>coloré selon token de sévérité (identique aux deux thèmes)</td><td>Aucune — la sévérité doit rester lisible identiquement</td></tr>
+        <tr><td><b>Table</b></td><td>ligne h.44-48px · en-tête sticky</td><td>hover ligne (surface.interactive) · ligne sélectionnée (bordure gauche accent 2px)</td><td>Aucune sur la structure</td></tr>
+        <tr><td><b>Empty state</b></td><td>icône 48px + titre + description centrés</td><td>—</td><td>Icône Pandore = clé ouverte ; Vanitas = réticule de scan au repos</td></tr>
+        <tr><td><b>Skeleton</b></td><td>radius identique au composant réel</td><td>pulsation 1.5s</td><td>Pandore : pulsation ambre discrète. Vanitas : pulsation cyan, plus nette (registre "signal qui arrive")</td></tr>
+      </table>
+    </div>
+    <p class="footnote">Composants non détaillés ici (dropdown, select, checkbox, radio, toggle, navbar, bottom nav, drawer, tooltip, alert, avatar, progress, list) suivent la même règle : structure et dimensions identiques entre thèmes, seuls tokens de couleur / police / courbe d'animation changent. À spécifier un par un dans Figma (§16) plutôt que redéfinis en texte ici.</p>
+  </section>
+
+  <section id="s11">
+    <div class="eyebrow">11</div>
+    <h2 class="title">Motifs &amp; illustration</h2>
+    <ul class="plain">
+      <li><b>Pandore</b> — motif du "rai de lumière" : un dégradé conique ou linéaire fin, ambre sur noir, utilisé en filigrane d'arrière-plan sur les écrans de chargement/onboarding. Illustration : formes de bouclier fragmentées suggérant une ouverture progressive.</li>
+      <li><b>Vanitas</b> — motif du "balayage" : de fines lignes horizontales de scanline + une grille technique très discrète, cyan sur noir, en filigrane sur les écrans de rapport et les grands fonds de section. Illustration : lignes de HUD stylisées (réticule, arc de radar, tracé de signal) — jamais figuratives, toujours en contour simple à 1.5px, comme un overlay d'instrument plutôt qu'un dessin.</li>
+      <li><b>Règle commune</b> : tout motif reste sous 4% d'opacité sur fond, ou confiné à une bordure/zone de header — jamais derrière du texte de lecture courant, pour ne jamais menacer le contraste WCAG (§14).</li>
+      <li><b>Backgrounds de section marketing</b> (page de login, écran vide) : dégradé radial + un seul motif, jamais empilement de plusieurs textures.</li>
+    </ul>
+  </section>
+
+  <section id="s12">
+    <div class="eyebrow">12</div>
+    <h2 class="title">Motion design</h2>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Paramètre</th><th>Pandore</th><th>Vanitas</th></tr>
+        <tr><td><b>Durée micro (hover)</b></td><td>120ms</td><td>100ms</td></tr>
+        <tr><td><b>Durée standard (transition d'état)</b></td><td>200ms</td><td>160ms</td></tr>
+        <tr><td><b>Durée d'entrée (modale, drawer)</b></td><td>240ms</td><td>200ms</td></tr>
+        <tr><td><b>Easing standard</b></td><td><code>cubic-bezier(.4,0,.2,1)</code></td><td><code>linear</code> / <code>cubic-bezier(.2,0,.1,1)</code> — net, sans respiration, un balayage plutôt qu'un ressort</td></tr>
+        <tr><td><b>Feedback de succès</b></td><td>léger rebond <code>cubic-bezier(.34,1.56,.64,1)</code></td><td>aucun rebond — un flash de confirmation net (pulse cyan, pas d'élasticité)</td></tr>
+        <tr><td><b>Changement de thème</b></td><td colspan="2">Fondu croisé 400ms sur les tokens de couleur (transition CSS sur <code>background</code>/<code>color</code>), jamais de flash blanc intermédiaire</td></tr>
+        <tr><td><b>Personnalité globale</b></td><td>Réactif, "il se passe quelque chose maintenant"</td><td>Mécanique et net, "le signal confirme sans détour" — plus rapide, jamais plus lent (§3)</td></tr>
+      </table>
+    </div>
+    <p class="footnote">Toute animation reste fonctionnelle : elle indique un changement d'état, une hiérarchie ou une direction — jamais un mouvement en boucle purement décoratif. <code>prefers-reduced-motion</code> désactive rebonds et translations, ne garde que les fondus (§14).</p>
+  </section>
+
+  <section id="s13">
+    <div class="eyebrow">13</div>
+    <h2 class="title">Responsive design</h2>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Rupture</th><th>Composition</th><th>Navigation</th><th>Densité</th></tr>
+        <tr><td><b>Mobile</b> &lt;600px</td><td>Colonne unique, cartes empilées, KPI en liste plutôt qu'en grille</td><td>Bottom navigation (5 items max) + drawer pour le reste</td><td>Tableaux → cartes-lignes empilées ; colonnes secondaires masquées derrière "voir plus"</td></tr>
+        <tr><td><b>Tablette</b> 600–1024px</td><td>Grille 2 colonnes pour les cartes, sidebar repliée en icônes</td><td>Sidebar réductible + topbar</td><td>Tableaux conservent 4-5 colonnes clés, le reste en détail au clic</td></tr>
+        <tr><td><b>Desktop</b> 1024–1440px</td><td>Grille 3-4 colonnes, sidebar fixe ouverte</td><td>Sidebar + topbar persistantes</td><td>Tableaux complets, panneaux de détail en drawer latéral</td></tr>
+        <tr><td><b>Large desktop</b> &gt;1440px</td><td>Grille jusqu'à 6 colonnes pour les KPI, contenu plafonné à 1440px (pas d'étirement infini)</td><td>Identique au desktop</td><td>Espace excédentaire redistribué en marges, jamais en agrandissant les composants</td></tr>
+      </table>
+    </div>
+    <p class="footnote">Le motif décoratif (§11) et le glow (§8) rétrécissent en intensité sur mobile (opacité divisée par deux) : l'espace est trop dense pour se permettre de la décoration au même niveau que sur desktop.</p>
+  </section>
+
+  <section id="s14">
+    <div class="eyebrow">14</div>
+    <h2 class="title">Accessibilité</h2>
+    <ul class="plain">
+      <li><b>Contraste texte</b> : <code>text.primary</code> sur <code>bg.primary</code> dépasse 13:1 dans les deux thèmes (texte quasi-blanc chaud sur quasi-noir) — largement au-dessus du AA (4.5:1). <code>text.tertiary</code> reste au-dessus de 4.5:1, vérifié à l'implémentation.</li>
+      <li><b>Contraste de l'accent</b> : l'ambre <code>#F6B27E</code> et le cyan <code>#39E6D2</code> sur fond quasi-noir dépassent tous deux 8:1 — utilisables comme texte de lien, pas seulement comme fond de bouton (où le texte du bouton est en quasi-noir, jamais blanc sur accent clair).</li>
+      <li><b>Focus states</b> : anneau de 2px dans la couleur d'accent du thème actif, offset de 2px, jamais supprimé — y compris sur les éléments personnalisés (chip, card cliquable).</li>
+      <li><b>Navigation clavier</b> : ordre de tabulation = ordre visuel ; toute action de survol (hover) a un équivalent focus strictement identique.</li>
+      <li><b>États d'erreur</b> : jamais signalés par la couleur seule — icône + libellé texte systématiques (ex. un champ en erreur affiche le message, pas seulement une bordure rouge).</li>
+      <li><b>Reduced motion</b> : rebonds, translations et parallax du glow sont coupés ; seuls les fondus d'opacité subsistent.</li>
+      <li><b>Tailles tactiles</b> : cible minimale 44×44px sur mobile, y compris pour les icon buttons de 36px visuels (zone cliquable étendue par padding invisible).</li>
+    </ul>
+    <p class="footnote">Point de vigilance identifié : le scanline de Vanitas (§8) et les motifs en filigrane (§11) doivent rester sous le seuil qui altérerait la lecture d'un texte superposé — solution retenue : jamais de motif derrière du texte de lecture courante, uniquement en zone de header/bordure.</p>
+  </section>
+
+  <section id="s15">
+    <div class="eyebrow">15</div>
+    <h2 class="title">Dark / Light</h2>
+    <p class="lede">Décision retenue, en hypothèse assumée faute de maquette de référence : <b>les deux univers restent dark-only au lancement</b>, pour deux raisons factuelles plutôt qu'esthétiques — (1) le code en production (<code>theme.js</code>, fond <code>#0A0E1A</code>) est déjà entièrement construit sur un fond sombre sans variante claire ; (2) l'usage (supervision continue d'un poste de sécurité) favorise un fond sombre pour réduire la fatigue visuelle sur de longues sessions.</p>
+    <h3 class="sub">Chemin vers un mode clair (si besoin futur)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>Token</th><th>Pandore — light (dérivé)</th><th>Vanitas — light (dérivé)</th></tr>
+        <tr><td class="mono">color.bg.primary</td><td class="mono">#F7F5F1</td><td class="mono">#F1F5F4</td></tr>
+        <tr><td class="mono">color.surface</td><td class="mono">#FFFFFF</td><td class="mono">#FFFFFF</td></tr>
+        <tr><td class="mono">color.text.primary</td><td class="mono">#181B24</td><td class="mono">#0D1417</td></tr>
+        <tr><td class="mono">color.action.primary</td><td class="mono">#C97A3E (ambre assombri pour AA sur clair)</td><td class="mono">#0E8A79 (cyan assombri pour AA sur clair)</td></tr>
+        <tr><td class="mono">color.status.*</td><td class="mono" colspan="2">Identiques au dark (déjà vérifiées AA sur fond clair)</td></tr>
+      </table>
+    </div>
+    <p class="footnote">Ces valeurs light sont une hypothèse dérivée par formule (assombrissement de l'accent pour conserver 4.5:1 sur fond clair), à valider visuellement avant toute implémentation — elles ne remplacent pas un vrai passage en design review.</p>
+  </section>
+
+  <section id="s16">
+    <div class="eyebrow">16</div>
+    <h2 class="title">Architecture du design system</h2>
+    <div class="grid-3">
+      <div class="panel">
+        <h4 style="font-size:14px;margin-bottom:10px;color:var(--doc-text);">Foundations</h4>
+        <ul class="plain" style="gap:6px;"><li>Colors</li><li>Typography</li><li>Spacing</li><li>Grid</li><li>Radius</li><li>Shadows / Glow</li><li>Motion</li></ul>
+      </div>
+      <div class="panel">
+        <h4 style="font-size:14px;margin-bottom:10px;color:var(--doc-text);">Components</h4>
+        <ul class="plain" style="gap:6px;"><li>Buttons</li><li>Inputs</li><li>Cards</li><li>Navigation</li><li>Feedback (toast, alert, badge)</li><li>Data (table, list, skeleton)</li></ul>
+      </div>
+      <div class="panel">
+        <h4 style="font-size:14px;margin-bottom:10px;color:var(--doc-text);">Patterns &amp; Themes</h4>
+        <ul class="plain" style="gap:6px;"><li>Forms</li><li>Dashboards</li><li>Lists / tables denses</li><li>Settings</li><li>Authentication</li><li><b>Thèmes</b> : Pandore, Vanitas</li></ul>
+      </div>
+    </div>
+
+    <h3 class="sub">Figma</h3>
+    <p style="font-size:14.5px;color:var(--doc-text-dim);max-width:70ch;margin-bottom:14px;">Variables Figma à deux collections : <code>Primitives</code> (valeurs brutes, non exposées aux designers de composants) et <code>Semantic</code> (les tokens de ce document, en modes "Pandore" / "Vanitas" — Figma applique le changement de mode à toute la maquette en un clic, exactement comme le sélecteur <code>data-theme</code> ci-dessus).</p>
+
+    <h3 class="sub">Code — changement de thème par design tokens</h3>
+    <p style="font-size:14.5px;color:var(--doc-text-dim);max-width:70ch;margin-bottom:10px;">Chaque token est une custom property CSS déclarée deux fois, comme dans ce document même :</p>
+    <div class="panel" style="font-family:var(--doc-mono);font-size:12.5px;overflow-x:auto;white-space:pre;color:var(--doc-text-dim);">
+:root[data-theme="pandore"] { --color-bg-primary: #0A0E1A; --color-action-primary: #F6B27E; }
+:root[data-theme="vanitas"] { --color-bg-primary: #07090B; --color-action-primary: #39E6D2; }
+/* les composants ne lisent jamais un hex, seulement var(--color-*) */
+.button-primary { background: var(--color-action-primary); }</div>
+    <p class="footnote">Le pipeline recommandé : tokens définis une seule fois en JSON (Style Dictionary ou équivalent) → export simultané vers variables Figma, custom properties CSS, et <code>theme.js</code> (qui garde alors uniquement les tokens <i>sémantiques métier</i> — sévérité, statuts — non redondants avec ce fichier).</p>
+  </section>
+
+  <section id="s17">
+    <div class="eyebrow">17</div>
+    <h2 class="title">Fiche récapitulative</h2>
+    <div class="fiche">
+      <div class="fiche-card pd">
+        <h4>Pandore</h4>
+        <table>
+          <tr><td>Mood</td><td>Vigie nocturne, lumière qui perce</td></tr>
+          <tr><td>Keywords</td><td>Clinique, incandescent, précis, vigilant</td></tr>
+          <tr><td>Primary colors</td><td>#0A0E1A · #0D1220 · #131A2E</td></tr>
+          <tr><td>Accent</td><td>#F6B27E → #EE9A5C</td></tr>
+          <tr><td>Typography</td><td>Poppins (titraille) + Inter (UI/données)</td></tr>
+          <tr><td>Shapes</td><td>Courbes du bouclier, radius 6–28px</td></tr>
+          <tr><td>Materials</td><td>Verre sombre, glow net</td></tr>
+          <tr><td>Effects</td><td>Halo ambre net, gradient radial</td></tr>
+          <tr><td>Iconography</td><td>Outline 1.5px, clé/bouclier/rai</td></tr>
+          <tr><td>Motion</td><td>Réactif, léger rebond sur succès</td></tr>
+        </table>
+      </div>
+      <div class="fiche-card vn">
+        <h4>Vanitas</h4>
+        <table>
+          <tr><td>Mood</td><td>Poste de vigie, HUD de contrôle, rien n'échappe</td></tr>
+          <tr><td>Keywords</td><td>Tactique, chirurgical, en alerte, exhaustif</td></tr>
+          <tr><td>Primary colors</td><td>#07090B · #0A0D10 · #0D1114</td></tr>
+          <tr><td>Accent</td><td>#39E6D2 → #D14FE0</td></tr>
+          <tr><td>Typography</td><td>JetBrains Mono capitales (titraille) + Inter (UI/données)</td></tr>
+          <tr><td>Shapes</td><td>Mêmes courbes, mêmes radius</td></tr>
+          <tr><td>Materials</td><td>Verre quasi noir, scanline discret</td></tr>
+          <tr><td>Effects</td><td>Glow cyan serré, saturé, net</td></tr>
+          <tr><td>Iconography</td><td>Outline 1.5px, radar/réticule/signal</td></tr>
+          <tr><td>Motion</td><td>Net, mécanique, aucun rebond, plus rapide que Pandore</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--doc-ink);margin-bottom:10px;">Shared DNA</div>
+      <p style="font-size:14px;color:var(--doc-text-dim);">Fond quasi-noir dans les deux cas · même échelle de spacing et de grille · mêmes rayons de bordure · glow plutôt qu'ombre portée classique · Inter pour toute donnée chiffrée · tokens de sévérité (succès/avertissement/erreur/info) strictement identiques · aucune couleur saturée sans signification.</p>
+    </div>
+  </section>
+
+  <section id="s18">
+    <div class="eyebrow">18</div>
+    <h2 class="title">Règles à ne pas enfreindre</h2>
+    <div class="do-dont">
+      <div class="panel do">
+        <h4>Do</h4>
+        <ol>
+          <li>Toujours faire porter la couleur saturée par un <b>sens</b> (sévérité, accent d'action) — jamais par goût décoratif.</li>
+          <li>Garder les tokens de sévérité <b>strictement identiques</b> entre Pandore et Vanitas.</li>
+          <li>Réserver le glow à <b>un seul point focal</b> par vue.</li>
+          <li>Utiliser Inter pour toute donnée chiffrée, dans les deux thèmes, sans exception.</li>
+          <li>Vérifier le contraste AA sur chaque nouvelle combinaison de tokens avant merge.</li>
+          <li>Conserver la même structure de composant entre thèmes — seuls tokens et police de titraille changent.</li>
+          <li>Traiter Vanitas comme un registre plus rapide et plus mécanique : durées d'animation toujours ≤ Pandore, easing linéaire ou sans rebond.</li>
+          <li>Documenter toute nouvelle couleur comme un token sémantique, jamais un hex en dur dans un composant.</li>
+          <li>Donner un équivalent focus clavier strictement identique à chaque état hover.</li>
+          <li>Limiter tout motif décoratif à moins de 4% d'opacité sur fond de lecture.</li>
+        </ol>
+      </div>
+      <div class="panel dont">
+        <h4>Don't</h4>
+        <ol>
+          <li>Ne jamais coder une couleur de sévérité différemment selon le thème actif.</li>
+          <li>Ne jamais cumuler glow + ombre portée + grain sur un même composant.</li>
+          <li>Ne jamais utiliser Poppins ou JetBrains Mono capitales pour un tableau de données dense — Inter reste la seule police de données, dans les deux thèmes.</li>
+          <li>Ne jamais placer un motif décoratif derrière du texte de lecture courante.</li>
+          <li>Ne jamais faire rebondir une transition en Vanitas.</li>
+          <li>Ne jamais signaler une erreur par la seule couleur, sans icône ni texte.</li>
+          <li>Ne jamais dépasser deux halos lumineux visibles simultanément à l'écran.</li>
+          <li>Ne jamais utiliser l'accent de marque pour une icône purement fonctionnelle/système.</li>
+          <li>Ne jamais réduire une cible tactile mobile sous 44×44px, même visuellement petite.</li>
+          <li>Ne jamais introduire un radius hors de l'échelle définie en §7, même "juste pour cette fois".</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="s19">
+    <div class="eyebrow">Prochaines étapes</div>
+    <h2 class="title">De la charte au Design System Figma + implémentation</h2>
+    <div class="num-steps">
+      <div class="step"><div class="n">01</div><p><b>Valider cette charte avec toi</b> — en particulier le repositionnement de Vanitas en poste de vigie HUD cyan/magenta calé sur le dashboard réel déjà en production, plutôt qu'une première hypothèse trop décorative.</p></div>
+      <div class="step"><div class="n">02</div><p><b>Créer les collections de variables Figma</b> (Primitives + Semantic, modes Pandore/Vanitas) à partir des tables du §4.</p></div>
+      <div class="step"><div class="n">03</div><p><b>Construire la librairie de composants de base</b> dans Figma : button, input, card, badge, table — avec auto-layout et les deux modes appliqués.</p></div>
+      <div class="step"><div class="n">04</div><p><b>Faire un audit des composants React existants</b> (<code>frontend/src/components</code>) pour cartographier quels composants actuels correspondent déjà à quels tokens.</p></div>
+      <div class="step"><div class="n">05</div><p><b>Extraire <code>theme.js</code> en deux fichiers</b> : tokens de design (ce document) vs tokens métier (sévérité CVE, statuts Intune) qui restent spécifiques au domaine.</p></div>
+      <div class="step"><div class="n">06</div><p><b>Mettre en place Style Dictionary</b> (ou équivalent) pour générer CSS custom properties + variables Figma depuis une seule source JSON.</p></div>
+      <div class="step"><div class="n">07</div><p><b>Implémenter le sélecteur de thème</b> (<code>data-theme</code> sur la racine) et le fondu croisé de 400ms du §12 dans <code>App.jsx</code>.</p></div>
+      <div class="step"><div class="n">08</div><p><b>Migrer les composants existants</b> pour consommer <code>var(--color-*)</code> au lieu des hex actuellement en dur dans <code>styles.css</code> (462 Ko à auditer).</p></div>
+      <div class="step"><div class="n">09</div><p><b>Charger Poppins, Inter et JetBrains Mono</b> en self-hosted (performance) plutôt qu'en CDN Google Fonts pour la version production.</p></div>
+      <div class="step"><div class="n">10</div><p><b>Dessiner les 3 icônes de marque</b> propres à Pandore (clé, bouclier fendu, rai de lumière) et les 3 propres à Vanitas (balayage radar, réticule de visée, pulse de signal).</p></div>
+      <div class="step"><div class="n">11</div><p><b>Spécifier chaque composant restant</b> du §10 (dropdown, select, checkbox, radio, toggle, tabs, navbar, drawer, tooltip, alert, avatar, progress) dans Figma, anatomy + états.</p></div>
+      <div class="step"><div class="n">12</div><p><b>Construire l'écran d'onboarding/login</b> comme première application concrète du motif décoratif du §11.</p></div>
+      <div class="step"><div class="n">13</div><p><b>Passer un audit de contraste automatisé</b> (ex. axe, Stark) sur les deux thèmes une fois les composants Figma posés.</p></div>
+      <div class="step"><div class="n">14</div><p><b>Prototyper le premier écran "Vanitas"</b> réel (ex. rapport d'audit historique) pour valider que le second univers tient sur un cas d'usage concret, pas seulement en swatches.</p></div>
+      <div class="step"><div class="n">15</div><p><b>Documenter les règles du §18 dans le Figma</b> (page "Guidelines") pour qu'elles survivent au-delà de ce document.</p></div>
+      <div class="step"><div class="n">16</div><p><b>Mettre en place Storybook</b> (ou équivalent) côté frontend pour visualiser chaque composant dans les deux thèmes côte à côte.</p></div>
+      <div class="step"><div class="n">17</div><p><b>Tester la lisibilité en conditions réelles</b> avec l'utilisateur actuel du dashboard (session prolongée, écran de bureau) avant généralisation.</p></div>
+      <div class="step"><div class="n">18</div><p><b>Planifier, si besoin, la variante light</b> du §15 — actuellement une hypothèse dérivée, pas une maquette validée.</p></div>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  var PD = {
+    bg1:'#0A0E1A', bg3:'#10162A', surface:'#131A2E', border:'#2A3450',
+    text1:'#F3EFE8', text2:'#A9AFC0', text3:'#6E7690',
+    accent:'#F6B27E', accent2:'#EE9A5C'
+  };
+  var VN = {
+    bg1:'#07090B', bg3:'#0D1114', surface:'#0F1417', border:'#213038',
+    text1:'#E4EDEE', text2:'#8FA3A8', text3:'#556A70',
+    accent:'#39E6D2', accent2:'#D14FE0'
+  };
+  var SEMANTIC = [
+    {n:'success', hex:'#48C98A', label:'Succès'},
+    {n:'warning', hex:'#E7A33C', label:'Avertissement'},
+    {n:'error', hex:'#EA5C5C', label:'Erreur'},
+    {n:'info', hex:'#4C9FE0', label:'Info'}
+  ];
+
+  function swatch(name, hex, sub){
+    return '<div class="swatch"><div class="fill" style="background:'+hex+'"></div><div class="meta"><div class="name">'+name+'</div><div class="hex">'+hex+(sub?(' · '+sub):'')+'</div></div></div>';
+  }
+
+  function renderColorSwatches(t){
+    document.getElementById('sw-bg').innerHTML =
+      swatch('bg.primary', t.bg1) + swatch('bg.tertiary', t.bg3) + swatch('surface', t.surface);
+    document.getElementById('sw-text').innerHTML =
+      swatch('border', t.border) + swatch('text.primary', t.text1) + swatch('text.secondary', t.text2) + swatch('text.tertiary', t.text3);
+    document.getElementById('sw-accent').innerHTML =
+      swatch('action.primary', t.accent) + swatch('action.secondary', t.accent2);
+    var sem = SEMANTIC.map(function(s){ return swatch(s.label, s.hex); }).join('');
+    document.getElementById('sw-semantic').innerHTML = sem;
+  }
+
+  function renderTypeSpecimens(theme){
+    var headFont = theme === 'pandore' ? "'Poppins',sans-serif" : "'JetBrains Mono',monospace";
+    var wrap = document.getElementById('type-specimens');
+    var levels = [
+      ['Display','48px','600'],
+      ["H1 — Vue d'ensemble",'34px','600'],
+      ['H2 — Conformité Intune','26px','600'],
+      ['H3 — Détail appareil','20px','600']
+    ];
+    var html = '';
+    levels.forEach(function(l){
+      html += '<div class="type-specimen" style="margin-bottom:18px;">' +
+        '<div class="ts-h" style="font-size:'+l[1]+';font-weight:'+l[2]+';line-height:1.1;">'+l[0]+'</div>' +
+        '<div class="ts-meta">'+ (theme==='pandore' ? 'Poppins' : 'JetBrains Mono') +' · '+l[1]+' / '+l[2]+'</div></div>';
+    });
+    html += '<div class="type-specimen" style="margin-top:24px;"><div style="font-family:Inter,sans-serif;font-size:14px;color:'+(theme==='pandore'?PD.text2:VN.text2)+';max-width:56ch;">Corps de texte en Inter — 14/22px, identique dans les deux thèmes. Score d\'exposition : <span style="font-variant-numeric:tabular-nums;font-weight:600;color:'+(theme==='pandore'?PD.text1:VN.text1)+'">42/100</span>, 12 appareils Windows en non-conformité.</div></div>';
+    wrap.innerHTML = html;
+  }
+
+  function renderComponents(theme){
+    var t = theme === 'pandore' ? PD : VN;
+    document.getElementById('chip-demo-1').outerHTML =
+      '<span class="chip" style="background:rgba(234,92,92,.14);color:#EA5C5C;"><span class="dot" style="background:#EA5C5C;"></span>Élevé</span>';
+    document.getElementById('toast-dot').outerHTML =
+      '<span style="width:8px;height:8px;border-radius:50%;background:'+t.accent+';margin-top:5px;flex:0 0 auto;"></span>';
+    var chips = [
+      ['Conforme','#48C98A'], ['Non conforme','#EA5C5C'], ['Période de grâce','#E7A33C'], ['Informationnel','#4C9FE0']
+    ];
+    document.getElementById('status-chips').innerHTML = chips.map(function(c){
+      return '<span class="chip" style="background:'+c[1]+'22;color:'+c[1]+';"><span class="dot" style="background:'+c[1]+';"></span>'+c[0]+'</span>';
+    }).join('');
+  }
+
+  window.setTheme = function(theme){
+    document.querySelectorAll('.theme-toggle button').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-t') === theme);
+    });
+    document.querySelectorAll('[id^="theme-stage"]').forEach(function(el){ el.setAttribute('data-theme', theme); });
+    renderColorSwatches(theme === 'pandore' ? PD : VN);
+    renderTypeSpecimens(theme);
+    renderComponents(theme);
+  };
+
+  document.querySelectorAll('.theme-toggle button').forEach(function(b){
+    b.addEventListener('click', function(){ setTheme(b.getAttribute('data-t')); });
+  });
+
+  setTheme('pandore');
+})();
+</script>

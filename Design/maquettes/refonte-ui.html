@@ -1,0 +1,866 @@
+<title>Pandore Refonte UI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<style>
+/* Layout : structure Lumis (rail de mondes 56px · colonne de nav 248px · contenu à fil d'Ariane),
+   habillée par la charte Pandore & Vanitas. Dark-first (charte §15), mode clair = tokens dérivés §15. */
+:root{
+  color-scheme:dark;
+  /* Pandore — dark (charte §3) */
+  --pd-bg:#0A0E1A; --pd-side:#0B1020; --pd-surface:#111829; --pd-hover:#182136; --pd-int:#202B45;
+  --pd-line:#222C45; --pd-line-soft:#1A2238;
+  --pd-ink:#F3EFE8; --pd-ink2:#A9AFC0; --pd-ink3:#6E7690;
+  --pd-accent:#F6B27E; --pd-accent2:#EE9A5C; --pd-on-accent:#0A0E1A; --pd-tint:rgba(246,178,126,.12);
+  /* Vanitas — dark */
+  --vn-bg:#07090B; --vn-side:#090C0E; --vn-surface:#0D1215; --vn-hover:#131A1E; --vn-int:#19232A;
+  --vn-line:#1B272D; --vn-line-soft:#141D21;
+  --vn-ink:#E4EDEE; --vn-ink2:#8FA3A8; --vn-ink3:#556A70;
+  --vn-accent:#39E6D2; --vn-accent2:#D14FE0; --vn-on-accent:#07090B; --vn-tint:rgba(57,230,210,.10);
+  /* Tokens fonctionnels sacrés — identiques dans les deux thèmes (charte §4) */
+  --ok:#48C98A; --warn:#E7A33C; --crit:#EA5C5C; --info:#4C9FE0;
+  --ok-t:rgba(72,201,138,.14); --warn-t:rgba(231,163,60,.14); --crit-t:rgba(234,92,92,.14); --info-t:rgba(76,159,224,.14);
+  --shadow:0 24px 60px -24px rgba(0,0,0,.7);
+  --scrim:rgba(3,5,10,.6);
+  /* Type */
+  --f-sans:"Inter",-apple-system,"Segoe UI",sans-serif;
+  --f-pd:"Poppins","Century Gothic",Futura,sans-serif;
+  --f-mono:"JetBrains Mono","Cascadia Code","Fira Code",ui-monospace,monospace;
+  --r-sm:6px; --r:10px; --r-lg:14px;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme:light;
+    --pd-bg:#F7F5F1; --pd-side:#F1EEE8; --pd-surface:#FFFFFF; --pd-hover:#EFEBE4; --pd-int:#E8E3DA;
+    --pd-line:#E3DED5; --pd-line-soft:#ECE8E1;
+    --pd-ink:#181B24; --pd-ink2:#555B6B; --pd-ink3:#868B98;
+    --pd-accent:#C97A3E; --pd-accent2:#B36A31; --pd-on-accent:#FFFFFF; --pd-tint:rgba(201,122,62,.11);
+    --vn-bg:#F1F5F4; --vn-side:#E9EFEE; --vn-surface:#FFFFFF; --vn-hover:#E6EDEC; --vn-int:#DCE6E4;
+    --vn-line:#D5E0DE; --vn-line-soft:#E3EBEA;
+    --vn-ink:#0D1417; --vn-ink2:#46595E; --vn-ink3:#7C8F93;
+    --vn-accent:#0E8A79; --vn-accent2:#A8329F; --vn-on-accent:#FFFFFF; --vn-tint:rgba(14,138,121,.10);
+    --shadow:0 24px 60px -28px rgba(20,24,36,.28); --scrim:rgba(20,24,36,.32);
+  }
+}
+:root[data-theme="light"]{
+    color-scheme:light;
+    --pd-bg:#F7F5F1; --pd-side:#F1EEE8; --pd-surface:#FFFFFF; --pd-hover:#EFEBE4; --pd-int:#E8E3DA;
+    --pd-line:#E3DED5; --pd-line-soft:#ECE8E1;
+    --pd-ink:#181B24; --pd-ink2:#555B6B; --pd-ink3:#868B98;
+    --pd-accent:#C97A3E; --pd-accent2:#B36A31; --pd-on-accent:#FFFFFF; --pd-tint:rgba(201,122,62,.11);
+    --vn-bg:#F1F5F4; --vn-side:#E9EFEE; --vn-surface:#FFFFFF; --vn-hover:#E6EDEC; --vn-int:#DCE6E4;
+    --vn-line:#D5E0DE; --vn-line-soft:#E3EBEA;
+    --vn-ink:#0D1417; --vn-ink2:#46595E; --vn-ink3:#7C8F93;
+    --vn-accent:#0E8A79; --vn-accent2:#A8329F; --vn-on-accent:#FFFFFF; --vn-tint:rgba(14,138,121,.10);
+    --shadow:0 24px 60px -28px rgba(20,24,36,.28); --scrim:rgba(20,24,36,.32);
+}
+
+/* Monde actif → tokens génériques */
+.app,[data-world]{--bg:var(--pd-bg);--side:var(--pd-side);--surface:var(--pd-surface);--hover:var(--pd-hover);--int:var(--pd-int);
+  --line:var(--pd-line);--line-soft:var(--pd-line-soft);--ink:var(--pd-ink);--ink2:var(--pd-ink2);--ink3:var(--pd-ink3);
+  --accent:var(--pd-accent);--accent2:var(--pd-accent2);--on-accent:var(--pd-on-accent);--tint:var(--pd-tint);
+  --f-display:var(--f-pd);--display-case:none;--display-track:-.01em;}
+[data-world="vanitas"]{--bg:var(--vn-bg);--side:var(--vn-side);--surface:var(--vn-surface);--hover:var(--vn-hover);--int:var(--vn-int);
+  --line:var(--vn-line);--line-soft:var(--vn-line-soft);--ink:var(--vn-ink);--ink2:var(--vn-ink2);--ink3:var(--vn-ink3);
+  --accent:var(--vn-accent);--accent2:var(--vn-accent2);--on-accent:var(--vn-on-accent);--tint:var(--vn-tint);
+  --f-display:var(--f-mono);--display-case:uppercase;--display-track:.04em;}
+
+html,body{height:100%}
+body{background:var(--pd-bg);color:var(--pd-ink);font:14px/1.5 var(--f-sans);-webkit-font-smoothing:antialiased;overflow:hidden}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.num,.tab{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--f-mono);font-size:12px}
+
+/* ---------- Shell ---------- */
+.app{display:grid;grid-template-columns:56px 248px minmax(0,1fr);height:100%;background:var(--bg);color:var(--ink);transition:background .25s}
+.app.collapsed{grid-template-columns:56px 0 minmax(0,1fr)}
+.app.collapsed .col{visibility:hidden}
+.rail{background:var(--side);border-right:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0 12px}
+.rail-btn{position:relative;width:36px;height:36px;border-radius:var(--r);display:grid;place-items:center;border:0;background:transparent;color:var(--ink3);cursor:pointer;transition:background .15s,color .15s}
+.rail-btn:hover{background:var(--hover);color:var(--ink)}
+.rail-btn[aria-current="true"]{background:var(--int);color:var(--accent)}
+.rail-btn svg.i{width:18px;height:18px}
+.rail-btn .live{position:absolute;right:6px;top:6px;width:7px;height:7px;border-radius:50%;background:var(--crit);box-shadow:0 0 0 2px var(--side)}
+.rail-sep{width:24px;height:1px;background:var(--line);margin:4px 0}
+.rail-spacer{flex:1}
+.logo-btn{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;margin-bottom:6px}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--int);color:var(--ink);display:grid;place-items:center;font-size:11.5px;font-weight:600;border:1px solid var(--line);cursor:pointer}
+.tip{position:relative}
+.tip:hover::after{content:attr(data-tip);position:absolute;left:46px;top:50%;transform:translateY(-50%);white-space:nowrap;background:var(--ink);color:var(--bg);font-size:12px;font-weight:500;padding:4px 8px;border-radius:6px;z-index:50;pointer-events:none}
+
+.col{background:var(--side);border-right:1px solid var(--line-soft);display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.col-head{height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line-soft)}
+.col-title{font-family:var(--f-display);text-transform:var(--display-case);letter-spacing:var(--display-track);font-weight:600;font-size:15px;color:var(--ink)}
+[data-world="vanitas"] .col-title{font-size:13.5px;font-weight:700}
+.col-sub{font-size:11.5px;color:var(--ink3);margin-left:auto}
+.nav{flex:1;overflow-y:auto;padding:10px 8px 12px;scrollbar-width:thin}
+.nav-group{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:14px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;color:var(--ink2);text-align:left;padding:7px 10px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;letter-spacing:.005em}
+.nav-item:hover{background:var(--hover);color:var(--ink)}
+.nav-item[aria-current="page"]{background:var(--int);color:var(--ink)}
+.nav-item[aria-current="page"] svg.i{color:var(--accent)}
+.nav-item .count{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink3);font-variant-numeric:tabular-nums}
+.nav-item .count.hot{color:var(--crit)}
+.col-foot{border-top:1px solid var(--line-soft);padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--ink3)}
+.sync{display:flex;align-items:center;gap:8px}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ink3)}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.crit{background:var(--crit)}.dot.info{background:var(--info)}
+.dot.pulse{box-shadow:0 0 0 0 var(--ok);animation:pulse 2.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(72,201,138,.5)}70%{box-shadow:0 0 0 6px rgba(72,201,138,0)}100%{box-shadow:0 0 0 0 rgba(72,201,138,0)}}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.top{height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 max(16px,env(safe-area-inset-right,0px)) 0 16px;border-bottom:1px solid var(--line-soft);background:var(--bg)}
+.icon-btn{width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--ink3);display:grid;place-items:center;cursor:pointer;flex:none}
+.icon-btn:hover{background:var(--hover);color:var(--ink)}
+.vsep{width:1px;height:16px;background:var(--line);margin:0 4px}
+.crumbs{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink3);min-width:0;white-space:nowrap;overflow:hidden}
+.crumbs b{color:var(--ink);font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.crumbs svg.i{width:13px;height:13px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.search-btn{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px 0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink3);font-size:12.5px;cursor:pointer;min-width:260px}
+.search-btn:hover{border-color:var(--ink3)}
+.kbd{margin-left:auto;font-family:var(--f-mono);font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--ink3);background:var(--bg)}
+.chip-sample{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--accent);background:var(--tint);border-radius:999px;padding:3px 9px;white-space:nowrap}
+
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+.page{max-width:1320px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+@media (min-width:900px){.page{padding-left:32px;padding-right:32px}}
+.ph{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.ph-text{min-width:0;flex:1 1 320px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px;display:flex;gap:8px;align-items:center}
+h1{font-family:var(--f-display);text-transform:var(--display-case);letter-spacing:var(--display-track);font-weight:600;font-size:24px;line-height:1.2;margin:0;text-wrap:balance}
+[data-world="vanitas"] h1{font-size:19px;font-weight:700}
+.lede{color:var(--ink2);margin:6px 0 0;max-width:68ch;font-size:13.5px}
+.ph-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--accent);border-color:transparent;color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink2)}
+.btn.ghost:hover{background:var(--hover);color:var(--ink)}
+.btn.danger{color:var(--crit)}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+
+/* ---------- Blocks ---------- */
+.grid{display:grid;gap:16px}
+.g-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g-main{grid-template-columns:minmax(0,1.65fr) minmax(0,1fr)}
+.g-side{grid-template-columns:minmax(0,1fr) 340px}
+@media (max-width:1180px){.g-4{grid-template-columns:repeat(2,minmax(0,1fr))}.g-side,.g-main{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){.g-3,.g-2,.g-4{grid-template-columns:minmax(0,1fr)}}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.mt{margin-top:16px}.mt2{margin-top:28px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);min-width:0;overflow:hidden}
+.card-h{display:flex;align-items:center;gap:8px;padding:14px 16px 0}
+.card-h h2{font-size:13.5px;font-weight:600;margin:0;color:var(--ink)}
+.card-h .badge{font-size:11px;font-weight:600;color:var(--ink2);background:var(--int);border-radius:999px;padding:1px 8px;font-variant-numeric:tabular-nums}
+.card-h .link{margin-left:auto;font-size:12.5px;color:var(--ink3);border:0;background:none;cursor:pointer;display:flex;align-items:center;gap:4px}
+.card-h .link:hover{color:var(--ink)}
+.card-b{padding:14px 16px 16px}
+.card-note{font-size:12px;color:var(--ink3)}
+.section-title{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.section-title h2{font-size:13.5px;font-weight:600;margin:0}
+
+.kpi{padding:16px;display:flex;flex-direction:column;gap:6px}
+.kpi-l{font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:7px}
+.kpi-v{font-size:26px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi-v small{font-size:13px;color:var(--ink3);font-weight:500;letter-spacing:0;margin-left:2px}
+.kpi-f{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink3)}
+.delta{font-weight:600;font-variant-numeric:tabular-nums}
+.delta.up{color:var(--ok)}.delta.down{color:var(--crit)}
+.spark{margin-left:auto;width:84px;height:26px}
+
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--line-soft);min-width:0}
+.list li:first-child{border-top:0}
+.list li.click{cursor:pointer}
+.list li.click:hover{background:var(--hover)}
+.li-main{min-width:0;flex:1}
+.li-t{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li-s{font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li-r{flex:none;font-size:12px;color:var(--ink3);font-variant-numeric:tabular-nums;text-align:right}
+.ico-tile{width:30px;height:30px;border-radius:8px;background:var(--int);display:grid;place-items:center;color:var(--ink2);flex:none}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:2px 9px 2px 8px;border-radius:999px;background:var(--int);color:var(--ink2);white-space:nowrap}
+.pill .dot{width:6px;height:6px}
+.pill.ok{background:var(--ok-t);color:var(--ink)}.pill.warn{background:var(--warn-t);color:var(--ink)}
+.pill.crit{background:var(--crit-t);color:var(--ink)}.pill.info{background:var(--info-t);color:var(--ink)}
+.sev{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink)}
+.sev i{width:3px;height:14px;border-radius:2px;display:block}
+.tag{font-family:var(--f-mono);font-size:11px;color:var(--ink2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;white-space:nowrap}
+
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11.5px;font-weight:500;color:var(--ink3);padding:10px 16px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface)}
+td{padding:10px 16px;border-bottom:1px solid var(--line-soft);white-space:nowrap;color:var(--ink2);vertical-align:middle}
+td.strong{color:var(--ink);font-weight:500}
+tr:last-child td{border-bottom:0}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--hover)}
+td.r,th.r{text-align:right}
+.cell-dev{display:flex;align-items:center;gap:10px}
+.cell-dev .ico-tile{width:26px;height:26px;border-radius:7px}
+.cell-dev .ico-tile svg.i{width:14px;height:14px}
+
+.filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.input{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink3);min-width:220px;flex:0 1 300px}
+.input input{border:0;outline:0;background:transparent;color:var(--ink);font:inherit;font-size:13px;width:100%}
+.fchip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px dashed var(--line);border-radius:8px;background:transparent;color:var(--ink2);font-size:12.5px;cursor:pointer}
+.fchip:hover{border-color:var(--ink3);color:var(--ink)}
+.fchip.on{border-style:solid;background:var(--int);color:var(--ink)}
+.fchip b{font-weight:600;color:var(--ink)}
+.filters .count{margin-left:auto;font-size:12px;color:var(--ink3)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;padding:2px;gap:2px;background:var(--bg)}
+.seg button{border:0;background:transparent;color:var(--ink3);font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer}
+.seg button.on{background:var(--int);color:var(--ink)}
+
+.bar{height:6px;border-radius:999px;background:var(--int);overflow:hidden;display:flex}
+.bar span{display:block;height:100%}
+.meter{display:flex;align-items:center;gap:10px}
+.meter .bar{flex:1}
+.meter .v{font-size:12px;color:var(--ink2);width:42px;text-align:right;font-variant-numeric:tabular-nums}
+
+.legend{display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+.legend div{display:flex;align-items:center;gap:8px;color:var(--ink2)}
+.legend b{margin-left:auto;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.donut-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.donut-row .legend{flex:1;min-width:160px}
+
+.dl{display:grid;grid-template-columns:minmax(110px,auto) minmax(0,1fr);gap:9px 16px;font-size:13px;margin:0}
+.dl dt{color:var(--ink3)}
+.dl dd{margin:0;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:20px;overflow-x:auto}
+.tabs button{border:0;background:transparent;color:var(--ink3);font-size:13px;font-weight:500;padding:9px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+
+.empty{padding:28px 16px;text-align:center;color:var(--ink3);font-size:13px}
+.hint{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:var(--r);background:var(--tint);color:var(--ink);font-size:12.5px}
+.hint svg.i{color:var(--accent);margin-top:2px}
+
+/* Dashboard */
+.hello{font-family:var(--f-display);text-transform:var(--display-case);letter-spacing:var(--display-track);font-weight:600;font-size:26px;margin:0}
+.attention{display:flex;flex-direction:column}
+.att{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line-soft);cursor:pointer}
+.att:first-child{border-top:0}
+.att:hover{background:var(--hover)}
+.att .sev i{height:28px}
+.att .go{color:var(--ink3)}
+
+/* Catalogue */
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.app-card{padding:14px;display:flex;flex-direction:column;gap:12px}
+.app-top{display:flex;gap:12px;align-items:center}
+.app-ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:14px;color:#fff;flex:none}
+.app-meta{display:flex;gap:6px;flex-wrap:wrap}
+.app-foot{display:flex;align-items:center;gap:8px;margin-top:auto;font-size:12px;color:var(--ink3)}
+.app-foot .btn{margin-left:auto}
+
+/* Wizard */
+.steps{display:flex;gap:0;margin-bottom:20px;overflow-x:auto}
+.step{display:flex;align-items:center;gap:10px;padding:0 18px 0 0;font-size:13px;color:var(--ink3);white-space:nowrap}
+.step .n{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.step.done .n{background:var(--int);color:var(--ink2);border-color:transparent}
+.step.on{color:var(--ink);font-weight:600}
+.step.on .n{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.step+.step::before{content:"";width:28px;height:1px;background:var(--line);margin-right:8px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.field label{font-size:12.5px;font-weight:500;color:var(--ink)}
+.field .help{font-size:12px;color:var(--ink3)}
+.field input,.field select,.field textarea{height:36px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:13px;padding:0 11px}
+.field textarea{height:76px;padding:9px 11px;resize:vertical}
+.drop{border:1.5px dashed var(--line);border-radius:var(--r-lg);padding:28px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;color:var(--ink3);font-size:13px}
+.drop .ico-tile{width:40px;height:40px;border-radius:12px;color:var(--accent);background:var(--tint)}
+.drop b{color:var(--ink)}
+.radio-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px}
+@media (max-width:760px){.radio-cards{grid-template-columns:minmax(0,1fr)}}
+.rc{border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:4px;cursor:pointer;background:var(--bg)}
+.rc.on{border-color:var(--accent);background:var(--tint)}
+.rc b{font-size:13px}.rc span{font-size:12px;color:var(--ink3)}
+.form-foot{display:flex;gap:8px;justify-content:flex-end;padding:14px 16px;border-top:1px solid var(--line)}
+
+/* Vanitas spécifiques */
+.term{font-family:var(--f-mono);font-size:12px;line-height:1.7;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;color:var(--ink2);overflow-x:auto;white-space:pre}
+.term .p{color:var(--accent)}.term .o{color:var(--ink)}.term .e{color:var(--crit)}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px}
+@media (max-width:1100px){.split{grid-template-columns:minmax(0,1fr)}}
+.timeline{list-style:none;margin:0;padding:0 0 0 4px;position:relative}
+.timeline li{position:relative;padding:0 0 14px 22px;font-size:12.5px;color:var(--ink2)}
+.timeline li::before{content:"";position:absolute;left:3px;top:6px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.timeline li::after{content:"";position:absolute;left:6px;top:15px;bottom:-2px;width:1px;background:var(--line)}
+.timeline li:last-child::after{display:none}
+.timeline b{color:var(--ink);font-weight:500}
+.timeline .mono{color:var(--ink3);margin-right:6px}
+.radar{width:100%;max-width:220px;aspect-ratio:1}
+.token{display:flex;align-items:center;gap:10px;font-family:var(--f-mono);font-size:15px;letter-spacing:.06em;padding:14px 16px;border:1px dashed var(--accent);border-radius:var(--r);background:var(--tint);color:var(--ink);overflow-x:auto}
+.token .btn{margin-left:auto;font-family:var(--f-sans);letter-spacing:0}
+.matrix td,.matrix th{text-align:center}
+.matrix td:first-child,.matrix th:first-child{text-align:left}
+.tog{display:inline-block;width:30px;height:18px;border-radius:999px;background:var(--int);position:relative;vertical-align:middle;border:0;cursor:pointer}
+.tog::after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:var(--ink3);transition:left .15s}
+.tog.on{background:var(--accent)}
+.tog.on::after{left:14px;background:var(--on-accent)}
+.doc{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px}
+@media (max-width:900px){.doc{grid-template-columns:minmax(0,1fr)}}
+.doc-toc{display:flex;flex-direction:column;gap:2px;font-size:12.5px;position:sticky;top:0}
+.doc-toc a{color:var(--ink3);text-decoration:none;padding:5px 10px;border-radius:6px}
+.doc-toc a.on{color:var(--ink);background:var(--int)}
+.prose{max-width:70ch;color:var(--ink2);font-size:14px;line-height:1.7}
+.prose h2{font-size:16px;color:var(--ink);margin:24px 0 8px;font-weight:600}
+.prose h2:first-child{margin-top:0}
+.prose code{font-family:var(--f-mono);font-size:12px;background:var(--int);padding:1px 5px;border-radius:4px;color:var(--ink)}
+
+/* Sheet (drawer) & palette */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);border-left:1px solid var(--line);z-index:41;transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column;box-shadow:var(--shadow);padding-right:env(safe-area-inset-right,0px)}
+.sheet.on{transform:none}
+.sheet-h{display:flex;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.sheet-h h3{margin:0;font-size:16px;font-weight:600}
+.sheet-b{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:18px}
+.sheet-b h4{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.palette{position:fixed;left:50%;top:12vh;transform:translateX(-50%) scale(.98);width:min(600px,calc(100% - 32px));background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);z-index:42;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;overflow:hidden}
+.palette.on{opacity:1;pointer-events:auto;transform:translateX(-50%)}
+.palette-in{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);color:var(--ink3)}
+.palette-in input{flex:1;border:0;outline:0;background:transparent;color:var(--ink);font:inherit;font-size:15px}
+.palette-list{max-height:52vh;overflow-y:auto;padding:6px}
+.palette-grp{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:10px 10px 4px;font-weight:600}
+.pal-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--ink2);font-size:13px;text-align:left}
+.pal-item:hover,.pal-item.sel{background:var(--hover);color:var(--ink)}
+.pal-item .li-r{margin-left:auto}
+
+/* Login */
+.login{position:fixed;inset:0;z-index:60;display:none;grid-template-columns:minmax(0,1fr) minmax(0,1fr);background:var(--pd-bg);color:var(--pd-ink)}
+.login.on{display:grid}
+.login-art{position:relative;overflow:hidden;background:radial-gradient(120% 120% at 20% 0%,var(--pd-int),var(--pd-bg) 60%);display:flex;flex-direction:column;justify-content:space-between;padding:40px}
+.login-art::after{content:"";position:absolute;inset:auto -10% -30% 20%;height:70%;background:radial-gradient(50% 50% at 50% 50%,var(--pd-tint),transparent 70%);pointer-events:none}
+.login-form{display:flex;align-items:center;justify-content:center;padding:32px max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
+.login-box{width:min(360px,100%)}
+@media (max-width:820px){.login{grid-template-columns:minmax(0,1fr)}.login-art{display:none}}
+
+/* Mobile */
+.only-m{display:none}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail,.col{position:fixed;top:0;bottom:0;z-index:45;transition:transform .25s ease}
+  .rail{left:0;width:56px;transform:translateX(-310px);padding-top:max(10px,env(safe-area-inset-top,0px));padding-left:env(safe-area-inset-left,0px);box-sizing:content-box}
+  .col{left:calc(56px + env(safe-area-inset-left,0px));width:248px;transform:translateX(-310px)}
+  .app.nav-open .rail,.app.nav-open .col{transform:none}
+  .app.collapsed .col{visibility:visible}
+  .main{grid-column:1}
+  .search-btn{min-width:0}
+  .search-btn .lbl,.search-btn .kbd,.hide-m{display:none}
+  .only-m{display:grid}
+  .top{padding-left:max(12px,env(safe-area-inset-left,0px))}
+  .tip:hover::after{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app" id="app" data-world="pandore">
+  <aside class="rail" aria-label="Mondes">
+    <button class="logo-btn tip" data-tip="Pandore" id="logoBtn" aria-label="Pandore"></button>
+    <div id="worlds" style="display:flex;flex-direction:column;gap:6px;align-items:center"></div>
+    <div class="rail-sep"></div>
+    <button class="rail-btn tip" data-tip="Rechercher  Ctrl K" id="railSearch" aria-label="Rechercher"></button>
+    <div class="rail-spacer"></div>
+    <button class="rail-btn tip" data-tip="Paramètres" id="setBtn" aria-label="Paramètres"></button>
+    <button class="rail-btn tip" data-tip="Se déconnecter" id="logoutBtn" aria-label="Se déconnecter"></button>
+    <button class="avatar tip" data-tip="Nicolas · admin" id="avatarBtn" aria-label="Compte">NB</button>
+  </aside>
+  <nav class="col" aria-label="Navigation">
+    <div class="col-head"><span class="col-title" id="colTitle"></span><span class="col-sub" id="colSub"></span></div>
+    <div class="nav" id="nav"></div>
+    <div class="col-foot" id="colFoot"></div>
+  </nav>
+  <div class="main">
+    <header class="top">
+      <button class="icon-btn only-m" id="menuBtn" aria-label="Ouvrir la navigation"></button>
+      <button class="icon-btn hide-m" id="collapseBtn" aria-label="Replier la navigation"></button>
+      <span class="vsep hide-m"></span>
+      <div class="crumbs" id="crumbs"></div>
+      <div class="top-right">
+        <span class="chip-sample hide-m">Maquette · données d'exemple</span>
+        <button class="search-btn" id="searchBtn"><span id="sIco"></span><span class="lbl">Poste, CVE, application…</span><span class="kbd">Ctrl K</span></button>
+        <button class="icon-btn hide-m" id="bellBtn" aria-label="Notifications"></button>
+      </div>
+    </header>
+    <div class="scroll" id="scroll"><div class="page" id="page"></div></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="sheet" id="sheet" aria-label="Détail"></aside>
+<div class="palette" id="palette" role="dialog" aria-label="Recherche globale">
+  <div class="palette-in"><span id="pIco"></span><input id="pInput" placeholder="Rechercher une page, un poste, une CVE…" autocomplete="off"><span class="kbd">Échap</span></div>
+  <div class="palette-list" id="pList"></div>
+</div>
+
+<div class="login" id="login" data-world="pandore">
+  <div class="login-art">
+    <div style="display:flex;align-items:center;gap:12px;position:relative;z-index:1"><span id="loginLogo"></span><span style="font-family:var(--f-pd);font-weight:600;font-size:20px;color:var(--pd-accent)">Pandore</span></div>
+    <div style="position:relative;z-index:1">
+      <p style="font-family:var(--f-pd);font-size:34px;line-height:1.15;font-weight:600;margin:0;max-width:16ch;letter-spacing:-.01em">La supervision du parc, en un seul écran.</p>
+      <p style="color:var(--pd-ink2);margin:12px 0 0;max-width:44ch">Intune, Defender for Endpoint et les agents Vanitas, réunis pour la DSI.</p>
+    </div>
+    <div style="font-size:12px;color:var(--pd-ink3);position:relative;z-index:1">Usage interne · DSI</div>
+  </div>
+  <div class="login-form">
+    <form class="login-box" id="loginForm">
+      <h2 style="font-family:var(--f-pd);font-weight:600;font-size:22px;margin:0 0 4px">Connexion</h2>
+      <p style="color:var(--pd-ink3);margin:0 0 24px;font-size:13px">Identifiez-vous avec votre compte Pandore.</p>
+      <div class="field"><label for="lg-u">Identifiant</label><input id="lg-u" value="nicolas" autocomplete="off"></div>
+      <div class="field"><label for="lg-p">Mot de passe</label><input id="lg-p" type="password" value="exemple-maquette" autocomplete="off"></div>
+      <button class="btn primary" style="width:100%;justify-content:center;height:38px;margin-top:6px">Se connecter</button>
+      <p style="color:var(--pd-ink3);font-size:12px;margin:16px 0 0">10 tentatives échouées en 5 minutes verrouillent l'accès 5 minutes.</p>
+      <button type="button" class="btn ghost sm" id="loginClose" style="margin-top:20px">← Revenir à la maquette</button>
+    </form>
+  </div>
+</div>
+
+<script>
+/* ===================== Icônes (outline 1.5px, grille 24, charte §9) ===================== */
+const P={
+ grid:'<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+ laptop:'<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2.5 19h19"/>',
+ search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+ shield:'<path d="M12 3c2.8 1.6 5.2 2.2 8 2.2 0 7.3-2.6 12.4-8 14.8C6.6 17.6 4 12.5 4 5.2 6.8 5.2 9.2 4.6 12 3Z"/>',
+ shieldc:'<path d="M12 3c2.8 1.6 5.2 2.2 8 2.2 0 7.3-2.6 12.4-8 14.8C6.6 17.6 4 12.5 4 5.2 6.8 5.2 9.2 4.6 12 3Z"/><path d="m9 11.5 2 2 4-4"/>',
+ gauge:'<path d="M4.5 17a8 8 0 1 1 15 0"/><path d="m12 13 3.5-3.5"/>',
+ alert:'<path d="M12 4 21 19.5H3Z"/><path d="M12 10v4M12 17h.01"/>',
+ bookmark:'<path d="M7 4h10v16l-5-3.5L7 20Z"/>',
+ package:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
+ library:'<path d="M5 4v16M9 4v16"/><path d="m13 5 3.5-1 3.5 15.5-3.5 1Z"/>',
+ upload:'<path d="M12 15V4m-4 4 4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+ download:'<path d="M12 4v11m-4-4 4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/>',
+ radar:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18 6"/>',
+ reticle:'<circle cx="12" cy="12" r="7"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/><circle cx="12" cy="12" r="1.2"/>',
+ layers:'<path d="m12 4 9 4.5-9 4.5-9-4.5Z"/><path d="m3 13 9 4.5 9-4.5"/>',
+ send:'<path d="M21 3 10 14"/><path d="M21 3 14.5 21 10 14 3 9.5Z"/>',
+ refresh:'<path d="M20 12a8 8 0 1 1-2.3-5.6L20 8.5"/><path d="M20 4v4.5h-4.5"/>',
+ terminal:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="m7 9.5 3 2.5-3 2.5M12.5 15h4"/>',
+ key:'<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5"/>',
+ book:'<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5Z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19"/>',
+ clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+ bell:'<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15Z"/><path d="M10 20.5h4"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
+ moon:'<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10Z"/>',
+ sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+ panel:'<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15"/>',
+ menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
+ chev:'<path d="m9.5 6 6 6-6 6"/>',
+ filter:'<path d="M4 5h16l-6 7.5V19l-4-2v-4.5Z"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ x:'<path d="M6 6l12 12M18 6 6 18"/>',
+ copy:'<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>',
+ arrow:'<path d="M7 17 17 7M8.5 7H17v8.5"/>',
+ users:'<circle cx="9" cy="8.5" r="3.5"/><path d="M3 19.5a6 6 0 0 1 12 0"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M17.5 14.2a6 6 0 0 1 3.5 5.3"/>',
+ pulse:'<path d="M3 12h4l2.5-6 5 12 2.5-6h4"/>',
+ check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+ usb:'<path d="M12 3v14"/><circle cx="12" cy="19" r="2"/><path d="M12 13 8 10V7.5M12 11l4-2.5V6"/>',
+ globe:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17"/>',
+ cpu:'<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/><path d="M9.5 3v3.5M14.5 3v3.5M9.5 17.5V21M14.5 17.5V21M3 9.5h3.5M3 14.5h3.5M17.5 9.5H21M17.5 14.5H21"/>',
+ log:'<path d="M6 3.5h8.5L18 7v13.5H6Z"/><path d="M9 11h6M9 14.5h6M9 18h3.5"/>',
+ more:'<circle cx="5.5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="18.5" cy="12" r="1"/>',
+ user:'<circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5a7 7 0 0 1 14 0"/>',
+ power:'<path d="M12 3.5V12"/><path d="M7 6.5a7 7 0 1 0 10 0"/>',
+};
+const I=(n,s)=>`<svg class="i" viewBox="0 0 24 24" ${s?`style="width:${s}px;height:${s}px"`:''} aria-hidden="true">${P[n]||''}</svg>`;
+const PD_LOGO=(s=22)=>`<svg viewBox="0 0 60 62" width="${s}" height="${s}" aria-hidden="true"><defs><linearGradient id="lg${s}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6B27E"/><stop offset="1" stop-color="#EE9A5C"/></linearGradient></defs><path d="M30 0C42 6 52 8 60 8c0 26-8 44-30 54C8 52 0 34 0 8c8 0 18-2 30-8Z" fill="url(#lg${s})"/><circle cx="30" cy="28" r="7" fill="#0A0E1A"/><path d="M26.5 32h7L31 44h-2Z" fill="#0A0E1A"/></svg>`;
+const VN_LOGO=(s=22)=>`<svg viewBox="20 20 80 80" width="${s}" height="${s}" aria-hidden="true"><circle cx="60" cy="60" r="34" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="2"/><circle cx="60" cy="60" r="20" fill="none" stroke="#39E6D2" stroke-width="5"/><g stroke="#39E6D2" stroke-width="5" stroke-linecap="round"><path d="M60 28v12M60 80v12M28 60h12M80 60h12"/></g><circle cx="60" cy="60" r="4" fill="#39E6D2"/><circle cx="79" cy="41" r="5" fill="#D14FE0"/></svg>`;
+
+/* ===================== Helpers de rendu ===================== */
+const esc=s=>String(s);
+const TONE={ok:'var(--ok)',warn:'var(--warn)',crit:'var(--crit)',info:'var(--info)',mute:'var(--ink3)'};
+const pill=(t,txt)=>`<span class="pill ${t}"><span class="dot ${t}"></span>${txt}</span>`;
+const SEV={Critique:'crit','Élevée':'crit',Élevé:'crit',Moyenne:'warn',Moyen:'warn',Faible:'ok',Info:'info'};
+const sev=l=>`<span class="sev"><i style="background:${l==='Critique'?'var(--crit)':TONE[SEV[l]]||'var(--ink3)'};${l==='Critique'?'box-shadow:0 0 0 2px var(--crit-t)':''}"></i>${l}</span>`;
+const tag=t=>`<span class="tag">${t}</span>`;
+const ph=(eyebrow,title,lede,actions='')=>`<div class="ph"><div class="ph-text">${eyebrow?`<div class="eyebrow">${eyebrow}</div>`:''}<h1>${title}</h1>${lede?`<p class="lede">${lede}</p>`:''}</div><div class="ph-actions">${actions}</div></div>`;
+const card=(title,body,{count,link,pad=true,extra=''}={})=>`<section class="card">${title?`<div class="card-h"><h2>${title}</h2>${count!=null?`<span class="badge">${count}</span>`:''}${extra}${link?`<button class="link" data-go="${link[1]}">${link[0]} ${I('chev',13)}</button>`:''}</div>`:''}${pad?`<div class="card-b">${body}</div>`:`<div style="margin-top:${title?10:0}px">${body}</div>`}</section>`;
+function spark(vals,color='var(--accent)',w=84,h=26){const mn=Math.min(...vals),mx=Math.max(...vals),r=mx-mn||1;const pts=vals.map((v,i)=>[i*(w/(vals.length-1)),h-3-((v-mn)/r)*(h-6)]);const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');const l=pts[pts.length-1];return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d} L${w} ${h} L0 ${h}Z" fill="${color}" opacity=".12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="${l[0]}" cy="${l[1]}" r="2.4" fill="${color}"/></svg>`}
+function kpi(l,v,{unit='',delta,dir,note,sp,icon,color}={}){return `<div class="card kpi"><div class="kpi-l">${icon?I(icon,14):''}${l}</div><div class="kpi-v">${v}${unit?`<small>${unit}</small>`:''}</div><div class="kpi-f">${delta?`<span class="delta ${dir}">${delta}</span>`:''}${note?`<span>${note}</span>`:''}${sp?spark(sp,color):''}</div></div>`}
+function donut(segs,size=132,stroke=14,center=''){const R=(size-stroke)/2,C=2*Math.PI*R,tot=segs.reduce((a,s)=>a+s.v,0);let off=0;const arcs=segs.map(s=>{const len=s.v/tot*C;const a=`<circle cx="${size/2}" cy="${size/2}" r="${R}" fill="none" stroke="${s.c}" stroke-width="${stroke}" stroke-dasharray="${Math.max(len-2,0)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 ${size/2} ${size/2})"/>`;off+=len;return a}).join('');return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex:none" role="img" aria-label="Répartition"><circle cx="${size/2}" cy="${size/2}" r="${R}" fill="none" stroke="var(--int)" stroke-width="${stroke}"/>${arcs}${center}</svg>`}
+const legend=segs=>`<div class="legend">${segs.map(s=>`<div><span class="dot" style="background:${s.c}"></span>${s.l}<b>${s.v}</b></div>`).join('')}</div>`;
+const meter=(pct,c='var(--accent)',label)=>`<div class="meter"><div class="bar"><span style="width:${pct}%;background:${c}"></span></div><span class="v">${label??pct+' %'}</span></div>`;
+function table(cols,rows,{click}={}){return `<div class="tbl-wrap"><table><thead><tr>${cols.map(c=>`<th class="${c.r?'r':''}">${c.l??c}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr ${click?`class="click" data-open="${click}" data-i="${i}"`:''}>${r.map((v,j)=>`<td class="${cols[j].r?'r ':''}${j===0?'strong':''}">${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
+const dev=(n,s,ic='laptop')=>`<div class="cell-dev"><span class="ico-tile">${I(ic)}</span><div><div style="color:var(--ink);font-weight:500">${n}</div>${s?`<div class="li-s">${s}</div>`:''}</div></div>`;
+function lineChart(series,{h=160,labels=[],min,max,fmt=v=>v}={}){const W=600,all=series.flatMap(s=>s.v);const mn=min??Math.min(...all),mx=max??Math.max(...all),r=mx-mn||1;const n=series[0].v.length;const x=i=>i*(W/(n-1)),y=v=>h-8-((v-mn)/r)*(h-24);const grid=[0,.5,1].map(t=>{const v=mn+t*r;return `<line x1="0" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line-soft)" stroke-width="1" vector-effect="non-scaling-stroke"/>`}).join('');const paths=series.map(s=>{const d=s.v.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');return `${s.fill?`<path d="${d} L${W} ${h} L0 ${h}Z" fill="${s.c}" opacity=".10"/>`:''}<path d="${d}" fill="none" stroke="${s.c}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" ${s.dash?'stroke-dasharray="4 4"':''}/>`}).join('');const ticks=[0,.5,1].map(t=>`<span style="position:absolute;right:0;top:${y(mn+t*r)/h*100}%;transform:translateY(-120%);font-size:10.5px;color:var(--ink3)">${fmt(Math.round(mn+t*r))}</span>`).join('');return `<div style="position:relative"><svg viewBox="0 0 ${W} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block" aria-hidden="true">${grid}${paths}</svg>${ticks}<div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink3);margin-top:6px">${labels.map(l=>`<span>${l}</span>`).join('')}</div></div>`}
+
+/* ===================== Données d'exemple (fictives) ===================== */
+const DEVICES=[
+ ['PC-FIN-0142','m.lefevre','Windows 11 23H2','crit','Élevée','il y a 12 min','Finance'],
+ ['PC-RH-0087','a.martin','Windows 11 23H2','ok','Faible','il y a 25 min','RH'],
+ ['LT-DSI-0021','n.bertrand','Windows 11 24H2','ok','Faible','il y a 3 min','DSI'],
+ ['PC-COMPTA-014','s.durand','Windows 10 22H2','warn','Moyenne','il y a 2 h','Finance'],
+ ['LT-COM-0310','j.moreau','Windows 11 23H2','crit','Élevée','il y a 1 j','Commerce'],
+ ['MAC-MKT-0009','c.petit','macOS 14.6','ok','Faible','il y a 40 min','Marketing'],
+ ['LT-COM-0288','l.roux','Windows 11 24H2','ok','Moyenne','il y a 8 min','Commerce'],
+ ['PC-LOG-0055','t.garnier','Windows 10 22H2','warn','Moyenne','il y a 5 h','Logistique'],
+ ['LT-DIR-0004','e.fournier','Windows 11 24H2','ok','Faible','il y a 1 h','Direction'],
+ ['PC-ACC-0003','accueil','Windows 11 23H2','crit','Élevée','il y a 3 j','Services généraux'],
+];
+const COMP={ok:['ok','Conforme'],warn:['warn','Période de grâce'],crit:['crit','Non conforme']};
+const APPS=[
+ ['7-Zip','Igor Pavlov','24.08','#3B6E8F',386,'Win32'],['Google Chrome','Google LLC','130.0.6723','#2F7D5B',402,'Win32'],
+ ['Microsoft Teams','Microsoft','24295.605','#5059C9',411,'Store'],['Notepad++','Don Ho','8.7.1','#6A9F3A',58,'Win32'],
+ ['Adobe Acrobat Reader','Adobe','24.004','#B23A3A',377,'Win32'],['FortiClient VPN','Fortinet','7.4.1','#C0632B',214,'Win32'],
+ ['Sage 100 Comptabilité','Sage','v11','#2E8B57',23,'Win32'],['Zoom Workplace','Zoom','6.2.5','#2D6FD8',96,'Win32'],
+];
+const CVES=[
+ ['CVE-2024-38063','Windows TCP/IP — exécution de code à distance (IPv6)','9.8','Critique','Oui',57,'13/08/2024'],
+ ['CVE-2024-43491','Windows Update — régression de correctifs (Servicing Stack)','9.8','Critique','Non',12,'10/09/2024'],
+ ['CVE-2024-7971','Chrome V8 — confusion de type','8.8','Élevée','Oui',34,'21/08/2024'],
+ ['CVE-2024-38193','AFD for WinSock — élévation de privilèges','7.8','Élevée','Oui',57,'13/08/2024'],
+ ['CVE-2024-6387','OpenSSH « regreSSHion »','8.1','Élevée','Non',3,'01/07/2024'],
+ ['CVE-2024-30088','Noyau Windows — élévation de privilèges','7.0','Élevée','Oui',21,'11/06/2024'],
+ ['CVE-2024-38200','Office — divulgation d\'information NTLM','6.5','Moyenne','Non',44,'13/08/2024'],
+];
+const ALERTS=[
+ ['Élevée','Exécution PowerShell suspecte encodée en Base64','PC-FIN-0142','Execution','il y a 18 min','Nouvelle'],
+ ['Élevée','Tentative de vol d\'identifiants (accès à LSASS)','LT-COM-0310','CredentialAccess','il y a 1 h','En cours'],
+ ['Moyenne','Fichier téléchargé détecté comme logiciel potentiellement indésirable','PC-RH-0087','Malware','il y a 3 h','Nouvelle'],
+ ['Moyenne','Connexion vers un domaine récemment enregistré','PC-COMPTA-014','CommandAndControl','il y a 6 h','En cours'],
+ ['Faible','Règle ASR déclenchée : macro Office lançant un processus enfant','LT-DIR-0004','Execution','il y a 1 j','Résolue'],
+ ['Info','Analyse antivirus planifiée en échec','PC-ACC-0003','Autre','il y a 2 j','Nouvelle'],
+];
+const AGENTS=[
+ ['PC-FIN-0142','Finance','2.4.1','online','il y a 8 s','Windows 11 23H2',3],
+ ['PC-COMPTA-014','Finance','2.4.1','online','il y a 21 s','Windows 10 22H2',1],
+ ['LT-DSI-0021','DSI','2.4.1','online','il y a 3 s','Windows 11 24H2',0],
+ ['PC-LOG-0055','Logistique','2.3.0','offline','il y a 4 h','Windows 10 22H2',2],
+ ['PC-ACC-0003','Services généraux','2.4.1','online','il y a 30 s','Windows 11 23H2',0],
+ ['PC-RH-0087','RH','2.4.1','online','il y a 12 s','Windows 11 23H2',0],
+ ['LT-COM-0310','Commerce','2.2.4','stale','il y a 2 j','Windows 11 23H2',1],
+];
+const SUSP=[
+ {t:'Processus enfant suspect : winword.exe → powershell.exe -enc',k:'Processus',ic:'cpu',dev:'PC-FIN-0142',sev:'Élevée',when:'21:42',st:'Nouveau'},
+ {t:'Connexion sortante vers 185.220.101.4:9001 (nœud Tor connu)',k:'Réseau',ic:'globe',dev:'PC-FIN-0142',sev:'Élevée',when:'21:43',st:'Nouveau'},
+ {t:'Support USB de stockage inconnu monté (VID 0951)',k:'USB',ic:'usb',dev:'PC-COMPTA-014',sev:'Moyenne',when:'19:05',st:'Accusé réception'},
+ {t:'Échecs d\'ouverture de session répétés (4625 × 23)',k:'Journal d\'événements',ic:'log',dev:'PC-ACC-0003',sev:'Moyenne',when:'16:20',st:'Nouveau'},
+ {t:'Service installé depuis %TEMP% (7045)',k:'Journal d\'événements',ic:'log',dev:'PC-LOG-0055',sev:'Élevée',when:'Hier 23:11',st:'Escaladé'},
+ {t:'rundll32.exe sans argument avec connexion réseau',k:'Processus',ic:'cpu',dev:'LT-DSI-0021',sev:'Faible',when:'Hier 10:02',st:'Faux positif'},
+];
+
+/* ===================== Navigation ===================== */
+const WORLDS={
+ pandore:{label:'Pandore',sub:'Intune · Defender',logo:()=>PD_LOGO(20),nav:[
+  {k:'overview',l:'Dashboard',i:'grid'},
+  {g:'Appareils',items:[{k:'device-inventory',l:'Inventaire',i:'laptop'},{k:'device-overview',l:'Fiche appareil',i:'search'}]},
+  {g:'Sécurité',items:[{k:'intune',l:'Conformité',i:'shieldc'},{k:'secure-score',l:'Secure Score',i:'gauge'},{k:'widgets-test',l:'Alertes',i:'bell'}]},
+  {g:'Vulnérabilités',items:[{k:'vulnerabilities',l:'Vulnérabilités',i:'alert'},{k:'cve-watch',l:'Suivi CVE',i:'bookmark'}]},
+  {g:'Applications',items:[{k:'app-catalog',l:'Catalogue',i:'library'},{k:'app-deployed',l:'Applications déployées',i:'package'},{k:'app-add',l:'Ajouter une application',i:'upload'},{k:'app-edit',l:'Modifier une application',i:'edit'}]},
+ ]},
+ vanitas:{label:'Vanitas',sub:'Rien n\'échappe.',logo:()=>VN_LOGO(20),nav:[
+  {k:'vanitas-overview',l:'Vue d\'ensemble',i:'grid'},
+  {k:'vanitas-app-catalog',l:'Catalogue d\'application',i:'library'},
+  {g:'Sécurité',items:[{k:'vanitas-suspicious-activity',l:'Activités suspectes',i:'radar'},{k:'vanitas-compliance',l:'Conformité',i:'shieldc'},{k:'vanitas-vulnerabilities',l:'Vulnérabilités',i:'alert'},{k:'vanitas-eol',l:'Logiciels obsolètes',i:'clock'}]},
+  {g:'Inventaire',items:[{k:'vanitas-devices',l:'Postes',i:'laptop'},{k:'vanitas-groups',l:'Groupes',i:'layers'},{k:'vanitas-deployed-apps',l:'Applications déployées',i:'send'},{k:'vanitas-patch',l:'Mises à jour',i:'refresh'}]},
+  {g:'Administration',items:[{k:'vanitas-commands',l:'Journal',i:'terminal'},{k:'vanitas-enroll',l:'Ajouter un poste',i:'download'},{k:'vanitas-installers',l:'Applications',i:'upload'},{k:'vanitas-profiles',l:'Profils',i:'key'}]},
+  {g:'Aide',items:[{k:'vanitas-docs',l:'Documentation',i:'book'}]},
+ ]},
+ settings:{label:'Paramètres',sub:'',logo:()=>I('gear',18),rail:false,nav:[
+  {g:'Compte',items:[{k:'set-me',l:'Mon compte',i:'user'},{k:'set-users',l:'Utilisateurs',i:'users'}]},
+  {g:'Système',items:[{k:'set-connectors',l:'Connecteurs',i:'globe'},{k:'set-login',l:'Écran de connexion',i:'power'}]},
+ ]},
+};
+const flat=w=>WORLDS[w].nav.flatMap(e=>e.g?e.items.map(x=>({...x,g:e.g})):[e]);
+const ALL=Object.keys(WORLDS).flatMap(w=>flat(w).map(x=>({...x,w})));
+const find=k=>ALL.find(x=>x.k===k);
+
+/* ===================== Pages ===================== */
+const PAGES={};
+PAGES['overview']=()=>{
+ const segs=[{l:'Conformes',v:368,c:'var(--ok)'},{l:'Période de grâce',v:15,c:'var(--warn)'},{l:'Non conformes',v:29,c:'var(--crit)'}];
+ return `<div class="ph"><div class="ph-text"><div class="eyebrow">Mardi 21 octobre · synchronisé il y a 4 min</div><p class="hello">Bonsoir, Nicolas</p><p class="lede">Trois points demandent ton attention ce soir. Le parc est à 89,3 % de conformité, en hausse de 1,8 point sur 30 jours.</p></div><div class="ph-actions"><button class="btn">${I('download',14)}Exporter</button><button class="btn primary">${I('refresh',14)}Actualiser</button></div></div>
+ <div class="grid g-4">
+  ${kpi('Postes gérés','412',{icon:'laptop',delta:'+6',dir:'up',note:'cette semaine',sp:[398,400,401,403,404,406,409,412]})}
+  ${kpi('Conformité','89,3',{unit:'%',icon:'shieldc',delta:'+1,8 pt',dir:'up',note:'30 j',sp:[86.1,86.8,87.2,87,88.1,88.6,89,89.3],color:'var(--ok)'})}
+  ${kpi('Secure Score','62,4',{unit:'%',icon:'gauge',delta:'+3,1 pt',dir:'up',note:'30 j',sp:[57.2,58,58.1,59.5,60.2,61,61.9,62.4]})}
+  ${kpi('Alertes actives','7',{icon:'bell',delta:'2 élevées',dir:'down',note:'Defender',sp:[3,5,4,6,9,8,6,7],color:'var(--crit)'})}
+ </div>
+ <div class="grid g-main mt">
+  <div class="stack">
+   ${card('À traiter',`<div class="attention">
+    <div class="att" data-go="widgets-test">${sev('Élevée')}<div class="li-main"><div class="li-t">PowerShell encodé sur PC-FIN-0142, corrélé à une activité Vanitas</div><div class="li-s">Defender · Execution · il y a 18 min</div></div><span class="go">${I('chev')}</span></div>
+    <div class="att" data-go="vulnerabilities">${sev('Critique')}<div class="li-main"><div class="li-t">CVE-2024-38063 exploitée activement, 57 postes exposés</div><div class="li-s">Correctif KB5041585 disponible · CERT-FR</div></div><span class="go">${I('chev')}</span></div>
+    <div class="att" data-go="intune">${sev('Moyenne')}<div class="li-main"><div class="li-t">15 postes sortent de la période de grâce dans les 48 h</div><div class="li-s">Politique « Windows — BitLocker obligatoire »</div></div><span class="go">${I('chev')}</span></div>
+   </div>`,{count:3,pad:false})}
+   ${card('Conformité du parc',lineChart([{v:[86.1,86.4,86.8,87.2,87,87.4,88.1,88.3,88.6,88.4,89,89.3],c:'var(--ok)',fill:1},{v:[85,85,85,85,85,85,85,85,85,85,85,85],c:'var(--ink3)',dash:1}],{labels:['22 sept.','29 sept.','6 oct.','13 oct.','21 oct.'],min:84,max:90,fmt:v=>v+' %'})+`<div class="card-note" style="margin-top:10px">Pointillés : objectif DSI de 85 %.</div>`,{extra:`<div class="seg" style="margin-left:auto"><button>7 j</button><button class="on">30 j</button><button>90 j</button></div>`})}
+   <div class="grid g-2">
+    ${card('Postes les plus exposés',`<ul class="list">${DEVICES.filter(d=>d[4]==='Élevée').map(d=>`<li class="click" data-open="device" data-n="${d[0]}"><span class="ico-tile">${I('laptop',14)}</span><div class="li-main"><div class="li-t">${d[0]}</div><div class="li-s">${d[1]} · ${d[2]}</div></div>${sev('Élevée')}</li>`).join('')}</ul>`,{pad:false,link:['Inventaire','device-inventory']})}
+    ${card('Nouveaux postes (7 j)',`<ul class="list">${[['LT-COM-0331','j.blanc','Autopilot · il y a 1 j'],['LT-COM-0332','m.chevalier','Autopilot · il y a 2 j'],['PC-LOG-0061','r.henry','Manuel · il y a 4 j']].map(d=>`<li><span class="ico-tile">${I('laptop',14)}</span><div class="li-main"><div class="li-t">${d[0]}</div><div class="li-s">${d[1]} · ${d[2]}</div></div>${pill('ok','Conforme')}</li>`).join('')}</ul>`,{pad:false,count:6})}
+   </div>
+  </div>
+  <div class="stack">
+   ${card('Conformité Intune',`<div class="donut-row">${donut(segs,128,14,`<text x="64" y="62" text-anchor="middle" font-size="22" font-weight="600" fill="var(--ink)" font-family="Inter">89%</text><text x="64" y="80" text-anchor="middle" font-size="10.5" fill="var(--ink3)" font-family="Inter">412 postes</text>`)}${legend(segs)}</div>`,{link:['Détail','intune']})}
+   ${card('Exposition Defender',`<div class="bar" style="height:10px"><span style="width:71%;background:var(--ok)"></span><span style="width:21%;background:var(--warn)"></span><span style="width:8%;background:var(--crit)"></span></div>${legend([{l:'Faible',v:293,c:'var(--ok)'},{l:'Moyenne',v:86,c:'var(--warn)'},{l:'Élevée',v:33,c:'var(--crit)'}]).replace('class="legend"','class="legend" style="margin-top:14px"')}`)}
+   ${card('Systèmes d\'exploitation',[['Windows 11 24H2',41],['Windows 11 23H2',38],['Windows 10 22H2',14],['macOS 14',5],['iOS / Android',2]].map(o=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px"><span>${o[0]}</span><span class="num" style="color:var(--ink3)">${o[1]} %</span></div><div class="bar"><span style="width:${o[1]}%;background:${o[0].includes('10 ')?'var(--warn)':'var(--accent)'}"></span></div></div>`).join('')+`<div class="card-note">Windows 10 : fin de support le 14/10/2025.</div>`)}
+   ${card('Top recommandations',`<ul class="list">${[['Activer la protection contre les falsifications','+9,0 pts'],['Bloquer les macros Office venant d\'Internet','+7,5 pts'],['Désactiver SMBv1','+5,0 pts']].map(r=>`<li><span class="ico-tile">${I('shield',14)}</span><div class="li-main"><div class="li-t">${r[0]}</div></div><span class="li-r" style="color:var(--ok);font-weight:600">${r[1]}</span></li>`).join('')}</ul>`,{pad:false,link:['Secure Score','secure-score']})}
+  </div>
+ </div>`;
+};
+PAGES['device-inventory']=()=>`${ph('Appareils','Inventaire','Tous les postes gérés par Intune, croisés avec Defender et Vanitas.',`<button class="btn">${I('download',14)}Exporter Excel</button>`)}
+ ${card('',`<div class="filters"><label class="input">${I('search',14)}<input id="inv-q" placeholder="Nom, utilisateur, numéro de série…"></label><button class="fchip on">${I('filter',13)}OS <b>Windows</b></button><button class="fchip">Conformité</button><button class="fchip">Exposition</button><button class="fchip">Service</button><button class="fchip">${I('plus',13)}Filtre</button><span class="count">10 sur 412</span></div>`+
+ table(['Appareil','Service','Système','Conformité','Exposition',{l:'Dernière synchro',r:1}],DEVICES.map(d=>[dev(d[0],d[1]),d[6],d[2],pill(COMP[d[3]][0],COMP[d[3]][1]),sev(d[4]),d[5]]),{click:'device'}),{pad:false})}`;
+PAGES['device-overview']=()=>{const d=DEVICES[0];return `${ph('Appareils','Fiche appareil','Recherche un poste pour voir Intune, Defender et Vanitas au même endroit.')}
+ <label class="input" style="max-width:520px;flex:none;height:38px;margin-bottom:20px">${I('search',15)}<input id="dov-q" value="${d[0]}"></label>
+ <div class="card" style="padding:18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:16px"><span class="ico-tile" style="width:44px;height:44px;border-radius:12px;color:var(--accent)">${I('laptop',20)}</span><div style="flex:1;min-width:200px"><div style="font-size:17px;font-weight:600">${d[0]}</div><div class="li-s">${d[1]}@example.com · ${d[2]} · Dell Latitude 7440</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">${pill('crit','Non conforme')}${pill('crit','Exposition élevée')}${pill('ok','Agent Vanitas en ligne')}</div><div style="display:flex;gap:8px"><button class="btn">${I('refresh',14)}Synchroniser</button><button class="btn">${I('more',14)}</button></div></div>
+ <div class="tabs"><button class="on">Vue d'ensemble</button><button>Conformité</button><button>Alertes <span class="num">2</span></button><button>Vulnérabilités <span class="num">14</span></button><button>Applications</button><button>Vanitas</button></div>
+ <div class="grid g-3">
+  ${card('Identité',`<dl class="dl"><dt>Utilisateur</dt><dd>Marie Lefèvre</dd><dt>Service</dt><dd>Finance</dd><dt>N° de série</dt><dd class="mono">7HX2KQ3</dd><dt>Inscription</dt><dd>Autopilot · 12/03/2024</dd><dt>Chiffrement</dt><dd>BitLocker ${pill('warn','Suspendu')}</dd><dt>Dernière synchro</dt><dd>il y a 12 min</dd></dl>`)}
+  ${card('Politiques de conformité',`<ul class="list">${[['Windows — BitLocker obligatoire','crit','Non conforme'],['Windows — Defender à jour','ok','Conforme'],['Windows — Version minimale 23H2','ok','Conforme'],['Windows — Pare-feu actif','ok','Conforme']].map(p=>`<li><div class="li-main"><div class="li-t">${p[0]}</div></div>${pill(p[1],p[2])}</li>`).join('')}</ul>`,{pad:false})}
+  ${card('Alertes Defender',`<ul class="list">${ALERTS.slice(0,2).map(a=>`<li><div class="li-main"><div class="li-t">${a[1]}</div><div class="li-s">${a[3]} · ${a[4]}</div></div>${sev(a[0])}</li>`).join('')}</ul><div style="padding:10px 16px;border-top:1px solid var(--line-soft)"><div class="hint">${I('radar',14)}<span>2 activités suspectes Vanitas sur ce poste dans la même fenêtre de 5 min.</span></div></div>`,{pad:false,count:2})}
+ </div>`};
+PAGES['intune']=()=>{const os=[['Windows 11',318,301,9,8],['Windows 10',58,41,5,12],['macOS',21,19,1,1],['iOS',10,9,0,1],['Android',5,4,0,1]];return `${ph('Sécurité','Conformité','État des politiques de conformité Intune, par système et par politique.',`<button class="btn">${I('download',14)}Exporter</button>`)}
+ <div class="grid g-3">${kpi('Conformes','368',{icon:'check',note:'89,3 % du parc'})}${kpi('Période de grâce','15',{icon:'clock',note:'expire sous 48 h : 9'})}${kpi('Non conformes','29',{icon:'alert',delta:'−4',dir:'up',note:'vs semaine dernière'})}</div>
+ <div class="grid g-main mt">
+  ${card('Par politique',table(['Politique','Plateforme','Postes',{l:'Taux de conformité',r:0}],[['Windows — BitLocker obligatoire','Windows','376',meter(92,'var(--ok)','92,0 %')],['Windows — Defender à jour','Windows','376',meter(97,'var(--ok)','97,1 %')],['Windows — Version minimale 23H2','Windows','376',meter(84,'var(--warn)','84,6 %')],['macOS — FileVault','macOS','21',meter(95,'var(--ok)','95,2 %')],['Mobile — Code PIN','iOS/Android','15',meter(87,'var(--warn)','86,7 %')]]),{pad:false})}
+  ${card('Par système',os.map(o=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="color:var(--ink)">${o[0]}</span><span class="num" style="color:var(--ink3)">${o[1]} postes</span></div><div class="bar" style="height:8px"><span style="width:${o[2]/o[1]*100}%;background:var(--ok)"></span><span style="width:${o[3]/o[1]*100}%;background:var(--warn)"></span><span style="width:${o[4]/o[1]*100}%;background:var(--crit)"></span></div></div>`).join('')+legend([{l:'Conforme',v:'',c:'var(--ok)'},{l:'Grâce',v:'',c:'var(--warn)'},{l:'Non conforme',v:'',c:'var(--crit)'}]).replace('class="legend"','class="legend" style="flex-direction:row;gap:14px;flex-wrap:wrap"'))}
+ </div>
+ <div class="mt">${card('Postes non conformes',table(['Appareil','Politique en échec','Depuis',{l:'Utilisateur',r:1}],DEVICES.filter(d=>d[3]!=='ok').map(d=>[dev(d[0],d[2]),d[3]==='crit'?'BitLocker obligatoire':'Version minimale 23H2',d[3]==='crit'?'6 jours':'2 jours',d[1]]),{click:'device'}),{pad:false,count:29})}</div>`};
+PAGES['secure-score']=()=>{const v=62.4;const ring=donut([{v:v,c:'var(--accent)'},{v:100-v,c:'transparent'}],150,12,`<text x="75" y="76" text-anchor="middle" font-size="28" font-weight="600" fill="var(--ink)" font-family="Inter">${'62,4'}</text><text x="75" y="96" text-anchor="middle" font-size="11" fill="var(--ink3)" font-family="Inter">% · 486 / 779 pts</text>`);return `${ph('Sécurité','Secure Score','Score Microsoft Secure Score du tenant et actions qui le font progresser.')}
+ <div class="grid g-main">
+  ${card('Évolution sur 90 jours',lineChart([{v:[54.1,54.9,55.2,56,57.2,58,58.1,59.5,60.2,61,61.9,62.4],c:'var(--accent)',fill:1},{v:[58,58.2,58.5,58.6,58.9,59.1,59.4,59.6,59.8,60,60.1,60.3],c:'var(--ink3)',dash:1}],{labels:['juil.','août','sept.','oct.'],min:50,max:65,fmt:v=>v+' %'})+`<div class="card-note" style="margin-top:10px">Pointillés : moyenne des organisations de taille comparable.</div>`)}
+  ${card('Score actuel',`<div style="display:flex;justify-content:center;padding:8px 0">${ring}</div><dl class="dl" style="margin-top:8px"><dt>Identité</dt><dd>${meter(71,'var(--accent)')}</dd><dt>Appareils</dt><dd>${meter(58,'var(--accent)')}</dd><dt>Applications</dt><dd>${meter(64,'var(--accent)')}</dd><dt>Données</dt><dd>${meter(49,'var(--accent)')}</dd></dl>`)}
+ </div>
+ <div class="mt">${card('Recommandations',table(['Action','Catégorie','État','Impact',{l:'Gain',r:1}],[['Activer la protection contre les falsifications','Appareils',pill('warn','À faire'),sev('Élevée'),'<b style="color:var(--ok)">+9,0</b>'],['Bloquer les macros Office venant d\'Internet','Applications',pill('info','En cours'),sev('Élevée'),'<b style="color:var(--ok)">+7,5</b>'],['Désactiver SMBv1 sur tous les postes','Appareils',pill('warn','À faire'),sev('Moyenne'),'<b style="color:var(--ok)">+5,0</b>'],['Exiger MFA pour les rôles d\'administration','Identité',pill('ok','Terminé'),sev('Élevée'),'<span style="color:var(--ink3)">acquis</span>'],['Activer les règles ASR en mode blocage','Appareils',pill('warn','À faire'),sev('Moyenne'),'<b style="color:var(--ok)">+4,2</b>']]),{pad:false,count:38})}</div>`};
+PAGES['widgets-test']=()=>`${ph('Sécurité','Alertes','Alertes Microsoft Defender for Endpoint, corrélées aux activités suspectes Vanitas.',`<div class="seg"><button class="on">Actives</button><button>Résolues</button><button>Toutes</button></div>`)}
+ <div class="grid g-4">${kpi('Élevées','2',{icon:'alert',color:'var(--crit)'})}${kpi('Moyennes','2',{icon:'alert'})}${kpi('Faibles / info','3',{icon:'bell'})}${kpi('Temps moyen de prise en charge','42',{unit:'min',icon:'clock',delta:'−11 min',dir:'up'})}</div>
+ <div class="mt">${card('',`<div class="filters"><label class="input">${I('search',14)}<input id="al-q" placeholder="Titre, appareil, catégorie…"></label><button class="fchip">Sévérité</button><button class="fchip">Catégorie</button><button class="fchip">Statut</button><span class="count">6 alertes</span></div>`+table(['Sévérité','Alerte','Appareil','Catégorie','Statut',{l:'Détectée',r:1}],ALERTS.map(a=>[sev(a[0]),`<span style="color:var(--ink)">${a[1]}</span>`,a[2],tag(a[3]),pill(a[5]==='Résolue'?'ok':a[5]==='En cours'?'info':'warn',a[5]),a[4]]),{click:'alert'}),{pad:false})}</div>`;
+PAGES['vulnerabilities']=()=>`${ph('Vulnérabilités','Vulnérabilités','CVE détectées par Defender Vulnerability Management sur le parc.',`<button class="btn">${I('download',14)}Exporter</button>`)}
+ <div class="grid g-4">${kpi('Critiques','2',{icon:'alert',sp:[4,4,3,5,3,2,2],color:'var(--crit)'})}${kpi('Élevées','31',{icon:'alert',sp:[40,38,36,35,33,31,31],color:'var(--warn)'})}${kpi('Exploitées activement','4',{icon:'pulse',note:'catalogue CISA KEV'})}${kpi('Postes exposés','186',{icon:'laptop',note:'45 % du parc'})}</div>
+ <div class="mt">${card('',`<div class="filters"><label class="input">${I('search',14)}<input id="vu-q" placeholder="CVE, produit, éditeur…"></label><button class="fchip on">Sévérité <b>≥ Moyenne</b></button><button class="fchip">Exploit public</button><button class="fchip">Éditeur</button><span class="count">7 sur 214</span></div>`+table(['CVE','Description','CVSS','Sévérité','Exploit',{l:'Postes',r:1},{l:'Publiée',r:1}],CVES.map(c=>[`<span class="mono" style="color:var(--ink)">${c[0]}</span>`,c[1],`<b class="num" style="color:var(--ink)">${c[2]}</b>`,sev(c[3]),c[4]==='Oui'?pill('crit','Exploité'):'<span style="color:var(--ink3)">—</span>',`<span class="num">${c[5]}</span>`,c[6]]),{click:'cve'}),{pad:false})}</div>`;
+PAGES['cve-watch']=()=>`${ph('Vulnérabilités','Suivi CVE','CVE suivies manuellement et avis ANSSI / CERT-FR associés.',`<button class="btn primary">${I('plus',14)}Suivre une CVE</button>`)}
+ <div class="grid g-main">
+  ${card('CVE suivies',table(['CVE','Sévérité','Postes exposés','Évolution','Note'],[['<span class="mono">CVE-2024-38063</span>',sev('Critique'),'57',spark([88,80,74,66,61,57],'var(--ok)'),'Patch Tuesday d\'août'],['<span class="mono">CVE-2024-7971</span>',sev('Élevée'),'34',spark([60,52,47,40,34],'var(--ok)'),'Chrome < 128.0.6613'],['<span class="mono">CVE-2024-6387</span>',sev('Élevée'),'3',spark([3,3,3,3,3],'var(--ink3)'),'Serveurs Linux'],['<span class="mono">CVE-2024-30088</span>',sev('Élevée'),'21',spark([30,29,25,22,21],'var(--ok)'),''],['<span class="mono">CVE-2024-38200</span>',sev('Moyenne'),'44',spark([20,31,40,44],'var(--crit)'),'Office 2019 restant']]),{pad:false,count:5})}
+  ${card('Avis ANSSI / CERT-FR',`<ul class="list">${[['CERTFR-2024-AVI-0663','Multiples vulnérabilités dans Microsoft Windows','13/08/2024'],['CERTFR-2024-ALE-010','Vulnérabilité dans Microsoft Windows (alerte)','16/08/2024'],['CERTFR-2024-AVI-0700','Multiples vulnérabilités dans Google Chrome','22/08/2024']].map(a=>`<li class="click"><span class="ico-tile">${I('book',14)}</span><div class="li-main"><div class="li-t">${a[1]}</div><div class="li-s"><span class="mono">${a[0]}</span> · ${a[2]}</div></div>${I('arrow',14)}</li>`).join('')}</ul>`,{pad:false})}
+ </div>`;
+const appIco=a=>`<span class="app-ico" style="background:${a[3]}">${a[0].split(' ').map(w=>w[0]).join('').slice(0,2)}</span>`;
+PAGES['app-catalog']=()=>`${ph('Applications','Catalogue','Bibliothèque d\'applications packagées, prêtes à être déployées via Intune.',`<button class="btn" data-go="app-edit">${I('edit',14)}Modifier</button><button class="btn primary" data-go="app-add">${I('plus',14)}Ajouter</button>`)}
+ <div class="filters" style="padding:0 0 16px;border:0"><label class="input">${I('search',14)}<input id="cat-q" placeholder="Rechercher une application…"></label><button class="fchip">Éditeur</button><button class="fchip">Type</button><span class="count">8 applications</span></div>
+ <div class="apps">${APPS.map(a=>`<div class="card app-card"><div class="app-top">${appIco(a)}<div class="li-main"><div class="li-t" style="font-weight:600">${a[0]}</div><div class="li-s">${a[1]}</div></div></div><div class="app-meta">${tag('v'+a[2])}${tag(a[5])}</div><div class="app-foot">${I('laptop',13)}<span class="num">${a[4]} postes</span><button class="btn sm">Déployer</button></div></div>`).join('')}</div>`;
+PAGES['app-deployed']=()=>`${ph('Applications','Applications déployées','Ce qu\'Intune a effectivement poussé sur le parc, avec l\'état d\'installation.')}
+ ${card('',table(['Application','Version','Affectation',{l:'Installées',r:1},{l:'Échecs',r:1},'Taux de réussite'],APPS.map((a,i)=>{const f=[3,0,1,0,12,4,0,2][i];return [`<div class="cell-dev">${appIco(a).replace('app-ico','app-ico" style="width:26px;height:26px;font-size:10.5px;border-radius:7px;background:'+a[3])}<span>${a[0]}</span></div>`,`<span class="mono">${a[2]}</span>`,i===6?'Groupe Finance':'Tous les appareils',`<span class="num">${a[4]}</span>`,f?`<b class="num" style="color:var(--crit)">${f}</b>`:'<span class="num">0</span>',meter(Math.round(a[4]/(a[4]+f)*1000)/10,f>5?'var(--warn)':'var(--ok)',(Math.round(a[4]/(a[4]+f)*1000)/10).toString().replace('.',',')+' %')]})),{pad:false})}`;
+PAGES['app-add']=()=>`${ph('Applications','Ajouter une application','Packager un installeur, définir sa détection et l\'ajouter à la bibliothèque.')}
+ <div class="steps"><div class="step on"><span class="n">1</span>Source</div><div class="step"><span class="n">2</span>Détection</div><div class="step"><span class="n">3</span>Exigences</div><div class="step"><span class="n">4</span>Affectation</div><div class="step"><span class="n">5</span>Vérification</div></div>
+ <div class="grid g-side">
+  <section class="card"><div class="card-b">
+   <div class="radio-cards"><div class="rc on"><b>Installeur Win32</b><span>.exe ou .msi, packagé en .intunewin</span></div><div class="rc"><b>WinGet</b><span>Depuis le dépôt Microsoft Store</span></div><div class="rc"><b>Lien web</b><span>Raccourci vers une application SaaS</span></div></div>
+   <div class="drop"><span class="ico-tile">${I('upload',20)}</span><b>Déposez l'installeur ici</b><span>ou cliquez pour parcourir · .exe, .msi · 2 Go max.</span></div>
+   <div class="grid g-2 mt"><div class="field"><label for="f-name">Nom</label><input id="f-name" value="Notepad++"></div><div class="field"><label for="f-pub">Éditeur</label><input id="f-pub" value="Don Ho"></div></div>
+   <div class="field"><label for="f-cmd">Commande d'installation</label><input id="f-cmd" class="mono" value="npp.8.7.1.Installer.x64.exe /S" style="font-family:var(--f-mono);font-size:12px"><span class="help">Exécutée en contexte SYSTEM. Le SHA-256 est vérifié avant exécution.</span></div>
+  </div><div class="form-foot"><button class="btn ghost">Annuler</button><button class="btn primary">Continuer ${I('chev',14)}</button></div></section>
+  <div class="stack">${card('Récapitulatif',`<dl class="dl"><dt>Type</dt><dd>Win32</dd><dt>Fichier</dt><dd class="mono">npp.8.7.1…x64.exe</dd><dt>Taille</dt><dd>5,8 Mo</dd><dt>SHA-256</dt><dd class="mono">3f9a…c41e</dd></dl>`)}<div class="hint">${I('book',14)}<span>La détection par clé de registre est la plus fiable pour les installeurs MSI. Le code produit est proposé automatiquement.</span></div></div>
+ </div>`;
+PAGES['app-edit']=()=>`${ph('Applications','Modifier une application','Mettre à jour la version, les commandes ou l\'affectation d\'une application existante.')}
+ <div class="grid" style="grid-template-columns:minmax(0,300px) minmax(0,1fr)">
+  ${card('',`<div class="filters"><label class="input" style="min-width:0;flex:1">${I('search',14)}<input id="ed-q" placeholder="Filtrer…"></label></div><ul class="list">${APPS.map((a,i)=>`<li class="click" style="${i===3?'background:var(--int)':''}">${appIco(a).replace('app-ico','app-ico" style="width:28px;height:28px;font-size:11px;border-radius:8px;background:'+a[3])}<div class="li-main"><div class="li-t">${a[0]}</div><div class="li-s">v${a[2]}</div></div></li>`).join('')}</ul>`,{pad:false})}
+  <section class="card"><div class="card-h"><h2>Notepad++</h2>${tag('v8.7.1')}</div><div class="card-b">
+   <div class="grid g-2"><div class="field"><label for="e-v">Version</label><input id="e-v" value="8.7.1"></div><div class="field"><label for="e-a">Affectation</label><select id="e-a"><option>Disponible — Tous les utilisateurs</option><option>Requise — Groupe DSI</option></select></div></div>
+   <div class="field"><label for="e-d">Description</label><textarea id="e-d">Éditeur de texte et de code source.</textarea></div>
+   <div class="field"><label for="e-u">Commande de désinstallation</label><input id="e-u" value='"%ProgramFiles%\\Notepad++\\uninstall.exe" /S' style="font-family:var(--f-mono);font-size:12px"></div>
+  </div><div class="form-foot"><button class="btn danger" style="margin-right:auto">Retirer de la bibliothèque</button><button class="btn ghost">Annuler</button><button class="btn primary">Enregistrer</button></div></section>
+ </div>`;
+
+/* ---- Vanitas ---- */
+function radarSvg(){return `<svg class="radar" viewBox="0 0 200 200" aria-hidden="true"><defs><radialGradient id="sw" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(100 100) rotate(-50) scale(88)"><stop offset="0" stop-color="var(--accent)" stop-opacity=".35"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></radialGradient></defs>${[88,62,36].map(r=>`<circle cx="100" cy="100" r="${r}" fill="none" stroke="var(--line)"/>`).join('')}<path d="M100 12v176M12 100h176" stroke="var(--line-soft)"/><path d="M100 100 L100 12 A88 88 0 0 1 170 47 Z" fill="url(#sw)"/>${[[128,60,'var(--vn-accent2)'],[74,132,'var(--warn)'],[150,118,'var(--accent)'],[62,70,'var(--accent)'],[118,150,'var(--accent)']].map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${p[2]}"/>`).join('')}</svg>`}
+PAGES['vanitas-overview']=()=>`${ph('Vanitas · vigie','Vue d\'ensemble','Agents d\'endpoint Vanitas : état du parc, signaux à traiter et activité des commandes.',`<button class="btn" data-go="vanitas-enroll">${I('plus',14)}Ajouter un poste</button>`)}
+ <div class="grid g-4">${kpi('Agents en ligne','5',{unit:'/ 7',icon:'reticle',note:'1 hors ligne · 1 inactif'})}${kpi('Signaux ouverts','3',{icon:'radar',delta:'+2',dir:'down',note:'24 h',sp:[0,1,0,1,2,1,3],color:'var(--crit)'})}${kpi('Conformité','91',{unit:'%',icon:'shieldc',sp:[84,86,85,88,90,91],color:'var(--ok)'})}${kpi('Correctifs en attente','6',{icon:'refresh',note:'2 redémarrages requis'})}</div>
+ <div class="grid g-main mt">
+  <div class="stack">
+   ${card('Signaux à traiter',`<ul class="list">${SUSP.filter(s=>s.st==='Nouveau'||s.st==='Escaladé').map(s=>`<li class="click" data-go="vanitas-suspicious-activity"><span class="ico-tile">${I(s.ic,14)}</span><div class="li-main"><div class="li-t">${s.t}</div><div class="li-s"><span class="mono">${s.dev}</span> · ${s.k} · ${s.when}</div></div>${sev(s.sev)}</li>`).join('')}</ul>`,{pad:false,count:4,link:['Tout voir','vanitas-suspicious-activity']})}
+   ${card('Activité des commandes — 14 jours',lineChart([{v:[12,18,9,22,31,14,8,19,25,17,28,35,21,16],c:'var(--accent)',fill:1},{v:[1,0,0,2,1,0,0,1,0,0,3,1,0,0],c:'var(--crit)'}],{labels:['8 oct.','11 oct.','14 oct.','17 oct.','21 oct.'],min:0,max:40})+`<div class="legend" style="flex-direction:row;gap:16px;margin-top:10px"><div><span class="dot" style="background:var(--accent)"></span>Commandes exécutées</div><div><span class="dot crit"></span>Échecs</div></div>`)}
+  </div>
+  <div class="stack">
+   ${card('Balayage du parc',`<div style="display:flex;justify-content:center">${radarSvg()}</div><div class="card-note" style="text-align:center;margin-top:6px">Dernier balayage complet il y a 6 min · 7 postes</div>`)}
+   ${card('Posture de patch',`${meter(78,'var(--ok)','78 %')}<div class="card-note" style="margin-top:8px">Cumulative d'octobre installée sur 5 postes sur 7.</div>`)}
+   ${card('Groupes',`<ul class="list">${[['Finance',2,'Anneau 2'],['DSI',1,'Anneau 0 · pilote'],['Commerce',1,'Anneau 2'],['Services généraux',1,'Anneau 1']].map(g=>`<li><span class="ico-tile">${I('layers',14)}</span><div class="li-main"><div class="li-t">${g[0]}</div><div class="li-s">${g[2]}</div></div><span class="li-r">${g[1]} poste${g[1]>1?'s':''}</span></li>`).join('')}</ul>`,{pad:false,link:['Gérer','vanitas-groups']})}
+  </div>
+ </div>`;
+PAGES['vanitas-app-catalog']=()=>PAGES['app-catalog']().replace(/Bibliothèque d'applications packagées, prêtes à être déployées via Intune\./,'Applications disponibles au déploiement par l\'agent Vanitas. Lecture seule.').replace(/<div class="ph-actions">[\s\S]*?<\/div><\/div>/,'<div class="ph-actions"></div></div>').replace(/Applications<\/div><h1>Catalogue/,'Vanitas</div><h1>Catalogue d\'application').replace(/>Déployer</g,'>Pousser<');
+PAGES['vanitas-suspicious-activity']=()=>{const s=SUSP[0];return `${ph('Sécurité','Activités suspectes','Télémétrie comportementale des agents : processus, journal d\'événements, réseau et USB. Seuls les événements qui correspondent à une règle remontent.',`<div class="seg"><button class="on">À traiter <span class="num">3</span></button><button>Escaladés</button><button>Tous</button></div>`)}
+ <div class="split">
+  ${card('',`<div class="filters"><label class="input" style="flex:1">${I('search',14)}<input id="sa-q" placeholder="Poste, processus, IP…"></label><button class="fchip">Signal</button><button class="fchip">Sévérité</button></div><ul class="list">${SUSP.map((x,i)=>`<li class="click" style="${i===0?'background:var(--int)':''}"><span class="ico-tile">${I(x.ic,14)}</span><div class="li-main"><div class="li-t">${x.t}</div><div class="li-s"><span class="mono">${x.dev}</span> · ${x.k} · ${x.when}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${sev(x.sev)}<span class="li-s">${x.st}</span></div></li>`).join('')}</ul>`,{pad:false})}
+  <section class="card"><div class="card-h" style="align-items:flex-start;padding-bottom:4px"><div class="li-main"><div style="display:flex;gap:8px;margin-bottom:8px">${sev(s.sev)}${pill('warn','Nouveau')}${tag('règle P-014')}</div><h2 style="font-size:15px">${s.t}</h2><div class="li-s" style="margin-top:4px"><span class="mono">${s.dev}</span> · aujourd'hui à 21:42:07 · m.lefevre</div></div></div>
+   <div class="card-b" style="display:flex;flex-direction:column;gap:18px">
+    <div><div class="eyebrow">Ligne de commande</div><div class="term"><span class="p">C:\\Program Files\\Microsoft Office\\root\\Office16\\</span><span class="o">WINWORD.EXE</span>
+  └─ <span class="o">powershell.exe</span> -NoP -W Hidden -enc <span class="e">SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUA…</span></div></div>
+    <div><div class="eyebrow">Chronologie sur le poste</div><ul class="timeline"><li><span class="mono">21:41:52</span><b>Ouverture</b> de Facture_0917.docm depuis Outlook</li><li><span class="mono">21:42:07</span><b>Processus enfant</b> powershell.exe encodé</li><li><span class="mono">21:43:11</span><b>Connexion sortante</b> 185.220.101.4:9001</li><li><span class="mono">21:45:30</span><b>Alerte Defender</b> « Exécution PowerShell suspecte »</li></ul></div>
+    <div class="hint">${I('shield',14)}<span>Corrélation Defender : alerte élevée sur le même appareil (ID Entra 4b1e…9a02). Exposition du poste : élevée.</span></div>
+   </div>
+   <div class="form-foot"><button class="btn ghost">Faux positif</button><button class="btn">Accuser réception</button><button class="btn primary">Escalader</button></div>
+  </section>
+ </div>`};
+PAGES['vanitas-compliance']=()=>`${ph('Sécurité','Conformité','Règles de conformité exécutées par l\'agent, et leur taux de réussite sur le parc.',`<button class="btn primary">${I('plus',14)}Créer une règle</button>`)}
+ ${card('',table(['Règle','Type','Fréquence','Postes',{l:'Réussite'},'État'],[['BitLocker actif sur C:','PowerShell','Toutes les 6 h','7',meter(86,'var(--ok)','6 / 7'),pill('ok','Active')],['Pare-feu Windows : 3 profils actifs','PowerShell','Toutes les 6 h','7',meter(100,'var(--ok)','7 / 7'),pill('ok','Active')],['Compte Administrateur local désactivé','PowerShell','Quotidienne','7',meter(71,'var(--warn)','5 / 7'),pill('ok','Active')],['SMBv1 désactivé','Registre','Quotidienne','7',meter(100,'var(--ok)','7 / 7'),pill('ok','Active')],['LAPS configuré','Registre','Quotidienne','7',meter(43,'var(--crit)','3 / 7'),pill('ok','Active')],['Antivirus tiers absent','Inventaire','Hebdomadaire','—','<span style="color:var(--ink3)">—</span>',pill('mute','Brouillon')]]),{pad:false})}`;
+PAGES['vanitas-vulnerabilities']=()=>`${ph('Sécurité','Vulnérabilités','CVE affectant les logiciels inventoriés par les agents Vanitas.')}
+ <div class="grid g-3">${kpi('Critiques','1',{icon:'alert'})}${kpi('Élevées','9',{icon:'alert'})}${kpi('Postes concernés','6',{unit:'/ 7',icon:'laptop'})}</div>
+ <div class="mt">${card('',table(['CVE','Logiciel','Sévérité',{l:'Postes',r:1},'Correctif'],[['<span class="mono">CVE-2024-38063</span>','Windows 11 23H2',sev('Critique'),'4','KB5041585'],['<span class="mono">CVE-2024-7971</span>','Google Chrome 127',sev('Élevée'),'3','Chrome 128.0.6613.84'],['<span class="mono">CVE-2024-4577</span>','PHP 8.1 (XAMPP)',sev('Élevée'),'1','PHP 8.1.29'],['<span class="mono">CVE-2023-24932</span>','Secure Boot',sev('Moyenne'),'7','Atténuation manuelle']]),{pad:false})}</div>`;
+PAGES['vanitas-eol']=()=>`${ph('Sécurité','Logiciels obsolètes','Logiciels arrivés en fin de support, par poste.')}
+ ${card('',table(['Logiciel','Version','Fin de support',{l:'Postes',r:1},'État'],[['Windows 10 Professionnel','22H2','14/10/2025','2',pill('crit','Expiré')],['Microsoft Office 2016','16.0.4266','14/10/2025','1',pill('crit','Expiré')],['Python','3.8.10','07/10/2024','1',pill('crit','Expiré')],['Java Runtime','8u202','Support étendu','3',pill('warn','Bientôt')],['Adobe Acrobat Reader DC','2020','30/11/2025','1',pill('warn','Bientôt')]]),{pad:false})}`;
+PAGES['vanitas-devices']=()=>`${ph('Inventaire','Postes','Postes enrôlés auprès du serveur Vanitas (mTLS).',`<button class="btn primary" data-go="vanitas-enroll">${I('plus',14)}Ajouter un poste</button>`)}
+ ${card('',`<div class="filters"><label class="input">${I('search',14)}<input id="ag-q" placeholder="Nom de poste, groupe…"></label><button class="fchip">État</button><button class="fchip">Groupe</button><button class="fchip">Version d'agent</button><span class="count">7 postes</span></div>`+table(['Poste','Groupe','Système','Agent','État','Signaux',{l:'Dernier contact',r:1}],AGENTS.map(a=>[dev(a[0],'',a[3]==='online'?'reticle':'laptop'),a[1],a[5],`<span class="mono">${a[2]}</span>${a[2]!=='2.4.1'?' '+pill('warn','À mettre à jour'):''}`,a[3]==='online'?pill('ok','En ligne'):a[3]==='offline'?pill('mute','Hors ligne'):pill('warn','Inactif'),a[6]?`<b style="color:var(--crit)" class="num">${a[6]}</b>`:'<span style="color:var(--ink3)">0</span>',a[4]]),{click:'agent'}),{pad:false})}`;
+PAGES['vanitas-groups']=()=>`${ph('Inventaire','Groupes','Regroupez les postes pour appliquer politiques de mise à jour et déploiements.',`<button class="btn primary">${I('plus',14)}Nouveau groupe</button>`)}
+ <div class="grid g-3">${[['DSI','Anneau 0 · pilote',1,'Correctifs dès J+0'],['Services généraux','Anneau 1',1,'Correctifs à J+3'],['Finance','Anneau 2',2,'Correctifs à J+7 · fenêtre mar. 22:00'],['Commerce','Anneau 2',1,'Correctifs à J+7'],['Logistique','Anneau 2',1,'Correctifs à J+7'],['RH','Anneau 2',1,'Correctifs à J+7']].map(g=>`<div class="card kpi" style="cursor:pointer"><div class="kpi-l">${I('layers',14)}${g[1]}</div><div style="font-size:16px;font-weight:600">${g[0]}</div><div class="kpi-f"><span>${g[3]}</span><span style="margin-left:auto" class="num">${g[2]} poste${g[2]>1?'s':''}</span></div></div>`).join('')}</div>`;
+PAGES['vanitas-deployed-apps']=()=>`${ph('Inventaire','Applications déployées','Applications poussées par l\'agent, avec le résultat sur chaque poste.')}
+ ${card('',table(['Application','Version','Cible',{l:'Réussies',r:1},{l:'Échecs',r:1},{l:'Dernier envoi',r:1}],[['Notepad++','8.7.1','Groupe DSI','1','0','il y a 2 j'],['7-Zip','24.08','Tous les postes','7','0','il y a 6 j'],['Sage 100 Comptabilité','v11','Groupe Finance','1',`<b style="color:var(--crit)">1</b>`,'il y a 1 j'],['FortiClient VPN','7.4.1','Groupe Commerce','1','0','il y a 9 j']]),{pad:false})}`;
+PAGES['vanitas-patch']=()=>`${ph('Inventaire','Mises à jour','Déploiement des correctifs Windows par groupe : anneau, fenêtre de maintenance et délai de grâce.',`<button class="btn">${I('refresh',14)}Rechercher les mises à jour</button>`)}
+ <div class="grid g-4">${kpi('Postes à jour','5',{unit:'/ 7',icon:'check'})}${kpi('Correctifs en attente','6',{icon:'download'})}${kpi('Redémarrages requis','2',{icon:'power'})}${kpi('Prochaine fenêtre','22:00',{icon:'clock',note:'ce soir · Finance'})}</div>
+ <div class="mt">${card('Politiques par groupe',table(['Groupe','Anneau','Report','Fenêtre de maintenance','Délai de grâce','Progression'],[['DSI','0 · pilote','0 j','Tous les jours 12:00–14:00','24 h',meter(100,'var(--ok)','1 / 1')],['Services généraux','1','3 j','Lun. 20:00–23:00','48 h',meter(100,'var(--ok)','1 / 1')],['Finance','2','7 j','Mar. 22:00–02:00','48 h',meter(50,'var(--warn)','1 / 2')],['Commerce','2','7 j','Mer. 21:00–00:00','72 h',meter(0,'var(--crit)','0 / 1')],['Logistique','2','7 j','Jeu. 22:00–02:00','48 h',meter(0,'var(--warn)','0 / 1')]]),{pad:false})}</div>
+ <div class="mt">${card('Correctifs en attente',table(['KB','Titre','Classification',{l:'Postes',r:1}],[['<span class="mono">KB5044284</span>','Mise à jour cumulative Windows 11 24H2 — octobre','Sécurité','2'],['<span class="mono">KB5044273</span>','Mise à jour cumulative Windows 10 22H2 — octobre','Sécurité','2'],['<span class="mono">KB2267602</span>','Renseignements de sécurité Defender 1.419.x','Définitions','2']]),{pad:false})}</div>`;
+PAGES['vanitas-commands']=()=>`${ph('Administration','Journal','Toutes les commandes envoyées aux agents et les actions des administrateurs.',`<button class="btn">${I('download',14)}Exporter</button>`)}
+ ${card('',`<div class="filters"><label class="input">${I('search',14)}<input id="jr-q" placeholder="Poste, commande, auteur…"></label><button class="fchip">Type</button><button class="fchip">Résultat</button><button class="fchip">Auteur</button></div>`+table(['Horodatage','Poste','Commande','Auteur','Résultat',{l:'Durée',r:1}],[['21/10 21:48:02','PC-FIN-0142','<span class="mono">isolate_network</span>','n.bertrand',pill('ok','Succès'),'1,2 s'],['21/10 21:47:40','PC-FIN-0142','<span class="mono">collect_triage</span>','n.bertrand',pill('info','En cours'),'—'],['21/10 18:02:11','Groupe Finance','<span class="mono">install_application</span> Sage 100 v11','n.bertrand',pill('crit','1 échec'),'3 min 12 s'],['21/10 12:00:00','LT-DSI-0021','<span class="mono">install_updates</span>','planificateur',pill('ok','Succès'),'14 min'],['20/10 16:31:54','PC-ACC-0003','<span class="mono">shell</span> session interactive','n.bertrand',pill('ok','Terminée'),'6 min'],['20/10 09:15:03','Tous','<span class="mono">run_compliance</span>','planificateur',pill('ok','Succès'),'48 s']]),{pad:false})}`;
+PAGES['vanitas-enroll']=()=>`${ph('Administration','Ajouter un poste','Générez un jeton d\'enrôlement à usage unique, puis installez l\'agent sur le poste.')}
+ <div class="grid g-side">
+  <section class="card"><div class="card-b">
+   <div class="steps"><div class="step done"><span class="n">${I('check',12)}</span>Groupe</div><div class="step on"><span class="n">2</span>Jeton</div><div class="step"><span class="n">3</span>Installation</div></div>
+   <div class="field"><label>Jeton d'enrôlement</label><div class="token">VNT-7Q4K-M2XD-9PRA-HC6E<button class="btn sm" id="copyTok">${I('copy',13)}Copier</button></div><span class="help">Usage unique · expire dans 24 h · stocké uniquement sous forme d'empreinte SHA-256.</span></div>
+   <div class="field"><label>Installation silencieuse</label><div class="term"><span class="p">PS&gt;</span> <span class="o">msiexec /i VanitasAgent-2.4.1.msi /qn ENROLL_TOKEN=VNT-7Q4K-M2XD-9PRA-HC6E SERVER=vanitas.example.local:8443</span></div></div>
+  </div><div class="form-foot"><button class="btn ghost">Révoquer le jeton</button><button class="btn primary">${I('download',14)}Télécharger le MSI</button></div></section>
+  <div class="stack">${card('En attente de connexion',`<div style="display:flex;align-items:center;gap:10px"><span class="dot ok pulse"></span><span>Le poste apparaîtra ici dès son premier contact mTLS.</span></div>`)}${card('Jetons récents',`<ul class="list">${[['VNT-2FJ8…','Utilisé · PC-ACC-0003','ok'],['VNT-91KD…','Expiré','mute'],['VNT-Q0ZP…','Révoqué','crit']].map(t=>`<li><span class="mono" style="color:var(--ink)">${t[0]}</span><span class="li-main li-s" style="text-align:right">${t[1]}</span></li>`).join('')}</ul>`,{pad:false})}</div>
+ </div>`;
+PAGES['vanitas-installers']=()=>`${ph('Administration','Applications','Installeurs déposés sur le serveur Vanitas, vérifiés par SHA-256 avant toute exécution.',`<button class="btn primary">${I('upload',14)}Déposer un installeur</button>`)}
+ ${card('',table(['Application','Version','Fichier','SHA-256',{l:'Taille',r:1},{l:'Ajouté',r:1}],[['Notepad++','8.7.1','npp.8.7.1.Installer.x64.exe','<span class="mono">3f9a1c…b2c41e</span>','5,8 Mo','18/10/2024'],['7-Zip','24.08','7z2408-x64.msi','<span class="mono">a01e77…09fd3a</span>','1,9 Mo','15/10/2024'],['Sage 100 Comptabilité','v11','Sage100_v11_Setup.exe','<span class="mono">c8d2f0…7a6611</span>','412 Mo','02/10/2024'],['FortiClient VPN','7.4.1','FortiClientVPN.msi','<span class="mono">5be410…ee2190</span>','98 Mo','12/09/2024']]),{pad:false})}`;
+PAGES['vanitas-profiles']=()=>{const mods=['Postes','Terminal','Applications','Conformité','Groupes','Activités suspectes'];const prof=[['Support N1',[[1,0],[0,0],[1,0],[1,0],[1,0],[1,0]]],['Support N2',[[1,1],[1,1],[1,1],[1,0],[1,0],[1,1]]],['Auditeur',[[1,0],[0,0],[1,0],[1,0],[1,0],[1,0]]]];return `${ph('Administration','Profils','Matrice lecture / écriture par module. Un compte viewer sans profil ne voit rien de Vanitas.',`<button class="btn primary">${I('plus',14)}Nouveau profil</button>`)}
+ ${card('',`<div class="tbl-wrap"><table class="matrix"><thead><tr><th>Module</th>${prof.map(p=>`<th colspan="2">${p[0]}</th>`).join('')}</tr><tr><th></th>${prof.map(()=>'<th>Lecture</th><th>Écriture</th>').join('')}</tr></thead><tbody>${mods.map((m,i)=>`<tr><td class="strong">${m}</td>${prof.map(p=>`<td><button class="tog ${p[1][i][0]?'on':''}" aria-label="Lecture ${m}"></button></td><td><button class="tog ${p[1][i][1]?'on':''}" aria-label="Écriture ${m}"></button></td>`).join('')}</tr>`).join('')}</tbody></table></div>`,{pad:false})}
+ <div class="hint mt">${I('key',14)}<span>Les administrateurs Pandore ont tous les droits et ne figurent pas dans cette matrice.</span></div>`};
+PAGES['vanitas-docs']=()=>`${ph('Aide','Documentation','Fonctionnement de l\'agent, enrôlement et modèle de sécurité.')}
+ <div class="doc"><nav class="doc-toc"><a class="on" href="#d1">Architecture</a><a href="#d2">Enrôlement</a><a href="#d3">Commandes</a><a href="#d4">Détection</a><a href="#d5">Dépannage</a></nav>
+ <div class="prose"><h2 id="d1">Architecture</h2><p>L'agent est un service Windows (.NET) qui s'authentifie auprès du serveur Vanitas par certificat client (mTLS). Le navigateur ne parle jamais directement au serveur : Pandore relaie chaque appel côté serveur avec un jeton partagé.</p><h2 id="d2">Enrôlement</h2><p>Un jeton d'enrôlement est à usage unique. Le serveur n'en garde que l'empreinte SHA-256 et le consomme de façon atomique. Après l'enrôlement, le nom commun du certificat client devient l'identifiant de l'agent.</p><h2 id="d3">Commandes</h2><p>Les commandes sont mises en file côté serveur et récupérées par l'agent. Les exécutions en contexte SYSTEM passent par un répertoire de travail sous <code>%ProgramData%</code> à la DACL durcie, avec vérification du hash avant exécution.</p></div></div>`;
+/* ---- Paramètres ---- */
+PAGES['set-me']=()=>`${ph('Compte','Mon compte','Identité, mot de passe et préférences d\'affichage.')}
+ <div class="grid g-2"><section class="card"><div class="card-b"><div class="field"><label for="m-n">Nom affiché</label><input id="m-n" value="Ninhem-coder"></div><div class="field"><label for="m-u">Identifiant</label><input id="m-u" value="nicolas" disabled></div><div class="field"><label for="m-p">Nouveau mot de passe</label><input id="m-p" type="password" placeholder="12 caractères minimum"></div></div><div class="form-foot"><button class="btn primary">Enregistrer</button></div></section>
+ ${card('Apparence',`<div class="field"><label>Thème</label><div class="seg" id="themeSeg"><button data-t="">Système</button><button data-t="dark">Sombre</button><button data-t="light">Clair</button></div><span class="help">Le mode clair suit les tokens dérivés de la charte (§15), à valider en revue.</span></div><div class="field"><label>Densité des tableaux</label><div class="seg"><button class="on">Confortable</button><button>Compacte</button></div></div>`)}</div>`;
+PAGES['set-users']=()=>`${ph('Compte','Utilisateurs','Comptes Pandore, rôles et profils Vanitas assignés.',`<button class="btn primary">${I('plus',14)}Nouvel utilisateur</button>`)}
+ ${card('',table(['Utilisateur','Rôle','Profil Vanitas','Dernière connexion',{l:'',r:1}],[['Ninhem-coder',pill('info','Admin'),'—','à l\'instant',I('more')],['Support DSI',pill('mute','Viewer'),'Support N2','il y a 2 h',I('more')],['Audit externe',pill('mute','Viewer'),'Auditeur','il y a 12 j',I('more')]]),{pad:false})}`;
+PAGES['set-connectors']=()=>`${ph('Système','Connecteurs','État des sources de données consommées par Pandore.')}
+ <div class="grid g-3">${[['Microsoft Graph · Intune','ok','Jeton valide · 128 appels / h'],['Defender for Endpoint','ok','Advanced Hunting disponible'],['Serveur Vanitas','ok','vanitas.example.local:8443 · mTLS']].map(c=>`<div class="card kpi"><div class="kpi-l"><span class="dot ${c[1]}"></span>Connecté</div><div style="font-size:15px;font-weight:600">${c[0]}</div><div class="kpi-f">${c[2]}</div></div>`).join('')}</div>`;
+PAGES['set-login']=()=>{setTimeout(()=>$('#login').classList.add('on'),0);return `${ph('Système','Écran de connexion','Aperçu affiché en plein écran.',`<button class="btn primary" id="reopenLogin">Afficher</button>`)}`};
+
+/* Panneaux latéraux */
+function sheetDevice(n){const d=DEVICES.find(x=>x[0]===n)||DEVICES[0];return `<div class="sheet-h"><span class="ico-tile" style="width:40px;height:40px;border-radius:11px;color:var(--accent)">${I('laptop',18)}</span><div class="li-main"><h3>${d[0]}</h3><div class="li-s">${d[1]} · ${d[6]}</div></div><button class="icon-btn" data-close>${I('x')}</button></div>
+ <div class="sheet-b"><div style="display:flex;gap:6px;flex-wrap:wrap">${pill(COMP[d[3]][0],COMP[d[3]][1])}${pill(SEV[d[4]],'Exposition '+d[4].toLowerCase())}</div>
+ <div><h4>Propriétés</h4><dl class="dl"><dt>Système</dt><dd>${d[2]}</dd><dt>Modèle</dt><dd>Dell Latitude 7440</dd><dt>Dernière synchro</dt><dd>${d[5]}</dd><dt>Agent Vanitas</dt><dd>2.4.1 · en ligne</dd></dl></div>
+ <div><h4>Alertes récentes</h4><ul class="list" style="border:1px solid var(--line);border-radius:var(--r)">${ALERTS.slice(0,2).map(a=>`<li><div class="li-main"><div class="li-t">${a[1]}</div><div class="li-s">${a[4]}</div></div>${sev(a[0])}</li>`).join('')}</ul></div>
+ <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-go="device-overview">Ouvrir la fiche complète</button><button class="btn">${I('refresh',14)}Synchroniser</button></div></div>`}
+function sheetAgent(i){const a=AGENTS[i]||AGENTS[0];return `<div class="sheet-h"><span class="ico-tile" style="width:40px;height:40px;border-radius:11px;color:var(--accent)">${I('reticle',18)}</span><div class="li-main"><h3 style="font-family:var(--f-mono);letter-spacing:.02em">${a[0]}</h3><div class="li-s">${a[1]} · agent ${a[2]}</div></div><button class="icon-btn" data-close>${I('x')}</button></div>
+ <div class="sheet-b"><div style="display:flex;gap:6px">${a[3]==='online'?pill('ok','En ligne'):pill('warn','Inactif')}${a[6]?pill('crit',a[6]+' signal'+(a[6]>1?'s':'')+' ouvert'+(a[6]>1?'s':'')):''}</div>
+ <div><h4>Actions</h4><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn">${I('terminal',14)}Ouvrir un terminal</button><button class="btn">${I('send',14)}Pousser une application</button><button class="btn danger">${I('globe',14)}Isoler du réseau</button></div></div>
+ <div><h4>Dernières commandes</h4><div class="term"><span class="p">21:48:02</span> <span class="o">isolate_network</span>   ok    1.2s
+<span class="p">21:47:40</span> <span class="o">collect_triage</span>    run   …
+<span class="p">12:00:00</span> <span class="o">run_compliance</span>    ok    48s</div></div>
+ <div><h4>Journal d'événements</h4><ul class="timeline"><li><span class="mono">21:43</span><b>Réseau</b> sortie vers 185.220.101.4</li><li><span class="mono">21:42</span><b>Processus</b> powershell.exe -enc</li><li><span class="mono">09:02</span><b>Session</b> ouverture m.lefevre</li></ul></div></div>`}
+function sheetGeneric(title,sub,body){return `<div class="sheet-h"><div class="li-main"><h3>${title}</h3><div class="li-s">${sub}</div></div><button class="icon-btn" data-close>${I('x')}</button></div><div class="sheet-b">${body}</div>`}
+
+/* ===================== Moteur ===================== */
+const $=s=>document.querySelector(s);
+const app=$('#app');
+let state={w:'pandore',k:'overview'};
+const lastPage={pandore:'overview',vanitas:'vanitas-overview',settings:'set-me'};
+function renderRail(){
+ $('#logoBtn').innerHTML=PD_LOGO(22);
+ $('#worlds').innerHTML=['pandore','vanitas'].map(w=>`<button class="rail-btn tip" data-tip="${WORLDS[w].label}" data-w="${w}" aria-current="${state.w===w}" aria-label="${WORLDS[w].label}">${w==='pandore'?I('shield',18):I('reticle',18)}${w==='vanitas'?'<span class="live"></span>':''}</button>`).join('');
+ $('#railSearch').innerHTML=I('search',18);
+ $('#setBtn').innerHTML=I('gear',18);$('#logoutBtn').innerHTML=I('power',18);
+}
+function isDark(){const t=document.documentElement.dataset.theme;return t?t==='dark':!matchMedia('(prefers-color-scheme: light)').matches}
+function renderCol(){
+ const W=WORLDS[state.w];
+ $('#colTitle').innerHTML=`<span style="display:inline-flex;align-items:center;gap:9px">${W.logo()}${W.label}</span>`;
+ $('#colSub').textContent=W.sub;
+ $('#nav').innerHTML=W.nav.map(e=>e.g?`<div class="nav-group">${e.g}</div>`+e.items.map(item).join(''):item(e)).join('');
+ $('#colFoot').innerHTML=state.w==='vanitas'?`<div class="sync"><span class="dot ok pulse"></span>Serveur Vanitas · 5 postes en ligne</div>`:`<div class="sync"><span class="dot ok"></span>Graph · généré le 21/10/2026 à 21:55</div>`;
+ function item(x){return `<button class="nav-item" data-go="${x.k}" aria-current="${x.k===state.k?'page':'false'}">${I(x.i)}<span>${x.l}</span>${x.c?`<span class="count ${x.hot?'hot':''}">${x.c}</span>`:''}</button>`}
+}
+function renderTop(){
+ const it=find(state.k),W=WORLDS[it.w];
+ $('#crumbs').innerHTML=`<span>${W.label}</span>${I('chev')}${it.g?`<span class="hide-m">${it.g}</span>${I('chev').replace('class="i"','class="i hide-m"')}`:''}<b>${it.l}</b>`;
+}
+function go(k){
+ const it=find(k);if(!it)return;
+ state={w:it.w,k};lastPage[it.w]=k;
+ app.dataset.world=it.w==='settings'?'pandore':it.w;
+ renderRail();renderCol();renderTop();
+ $('#page').innerHTML=(PAGES[k]||(()=>ph('','Page','')))();
+ $('#scroll').scrollTop=0;
+ app.classList.remove('nav-open');closeSheet();
+ try{location.hash=k}catch(e){}
+ bindPage();
+}
+function bindPage(){
+ const ts=$('#themeSeg');if(ts){const cur=document.documentElement.dataset.theme||'';ts.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t===cur))}
+ const rl=$('#reopenLogin');if(rl)rl.onclick=()=>$('#login').classList.add('on');
+ const ct=$('#copyTok');if(ct)ct.onclick=()=>{try{navigator.clipboard.writeText('VNT-7Q4K-M2XD-9PRA-HC6E').then(()=>{ct.innerHTML=I('check',13)+'Copié'}).catch(()=>{})}catch(e){}};
+}
+function openSheet(html){$('#sheet').innerHTML=html;$('#sheet').dataset.world=app.dataset.world;$('#sheet').classList.add('on');$('#scrim').classList.add('on')}
+function closeSheet(){$('#sheet').classList.remove('on');if(!$('#palette').classList.contains('on'))$('#scrim').classList.remove('on')}
+function setTheme(t){if(t)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;renderRail();bindPage()}
+
+/* Palette Ctrl K */
+let palSel=0,palItems=[];
+function openPalette(){$('#palette').dataset.world=app.dataset.world;$('#palette').classList.add('on');$('#scrim').classList.add('on');$('#pInput').value='';renderPal();setTimeout(()=>$('#pInput').focus(),20)}
+function closePalette(){$('#palette').classList.remove('on');if(!$('#sheet').classList.contains('on'))$('#scrim').classList.remove('on')}
+function renderPal(){
+ const q=$('#pInput').value.toLowerCase().trim();
+ const pages=ALL.filter(x=>x.w!=='settings'&&(!q||x.l.toLowerCase().includes(q)||(x.g||'').toLowerCase().includes(q)));
+ const devs=DEVICES.filter(d=>q&&d[0].toLowerCase().includes(q)).slice(0,4);
+ const cves=CVES.filter(c=>q&&c[0].toLowerCase().includes(q)).slice(0,3);
+ palItems=[...devs.map(d=>({t:'dev',n:d[0]})),...cves.map(c=>({t:'cve',n:c[0]})),...pages.map(p=>({t:'page',k:p.k}))];
+ if(palSel>=palItems.length)palSel=0;
+ let i=0,h='';
+ if(devs.length)h+=`<div class="palette-grp">Appareils</div>`+devs.map(d=>`<button class="pal-item ${i===palSel?'sel':''}" data-pi="${i++}">${I('laptop')}${d[0]}<span class="li-r">${d[1]}</span></button>`).join('');
+ if(cves.length)h+=`<div class="palette-grp">CVE</div>`+cves.map(c=>`<button class="pal-item ${i===palSel?'sel':''}" data-pi="${i++}">${I('alert')}<span class="mono">${c[0]}</span><span class="li-r">${c[3]}</span></button>`).join('');
+ const byW={pandore:[],vanitas:[]};pages.forEach(p=>byW[p.w].push(p));
+ for(const w of ['pandore','vanitas'])if(byW[w].length)h+=`<div class="palette-grp">${WORLDS[w].label}</div>`+byW[w].map(p=>`<button class="pal-item ${i===palSel?'sel':''}" data-pi="${i++}">${I(p.i)}${p.l}<span class="li-r">${p.g||''}</span></button>`).join('');
+ $('#pList').innerHTML=h||`<div class="empty">Aucun résultat pour « ${q.replace(/</g,'&lt;')} ».</div>`;
+}
+function palPick(i){const it=palItems[i];if(!it)return;closePalette();if(it.t==='page')go(it.k);else if(it.t==='dev'){go('device-inventory');openSheet(sheetDevice(it.n))}else go('vulnerabilities')}
+
+/* Événements */
+document.addEventListener('click',e=>{
+ const g=e.target.closest('[data-go]');if(g){go(g.dataset.go);return}
+ const w=e.target.closest("[data-w]");if(w){go(lastPage[w.dataset.w]);return}
+ const o=e.target.closest('[data-open]');if(o){const t=o.dataset.open;
+   if(t==='device')openSheet(sheetDevice(o.dataset.n||DEVICES[+o.dataset.i]?.[0]));
+   else if(t==='agent')openSheet(sheetAgent(+o.dataset.i));
+   else if(t==='alert'){const a=ALERTS[+o.dataset.i];openSheet(sheetGeneric(a[1],`${a[2]} · ${a[4]}`,`<div style="display:flex;gap:6px">${sev(a[0])}${tag(a[3])}</div><div class="hint">${I('radar',14)}<span>Activité Vanitas corrélée sur ${a[2]} dans les 5 minutes précédant l'alerte.</span></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary">Prendre en charge</button><button class="btn" data-go="device-overview">Voir l'appareil</button></div>`))}
+   else if(t==='cve'){const c=CVES[+o.dataset.i];openSheet(sheetGeneric(c[0],c[1],`<div style="display:flex;gap:6px">${sev(c[3])}${tag('CVSS '+c[2])}${c[4]==='Oui'?pill('crit','Exploitée activement'):''}</div><dl class="dl"><dt>Postes exposés</dt><dd>${c[5]}</dd><dt>Publiée</dt><dd>${c[6]}</dd><dt>Correctif</dt><dd>Disponible</dd></dl><button class="btn primary" style="align-self:flex-start">${I('bookmark',14)}Suivre cette CVE</button>`))}
+   return}
+ if(e.target.closest('[data-close]')||e.target===$('#scrim')){closeSheet();closePalette();return}
+ const pi=e.target.closest('[data-pi]');if(pi){palPick(+pi.dataset.pi);return}
+ const ts=e.target.closest('#themeSeg button');if(ts){setTheme(ts.dataset.t);return}
+ const sg=e.target.closest('.seg button');if(sg){sg.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));sg.classList.add('on');return}
+ const tg=e.target.closest('.tog');if(tg){tg.classList.toggle('on');return}
+ const tb=e.target.closest('.tabs button');if(tb){tb.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));tb.classList.add('on');return}
+ const rc=e.target.closest('.rc');if(rc){rc.parentNode.querySelectorAll('.rc').forEach(b=>b.classList.remove('on'));rc.classList.add('on')}
+});
+$('#searchBtn').onclick=openPalette;$('#railSearch').onclick=openPalette;
+$('#setBtn').onclick=()=>go('set-me');$('#logoutBtn').onclick=()=>$('#login').classList.add('on');
+$('#avatarBtn').onclick=()=>go('set-me');
+$('#collapseBtn').onclick=()=>app.classList.toggle('collapsed');
+$('#menuBtn').onclick=()=>app.classList.toggle('nav-open');
+$('#loginClose').onclick=()=>$('#login').classList.remove('on');
+$('#loginForm').addEventListener('submit',e=>{e.preventDefault();$('#login').classList.remove('on');go('overview')});
+$('#pInput').addEventListener('input',()=>{palSel=0;renderPal()});
+document.addEventListener('keydown',e=>{
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#palette').classList.contains('on')?closePalette():openPalette();return}
+ if(e.key==='Escape'){closePalette();closeSheet();$('#login').classList.remove('on');app.classList.remove('nav-open');return}
+ if($('#palette').classList.contains('on')){if(e.key==='ArrowDown'){palSel=Math.min(palSel+1,palItems.length-1);renderPal();e.preventDefault()}else if(e.key==='ArrowUp'){palSel=Math.max(palSel-1,0);renderPal();e.preventDefault()}else if(e.key==='Enter'){palPick(palSel)}}
+});
+$('#sIco').innerHTML=I('search',14);$('#pIco').innerHTML=I('search',16);$('#bellBtn').innerHTML=I('bell',17);
+$('#collapseBtn').innerHTML=I('panel',17);$('#menuBtn').innerHTML=I('menu',18);$('#loginLogo').innerHTML=PD_LOGO(30);
+try{matchMedia('(prefers-color-scheme: light)').addEventListener('change',renderRail)}catch(e){}
+document.documentElement.dataset.theme='dark';
+const start=(location.hash||'').slice(1);
+go(find(start)?start:'overview');
+</script>

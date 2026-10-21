@@ -1,0 +1,5 @@
+# Dépendances de développement/test uniquement — jamais nécessaires pour faire tourner le
+# serveur en production (voir requirements.txt pour le runtime). Installer avec :
+#   .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+# httpx (client de FastAPI TestClient) est déjà une dépendance runtime, pas répété ici.
+pytest>=8.0

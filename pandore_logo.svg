@@ -1,0 +1,34 @@
+<svg width="340" height="120" viewBox="0 0 340 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0A0E1A"/>
+      <stop offset="100%" stop-color="#0D1220"/>
+    </linearGradient>
+    <linearGradient id="icon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F6B27E"/>
+      <stop offset="100%" stop-color="#EE9A5C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon: stylized shield/box referencing "Pandore" (security + the box) -->
+  <g transform="translate(28,30)">
+    <!-- Shield outline built from two overlapping facets, echoing finary's folded-leaf motif -->
+    <path d="M30 0
+             C42 6 52 8 60 8
+             C60 34 52 52 30 62
+             C8 52 0 34 0 8
+             C8 8 18 6 30 0 Z"
+          fill="url(#icon)"/>
+    <!-- Negative-space keyhole to signal "security" -->
+    <circle cx="30" cy="28" r="7" fill="#0A0E1A"/>
+    <path d="M26.5 32 L33.5 32 L31 44 L29 44 Z" fill="#0A0E1A"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="112" y="72"
+        font-family="Century Gothic, Futura, 'Poppins', Trebuchet MS, sans-serif"
+        font-size="40"
+        font-weight="600"
+        letter-spacing="0.8"
+        fill="#F6B27E">Pandore</text>
+</svg>

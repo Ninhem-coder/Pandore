@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="340" viewBox="0 0 1280 340" role="img" aria-labelledby="t d">
+  <title id="t">Pandore</title>
+  <desc id="d">Pandore: one dashboard for Microsoft Intune, Defender for Endpoint and a self-hosted Windows endpoint agent called Vanitas.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A0E1A"/>
+      <stop offset="1" stop-color="#10162A"/>
+    </linearGradient>
+    <radialGradient id="glowAmber" cx="0.12" cy="0.2" r="0.55">
+      <stop offset="0" stop-color="#F6B27E" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#F6B27E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCyan" cx="0.92" cy="0.75" r="0.45">
+      <stop offset="0" stop-color="#39E6D2" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#39E6D2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F6B27E"/>
+      <stop offset="1" stop-color="#EE9A5C"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="340" rx="24" fill="url(#bg)"/>
+  <rect width="1280" height="340" rx="24" fill="url(#glowAmber)"/>
+  <rect width="1280" height="340" rx="24" fill="url(#glowCyan)"/>
+
+  <!-- Pandore mark (from Design/pandore-icon.svg) -->
+  <g transform="translate(96 104) scale(2)">
+    <path d="M30 0 C42 6 52 8 60 8 C60 34 52 52 30 62 C8 52 0 34 0 8 C8 8 18 6 30 0 Z" fill="url(#shield)"/>
+    <circle cx="30" cy="28" r="7" fill="#0A0E1A"/>
+    <path d="M26.5 32 L33.5 32 L31 44 L29 44 Z" fill="#0A0E1A"/>
+  </g>
+
+  <text x="256" y="160" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="72" font-weight="600" fill="#F3EFE8" letter-spacing="-1">Pandore</text>
+  <text x="258" y="210" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="26" fill="#A9AFC0">One dashboard for Microsoft Intune, Defender for Endpoint</text>
+  <text x="258" y="246" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="26" fill="#A9AFC0">and <tspan fill="#39E6D2" font-weight="600">Vanitas</tspan>, a self-hosted Windows endpoint agent.</text>
+  <text x="258" y="292" font-family="Consolas, Menlo, monospace" font-size="15" fill="#6E7690" letter-spacing="1">INTUNE · DEFENDER FOR ENDPOINT · ENDPOINT AGENT · MCP</text>
+
+  <!-- Vanitas mark (from Design/vanitas-icon.svg) -->
+  <g transform="translate(1150 170)">
+    <circle r="64" fill="none" stroke="#213038" stroke-width="2"/>
+    <circle r="38" fill="none" stroke="#39E6D2" stroke-width="4.5"/>
+    <g stroke="#39E6D2" stroke-width="4.5" stroke-linecap="round">
+      <line x1="0" y1="-58" x2="0" y2="-40"/>
+      <line x1="0" y1="40" x2="0" y2="58"/>
+      <line x1="-58" y1="0" x2="-40" y2="0"/>
+      <line x1="40" y1="0" x2="58" y2="0"/>
+    </g>
+    <circle r="5" fill="#39E6D2"/>
+    <circle cx="34" cy="-34" r="7" fill="#D14FE0"/>
+  </g>
+</svg>

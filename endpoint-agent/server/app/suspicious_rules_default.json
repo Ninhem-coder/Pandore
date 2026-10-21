@@ -1,0 +1,29 @@
+{
+  "process": {
+    "suspiciousPaths": ["%TEMP%", "%APPDATA%", "%LOCALAPPDATA%\\Temp"],
+    "lolbins": [
+      {"name": "certutil.exe", "suspiciousArgs": ["-decode", "-urlcache", "-decodehex"]},
+      {"name": "mshta.exe", "suspiciousArgs": []},
+      {"name": "rundll32.exe", "suspiciousArgs": ["javascript:"]},
+      {"name": "powershell.exe", "suspiciousArgs": ["-enc", "-encodedcommand", "-nop", "-w hidden"]},
+      {"name": "regsvr32.exe", "suspiciousArgs": ["/i:http"]}
+    ],
+    "securityServiceNames": ["WinDefend", "Sense", "wuauserv"],
+    "persistenceCommands": ["schtasks.exe /create", "sc.exe create", "new-service"]
+  },
+  "eventLog": {
+    "rdpNormalHoursStart": "07:00",
+    "rdpNormalHoursEnd": "20:00",
+    "authFailureThreshold": 5,
+    "authFailureWindowMinutes": 10
+  },
+  "network": {
+    "allowedPorts": [80, 443, 53, 123, 445, 3389],
+    "blockedPorts": [4444, 1337, 6667],
+    "allowPrivateRanges": true
+  },
+  "usb": {
+    "fileCopyDebounceSeconds": 5,
+    "fileCopyAggregateThreshold": 20
+  }
+}

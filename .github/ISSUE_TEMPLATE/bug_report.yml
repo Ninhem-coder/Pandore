@@ -1,0 +1,57 @@
+name: Bug report
+description: Something does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+        **Security issue?** Do not use this form — follow SECURITY.md instead.
+        **Never paste secrets, tenant IDs, device names, user names or e-mail addresses.**
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Pandore backend (API / MCP)
+        - Dashboard (frontend)
+        - Vanitas server
+        - Vanitas agent / installer
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include the page or API route and any error message (redacted).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Commit or version, OS, Python, Node.js and .NET versions.
+      placeholder: "commit abc1234, Windows 11, Python 3.12, Node 24"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Backend or server output, browser console (redacted).
+      render: text

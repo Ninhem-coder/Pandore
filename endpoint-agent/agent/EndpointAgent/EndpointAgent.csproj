@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Traçabilité de version (2026-09-08, demande de Nicolas) — sans ça, AssemblyVersion
+         reste implicitement 1.0.0.0 pour toujours, indiscernable d'un build à l'autre. À
+         incrémenter à la main à chaque changement notable de l'agent (pas de mécanisme
+         automatique de bump — proportionné à un projet personnel avec quelques postes).
+         ⚠️ Synchroniser aux MÊMES chiffres avec DEUX autres emplacements à chaque bump :
+         `Installer/Product.wxs`/<Package Version> (conditionne <MajorUpgrade>) ET la constante
+         `LATEST_AGENT_VERSION` dans `frontend/src/pages/vanitasShared.jsx` (repère un poste en
+         retard sur le code source dans le dashboard). Voir le commentaire détaillé dans
+         Product.wxs. -->
+    <Version>1.2.1</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <!-- Nécessaire pour `dynamic` (liaison tardive COM, Commands/CommandExecutor.cs) — pas
+         inclus par défaut dans le framework partagé .NET Core, contrairement à .NET Framework. -->
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+    <!-- WMI (ManagementObjectSearcher) — jalon 6, Inventory/HardwareInventoryCollector.cs.
+         Windows-only, cohérent avec le TargetFramework net8.0-windows déjà en place. -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+    <!-- EventLogWatcher/EventLogQuery (System.Diagnostics.Eventing.Reader) — nouveau jalon
+         détection d'activités suspectes, Detection/ProcessAndEventLogWatcher.cs. Référencé
+         explicitement même si potentiellement déjà présent transitivement (via
+         Microsoft.Extensions.Hosting.WindowsServices) : une dépendance de compilation directe
+         ne doit jamais reposer sur un transitif d'un autre package. -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.1" />
+  </ItemGroup>
+</Project>

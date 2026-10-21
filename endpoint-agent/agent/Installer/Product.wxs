@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Jalon 5 — installe le binaire self-contained (publish/, voir Installer.wixproj), l'enregistre
+  comme un VRAI Windows Service, et prépare son enrôlement automatique au premier démarrage.
+
+  UpgradeCode FIXE (généré une seule fois) — ne JAMAIS le changer, c'est ce qui permet à un
+  futur msiexec de reconnaître une installation existante à mettre à niveau plutôt que d'en
+  créer une seconde en parallèle.
+
+  ENROLLMENTTOKEN : une première version (étape 10) lançait une action DIFFÉRÉE qui relançait
+  le binaire tout juste installé en mode enrôlement pendant l'installation elle-même — abandonné
+  après un vrai test d'installation : une fenêtre console est apparue (pourtant censée être
+  invisible, action exécutée par le service Windows Installer), un clic dedans l'a gelée (mode
+  Sélection, piège console Windows classique), et le blocage s'est reproduit même une fois la
+  fenêtre masquée — trop fragile à diagnostiquer à distance pour ce mécanisme précis. Remplacé
+  par une approche plus simple : le token est posé comme variable d'environnement MACHINE (même
+  mécanisme que SERVERURL ci-dessous), et c'est le SERVICE lui-même qui s'auto-enrôle à son
+  premier démarrage (voir Worker.cs::TryAutoEnrollAsync) — plus de second process à lancer
+  pendant l'installation, plus de fenêtre, plus de séquencement de custom action à orchestrer.
+-->
+<!--
+  ⚠️ Jalon "mise à jour de l'agent via Vanitas" (2026-09-11) : le `Version` du <Package>
+  ci-dessous restait figé à "1.0.0.0" depuis la toute première build, JAMAIS incrémenté — y
+  compris après le passage de `EndpointAgent.csproj`/<Version> à 1.1.0 (jalon traçabilité de
+  version, 2026-09-08). Cette valeur est le SEUL numéro que <MajorUpgrade> (juste en dessous)
+  sait comparer pour décider si un nouveau .msi est une vraie mise à jour ou une réinstallation
+  de la même version — rebuilder sans jamais y toucher aurait rendu la mise à jour poussée
+  depuis Vanitas silencieusement inopérante (WiX refuse/ignore un "upgrade" vers la même
+  version). À CHAQUE nouvelle version : incrémenter ICI **ET** `EndpointAgent.csproj`/<Version>
+  **ET** la constante `LATEST_AGENT_VERSION` dans `frontend/src/pages/vanitasShared.jsx`
+  ENSEMBLE, aux mêmes chiffres — c'est la version ICI qui conditionne le comportement de mise à
+  jour, celle du .csproj qui s'affiche dans le dashboard (`agent_version`, traçabilité), et la
+  constante frontend qui sert à repérer un poste en retard sur le code source ; les garder
+  synchronisées (les TROIS) évite qu'elles ne se contredisent.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package
+    Name="Endpoint Agent"
+    Manufacturer="Ninhem-coder"
+    Version="1.2.1"
+    UpgradeCode="FF45A8B3-7C32-4EE7-AE84-BAB99AA27159"
+    Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="Une version plus récente d'Endpoint Agent est déjà installée." />
+
+    <!-- SERVERURL : persisté comme variable d'environnement SYSTÈME (Agent__ServerUrl — double
+         underscore, convention .NET pour une clé de config imbriquée "Agent:ServerUrl") plutôt
+         que patché dans appsettings.json : Host.CreateApplicationBuilder inclut déjà les
+         variables d'environnement dans son pipeline de config, donc AUCUN changement de code
+         agent nécessaire, et WiX gère proprement la pose/le retrait de cette variable à
+         l'installation/désinstallation via <Environment>. Valeur par défaut = celle déjà
+         présente dans appsettings.json (poste de dev, serveur et agent sur la même machine) —
+         écrasée si SERVERURL est fourni en ligne de commande (déploiement multi-postes réel). -->
+    <Property Id="SERVERURL" Value="https://localhost:8443" />
+
+    <!-- ENROLLMENTTOKEN : pas de <Property> déclarée ici (une valeur par défaut vide n'est pas
+         acceptée par WiX pour un élément Property — retrait pur et simple, une propriété MSI
+         non déclarée mais passée en ligne de commande fonctionne quand même, résolue à une
+         chaîne vide si absente). Chaîne vide = no-op côté agent
+         (Worker.cs::TryAutoEnrollAsync vérifie IsNullOrWhiteSpace avant d'agir). Contrairement à
+         SERVERURL, jamais destiné à rester en place : effacé du registre par l'agent lui-même
+         dès l'enrôlement réussi (secret à usage unique, pas une valeur de configuration
+         durable). -->
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="EndpointAgent" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Un seul Component pour l'exe + le service qui lui est rattaché : ServiceInstall/
+           ServiceControl doivent vivre dans le MÊME Component que le KeyPath du service pour
+           que Windows Installer les (dés)installe atomiquement avec le bon fichier. -->
+      <Component Id="MainExecutable">
+        <File Id="EndpointAgentExe" Source="..\EndpointAgent\publish\EndpointAgent.exe" KeyPath="yes" />
+
+        <Environment
+          Id="ServerUrlEnv"
+          Name="Agent__ServerUrl"
+          Value="[SERVERURL]"
+          Action="set"
+          System="yes"
+          Part="all" />
+
+        <Environment
+          Id="EnrollmentTokenEnv"
+          Name="Agent__EnrollmentToken"
+          Value="[ENROLLMENTTOKEN]"
+          Action="set"
+          System="yes"
+          Part="all" />
+
+        <ServiceInstall
+          Id="EndpointAgentServiceInstall"
+          Name="EndpointAgent"
+          DisplayName="Endpoint Agent"
+          Description="Agent de supervision de poste — inventaire applicatif, mTLS, canal de commande (projet personnel)."
+          Type="ownProcess"
+          Start="auto"
+          Account="LocalSystem"
+          ErrorControl="normal" />
+
+        <ServiceControl
+          Id="EndpointAgentServiceControl"
+          Name="EndpointAgent"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+
+        <!-- Étape 11 — politique de récupération : sans ça, un crash/arrêt du service reste
+             arrêté indéfiniment (le jalon 4 le contournait en relançant `dotnet run` à la main).
+             Les 3 échecs redémarrent (pas juste le 1er) : un agent qui plante 2 fois de suite
+             pendant un déploiement (ex. réseau instable au boot) doit continuer à retenter, pas
+             abandonner après une seule tentative. ResetPeriod à 1 jour : un service qui tourne
+             sans incident pendant 24h remet le compteur à zéro, pour ne pas finir par épuiser
+             les 3 tentatives sur des échecs isolés très espacés dans le temps. -->
+        <util:ServiceConfig
+          ServiceName="EndpointAgent"
+          FirstFailureActionType="restart"
+          SecondFailureActionType="restart"
+          ThirdFailureActionType="restart"
+          RestartServiceDelayInSeconds="10"
+          ResetPeriodInDays="1" />
+      </Component>
+
+      <Component Id="AppSettings">
+        <File Id="AppSettingsJson" Source="..\EndpointAgent\publish\appsettings.json" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+  </Package>
+</Wix>
