@@ -12,31 +12,25 @@ import { IconAlertTriangle, IconLaptop, IconShield, IconLayers, IconGrid, IconWr
 import {
   CRITICALITY_LEVELS,
   EXPOSURE_LEVEL_COLORS,
-  EXPOSURE_LEVEL_LABEL_FR,
+  EXPOSURE_LEVEL_LABEL,
   secureScoreLevel,
-  SECURE_SCORE_CATEGORY_LABEL_FR,
+  SECURE_SCORE_CATEGORY_LABEL,
   translateThreat,
 } from "../theme.js";
 import { computeSecureScoreQuickWins, computeSecureScoreAllControls } from "../selectors.js";
+import { localizedTable, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
-const BASIS_LABEL_FR = {
-  AllTenants: "moyenne tous tenants",
-  TotalSeats: "tenants comparables",
-  IndustryTypes: "votre secteur",
-};
+const BASIS_LABEL = localizedTable("ss.basis", ["AllTenants", "TotalSeats", "IndustryTypes"]);
 
-const COST_LABEL_FR = { low: "faible", moderate: "moyen", high: "élevé" };
+const COST_LABEL = localizedTable("ss.cost", ["low", "moderate", "high"]);
 
 // Traduction de `actionType` (secureScoreControlProfiles) — vocabulaire Graph à 3 valeurs
 // documentées (Config/Review/Behavior), affiché dans la popup de détail section "En quoi ça
 // consiste" (2026-09-01). Une valeur non reconnue retombe sur la chaîne brute plutôt que de
 // masquer l'info — même prudence que tierColor ci-dessous pour un champ jamais vérifié en
 // direct sur ce tenant avant cette fonctionnalité.
-const ACTION_TYPE_LABEL_FR = {
-  Config: "Modification de configuration",
-  Review: "Revue / vérification",
-  Behavior: "Changement de comportement utilisateur",
-};
+const ACTION_TYPE_LABEL = localizedTable("ss.action", ["Config", "Review", "Behavior"]);
 
 // Couleurs indicatives par tier Graph (Core / Defense in Depth / Advanced) — comparaison
 // insensible à la casse/aux espaces car la graphie exacte du champ n'a pas pu être vérifiée
@@ -54,7 +48,7 @@ function tierColor(tier) {
 }
 
 // Icône par catégorie du référentiel complet (2026-08-12, refonte "façon Par criticité"
-// demandée par Nicolas) — mêmes clés que SECURE_SCORE_CATEGORY_LABEL_FR (theme.js).
+// demandée par Nicolas) — mêmes clés que SECURE_SCORE_CATEGORY_LABEL (theme.js).
 const CATEGORY_ICON = {
   Identity: IconShield,
   Data: IconLayers,
@@ -100,7 +94,7 @@ function ScoreTrendArrow({ delta }) {
         {up ? <path d="M10 15V5M5 10l5-5 5 5" /> : <path d="M10 5v10M5 10l5 5 5-5" />}
       </svg>
       {delta > 0 ? "+" : ""}
-      {delta} pt
+      {tr("ss.pt", { delta })}
     </span>
   );
 }
@@ -206,12 +200,12 @@ function RecommendationRow({ rec, rank, onOpen }) {
         <div className="reco-main">
           <span className="reco-name">
             {rec.description}
-            {rec.implemented && <span className="secure-score-implemented-badge">déjà en place</span>}
+            {rec.implemented && <span className="secure-score-implemented-badge">{tr("ss.alreadyDone")}</span>}
           </span>
           <span className="reco-meta">
-            {SECURE_SCORE_CATEGORY_LABEL_FR[rec.category] || rec.category}
-            {rec.implementationCost ? ` · coût ${COST_LABEL_FR[rec.implementationCost] || rec.implementationCost}` : ""}
-            {rec.userImpact ? ` · impact ${COST_LABEL_FR[rec.userImpact] || rec.userImpact}` : ""}
+            {SECURE_SCORE_CATEGORY_LABEL[rec.category] || rec.category}
+            {rec.implementationCost ? tr("ss.costMeta", { value: COST_LABEL[rec.implementationCost] || rec.implementationCost }) : ""}
+            {rec.userImpact ? tr("ss.impactMeta", { value: COST_LABEL[rec.userImpact] || rec.userImpact }) : ""}
           </span>
         </div>
         {rec.gap != null && rec.gap > 0 && <span className="reco-impact">+{rec.gap.toFixed(0)} pts</span>}
@@ -269,14 +263,14 @@ function ControlDetailModal({ rec, onClose }) {
           <div className="wizard-header-text">
             <h2>{rec.description}</h2>
             <p className="card-note">
-              {SECURE_SCORE_CATEGORY_LABEL_FR[rec.category] || rec.category}
-              {rec.implementationCost ? ` · coût ${COST_LABEL_FR[rec.implementationCost] || rec.implementationCost}` : ""}
-              {rec.userImpact ? ` · impact ${COST_LABEL_FR[rec.userImpact] || rec.userImpact}` : ""}
+              {SECURE_SCORE_CATEGORY_LABEL[rec.category] || rec.category}
+              {rec.implementationCost ? tr("ss.costMeta", { value: COST_LABEL[rec.implementationCost] || rec.implementationCost }) : ""}
+              {rec.userImpact ? tr("ss.impactMeta", { value: COST_LABEL[rec.userImpact] || rec.userImpact }) : ""}
               {rec.tier ? " · " : ""}
               {rec.tier && <TierBadge tier={rec.tier} />}
             </p>
           </div>
-          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer">
+          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("common.closeAria")}>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
@@ -291,11 +285,11 @@ function ControlDetailModal({ rec, onClose }) {
               </svg>
             </span>
             <div className="secure-score-detail-section-body">
-              <p className="secure-score-detail-section-title">Ce que ça protège</p>
+              <p className="secure-score-detail-section-title">{tr("ss.whatProtects")}</p>
               {rec.threats && rec.threats.length > 0 ? (
                 <ThreatTags threats={rec.threats} />
               ) : (
-                <p className="empty cve-small">Microsoft Graph ne renvoie aucune menace associée à ce contrôle.</p>
+                <p className="empty cve-small">{tr("ss.noThreat")}</p>
               )}
             </div>
           </div>
@@ -308,10 +302,9 @@ function ControlDetailModal({ rec, onClose }) {
               </svg>
             </span>
             <div className="secure-score-detail-section-body">
-              <p className="secure-score-detail-section-title">En quoi ça consiste</p>
+              <p className="secure-score-detail-section-title">{tr("ss.whatItIs")}</p>
               <p className="secure-score-detail-section-text">
-                Microsoft ne fournit pas de description distincte du titre pour ce contrôle — le
-                nom ci-dessus EST déjà la description. Ce que Graph ajoute réellement :
+                {tr("ss.noDescription")}
               </p>
               <div className="secure-score-detail-meta-chips">
                 {rec.service && (
@@ -327,11 +320,11 @@ function ControlDetailModal({ rec, onClose }) {
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M10 3v14M3 10h14" />
                     </svg>
-                    {ACTION_TYPE_LABEL_FR[rec.actionType] || rec.actionType}
+                    {ACTION_TYPE_LABEL[rec.actionType] || rec.actionType}
                   </span>
                 )}
                 {!rec.service && !rec.actionType && (
-                  <span className="empty cve-small">Aucune information supplémentaire renvoyée par Graph.</span>
+                  <span className="empty cve-small">{tr("ss.noExtraInfo")}</span>
                 )}
               </div>
             </div>
@@ -344,7 +337,7 @@ function ControlDetailModal({ rec, onClose }) {
               </svg>
             </span>
             <div className="secure-score-detail-section-body">
-              <p className="secure-score-detail-section-title">Comment le mettre en place</p>
+              <p className="secure-score-detail-section-title">{tr("ss.howTo")}</p>
               {parsed ? (
                 <p className="secure-score-remediation-text">
                   {parsed.before}
@@ -360,21 +353,19 @@ function ControlDetailModal({ rec, onClose }) {
                 </p>
               ) : (
                 <p className="empty cve-small">
-                  Microsoft Graph ne fournit pas de description de remédiation pour ce contrôle.
+                  {tr("ss.noRemediation")}
                 </p>
               )}
               {rec.remediationImpact && (
                 <div className="secure-score-detail-impact-callout">
-                  <strong>Impact attendu</strong>
+                  <strong>{tr("ss.expectedImpact")}</strong>
                   {rec.remediationImpact}
                 </div>
               )}
               <div className="secure-score-detail-wip">
-                <span className="secure-score-detail-wip-tag">Nouvelle capacité — pas encore branchée</span>
+                <span className="secure-score-detail-wip-tag">{tr("ss.notWired")}</span>
                 <p className="secure-score-detail-wip-text">
-                  <strong>Portée sur le parc :</strong> demanderait de croiser ce contrôle avec la
-                  liste des appareils/comptes réellement concernés (comme "Conformité" le fait
-                  déjà pour Intune) — Secure Score ne renvoie qu'un score agrégé côté Graph.
+                  {trRich("ss.fleetScope", { strong: <strong>{tr("ss.fleetScopeLabel")}</strong> })}
                 </p>
               </div>
               {isSafeHttpUrl(rec.actionUrl) && (
@@ -384,7 +375,7 @@ function ControlDetailModal({ rec, onClose }) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Ouvrir dans le centre d'administration Microsoft ↗
+                  {tr("ss.openAdminCenter")}
                 </a>
               )}
             </div>
@@ -392,7 +383,7 @@ function ControlDetailModal({ rec, onClose }) {
 
           {rec.score != null && rec.maxScore != null && (
             <div className="secure-score-detail-score-footer">
-              <span className="secure-score-detail-score-label">Score obtenu</span>
+              <span className="secure-score-detail-score-label">{tr("ss.scoreObtained")}</span>
               <div className="secure-score-detail-score-track">
                 <div className="secure-score-detail-score-fill" style={{ width: `${pct}%` }} />
               </div>
@@ -403,11 +394,9 @@ function ControlDetailModal({ rec, onClose }) {
           )}
 
           <div className="secure-score-detail-wip">
-            <span className="secure-score-detail-wip-tag">Nouvelle capacité — pas encore branchée</span>
+            <span className="secure-score-detail-wip-tag">{tr("ss.notWired")}</span>
             <p className="secure-score-detail-wip-text">
-              <strong>Historique de ce contrôle :</strong> demanderait d'étendre l'instantané
-              quotidien (aujourd'hui : score TOTAL seul) pour stocker le détail par contrôle
-              chaque jour.
+              {trRich("ss.controlHistory", { strong: <strong>{tr("ss.controlHistoryLabel")}</strong> })}
             </p>
           </div>
         </div>
@@ -435,7 +424,7 @@ function CategoryCard({ group, active, onSelect }) {
   const donePct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
   const color = secureScoreLevel(donePct).color;
   const Icon = CATEGORY_ICON[group.category] || IconShield;
-  const label = SECURE_SCORE_CATEGORY_LABEL_FR[group.category] || group.category;
+  const label = SECURE_SCORE_CATEGORY_LABEL[group.category] || group.category;
 
   return (
     <div
@@ -449,8 +438,8 @@ function CategoryCard({ group, active, onSelect }) {
         <div className="exposure-block-heading">
           <span className="exposure-block-label">{label}</span>
           <span className="card-note">
-            {total} contrôle{total > 1 ? "s" : ""}
-            {group.toDoCount > 0 ? ` · ${group.toDoCount} à corriger` : " · tous en place"}
+            {tr("ss.controls", { count: total })}
+            {group.toDoCount > 0 ? tr("ss.toFix", { count: group.toDoCount }) : tr("ss.allDone")}
           </span>
         </div>
       </div>
@@ -464,7 +453,7 @@ function CategoryCard({ group, active, onSelect }) {
       </div>
 
       <button type="button" className="exposure-block-toggle" onClick={onSelect} aria-pressed={active}>
-        {active ? "Masquer les contrôles" : `Voir les ${total} contrôles`}
+        {active ? tr("ss.hideControls") : tr("ss.showControls", { count: total })}
         <svg className="caret" viewBox="0 0 16 16" fill="none">
           <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -484,13 +473,13 @@ function CategoryDetailPanel({ group, onOpenControl }) {
   if (!group) {
     return (
       <div className="card secure-score-category-detail secure-score-category-detail-empty">
-        <p className="empty">Clique une catégorie ci-dessus pour afficher ses contrôles ici.</p>
+        <p className="empty">{tr("ss.pickCategory")}</p>
       </div>
     );
   }
 
   const total = group.controls.length;
-  const label = SECURE_SCORE_CATEGORY_LABEL_FR[group.category] || group.category;
+  const label = SECURE_SCORE_CATEGORY_LABEL[group.category] || group.category;
   const Icon = CATEGORY_ICON[group.category] || IconShield;
 
   return (
@@ -508,8 +497,8 @@ function CategoryDetailPanel({ group, onOpenControl }) {
           {label}
         </h2>
         <span className="card-note">
-          {total} contrôle{total > 1 ? "s" : ""}
-          {group.toDoCount > 0 ? ` · ${group.toDoCount} à corriger` : " · tous en place"}
+          {tr("ss.controls", { count: total })}
+          {group.toDoCount > 0 ? tr("ss.toFix", { count: group.toDoCount }) : tr("ss.allDone")}
         </span>
       </div>
       <ul className="reco-list secure-score-reco-list">
@@ -603,7 +592,7 @@ export default function SecureScoreTab({ data }) {
         <div className="card-head">
           <h2>Secure score</h2>
         </div>
-        <p className="empty">Interrogation de Microsoft Graph (security/secureScores)…</p>
+        <p className="empty">{tr("ss.querying")}</p>
       </div>
     );
   } else if (error) {
@@ -615,10 +604,7 @@ export default function SecureScoreTab({ data }) {
         <p className="error-note">
           {error}
           <br />
-          Si l'erreur mentionne un statut 403 : vérifier que la permission Graph{" "}
-          <code>SecurityEvents.Read.All</code> (Application) est bien accordée, avec
-          consentement admin, sur l'app registration Intune — c'est un scope distinct de ceux
-          déjà utilisés pour /deviceManagement et /users, à ajouter explicitement dans Entra.
+          {trRich("ss.error403", { perm: <code>SecurityEvents.Read.All</code> })}
         </p>
       </div>
     );
@@ -628,7 +614,7 @@ export default function SecureScoreTab({ data }) {
         <div className="card-head">
           <h2>Secure score</h2>
         </div>
-        <p className="empty">Microsoft Graph n'a renvoyé aucune donnée pour ce tenant.</p>
+        <p className="empty">{tr("ss.noData")}</p>
       </div>
     );
   } else {
@@ -671,17 +657,17 @@ export default function SecureScoreTab({ data }) {
                 score={percentage}
                 colorForScore={secureScoreLevel}
                 suffix="%"
-                ariaLabel={percentage != null ? `Secure score ${percentage} pourcent` : "Secure score indisponible"}
+                ariaLabel={percentage != null ? tr("ss.gaugeAria", { pct: percentage }) : tr("ss.gaugeUnavailable")}
               />
               <div className="secure-score-hero-body">
-                <p className="secure-score-kpi-label">Score actuel</p>
+                <p className="secure-score-kpi-label">{tr("ss.currentScore")}</p>
                 <div className="secure-score-trend-row">
                   <ScoreTrendArrow delta={scoreDelta} />
-                  <span className="secure-score-trend-period">vs il y a {trend.length} j</span>
+                  <span className="secure-score-trend-period">{tr("ss.vsDays", { days: trend.length })}</span>
                 </div>
                 <p className="secure-score-value">
                   {Math.round(latest.currentScore)}
-                  <span> / {Math.round(latest.maxScore)} pts</span>
+                  <span>{tr("ss.ofMaxPts", { max: Math.round(latest.maxScore) })}</span>
                 </p>
                 {benchmarks.length > 0 && (
                   <p className="secure-score-benchmark">
@@ -690,7 +676,7 @@ export default function SecureScoreTab({ data }) {
                       return (
                         <span key={b.basis}>
                           {i > 0 ? " · " : ""}
-                          {BASIS_LABEL_FR[b.basis] || b.basis} : {pct != null ? `${pct}%` : "—"}
+                          {tr("ss.benchmark", { label: BASIS_LABEL[b.basis] || b.basis, value: pct != null ? `${pct}%` : "—" })}
                         </span>
                       );
                     })}
@@ -702,45 +688,45 @@ export default function SecureScoreTab({ data }) {
             <div className="card secure-score-kpi-card">
               <div className="secure-score-kpi-top">
                 <div>
-                  <p className="secure-score-kpi-label">Points à gagner</p>
+                  <p className="secure-score-kpi-label">{tr("ss.pointsToGain")}</p>
                   <div className="secure-score-kpi-value">{pointsToGain}</div>
                 </div>
-                <span className="card-note secure-score-kpi-top-note">sur {Math.round(latest.maxScore)} pts</span>
+                <span className="card-note secure-score-kpi-top-note">{tr("ss.outOfPts", { max: Math.round(latest.maxScore) })}</span>
               </div>
               <p className="secure-score-kpi-sub">
-                {Math.round(latest.currentScore)} pts obtenus sur {Math.round(latest.maxScore)} au catalogue
+                {tr("ss.ptsObtained", { current: Math.round(latest.currentScore), max: Math.round(latest.maxScore) })}
               </p>
               <div className="secure-score-mini-bar">
                 <span style={{ width: `${percentage ?? 0}%`, background: "var(--low)" }} />
                 <span style={{ width: `${100 - (percentage ?? 0)}%`, background: "var(--high)" }} />
               </div>
               <p className="secure-score-mini-bar-legend">
-                <span style={{ color: "var(--low)" }}>{Math.round(latest.currentScore)} pts acquis</span> ·{" "}
-                <span style={{ color: "var(--high)" }}>{pointsToGain} pts restants</span>
+                <span style={{ color: "var(--low)" }}>{tr("ss.ptsAcquired", { count: Math.round(latest.currentScore) })}</span> ·{" "}
+                <span style={{ color: "var(--high)" }}>{tr("ss.ptsRemaining", { count: pointsToGain })}</span>
               </p>
             </div>
 
             <div className="card secure-score-kpi-card">
               <div className="secure-score-kpi-top">
                 <div>
-                  <p className="secure-score-kpi-label">Contrôles</p>
+                  <p className="secure-score-kpi-label">{tr("ss.controlsLabel")}</p>
                   <div className="secure-score-kpi-value">
                     {doneControls}
                     <span className="secure-score-kpi-value-total"> / {totalControls}</span>
                   </div>
                 </div>
-                <span className="card-note secure-score-kpi-top-note">en place</span>
+                <span className="card-note secure-score-kpi-top-note">{tr("ss.inPlace")}</span>
               </div>
               {doneControlsPct != null && (
                 <>
-                  <p className="secure-score-kpi-sub">{doneControlsPct} % du référentiel appliqué</p>
+                  <p className="secure-score-kpi-sub">{tr("ss.frameworkApplied", { pct: doneControlsPct })}</p>
                   <div className="secure-score-mini-bar">
                     <span style={{ width: `${doneControlsPct}%`, background: "var(--low)" }} />
                     <span style={{ width: `${100 - doneControlsPct}%`, background: "var(--high)" }} />
                   </div>
                   <p className="secure-score-mini-bar-legend">
-                    <span style={{ color: "var(--low)" }}>{doneControls} en place</span> ·{" "}
-                    <span style={{ color: "var(--high)" }}>{todoControls} à corriger</span>
+                    <span style={{ color: "var(--low)" }}>{tr("ss.countInPlace", { count: doneControls })}</span> ·{" "}
+                    <span style={{ color: "var(--high)" }}>{tr("ss.countToFix", { count: todoControls })}</span>
                   </p>
                 </>
               )}
@@ -757,8 +743,7 @@ export default function SecureScoreTab({ data }) {
           {allControls.length > 0 && (
             <>
               <p className="section-title">
-                Référentiel complet — {allControls.reduce((sum, g) => sum + g.controls.length, 0)}{" "}
-                contrôles Microsoft Secure Score, par catégorie
+                {tr("ss.fullFramework", { count: allControls.reduce((sum, g) => sum + g.controls.length, 0) })}
               </p>
               <div className="secure-score-category-grid">
                 {allControls.map((group) => (
@@ -797,7 +782,7 @@ export default function SecureScoreTab({ data }) {
               lointaine comme sur Conformité. */}
           {bestGain && (
             <>
-              <p className="securescore-rail-title">Meilleur gain</p>
+              <p className="securescore-rail-title">{tr("ss.bestGain")}</p>
               <div className="card secure-score-bestgain-card">
                 <div className="secure-score-bestgain-icon">
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -810,15 +795,15 @@ export default function SecureScoreTab({ data }) {
                 </p>
                 <p className="secure-score-bestgain-impact">
                   +{bestGain.gap.toFixed(1)} pts
-                  {bestGain.implementationCost ? ` · coût ${COST_LABEL_FR[bestGain.implementationCost] || bestGain.implementationCost}` : ""}
-                  {bestGain.userImpact ? ` · impact ${COST_LABEL_FR[bestGain.userImpact] || bestGain.userImpact}` : ""}
+                  {bestGain.implementationCost ? tr("ss.costMeta", { value: COST_LABEL[bestGain.implementationCost] || bestGain.implementationCost }) : ""}
+                  {bestGain.userImpact ? tr("ss.impactMeta", { value: COST_LABEL[bestGain.userImpact] || bestGain.userImpact }) : ""}
                 </p>
                 <button
                   type="button"
                   className="secure-score-bestgain-link"
                   onClick={() => setDetailControl(bestGain)}
                 >
-                  Voir la marche à suivre
+                  {tr("ss.seeSteps")}
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 4l6 6-6 6" />
                   </svg>
@@ -836,7 +821,7 @@ export default function SecureScoreTab({ data }) {
               latérales passées sous le graphique, côte à côte plutôt qu'empilées. */}
           {scoreTrendPath && (
             <>
-              <p className="securescore-rail-title">Tendance du score</p>
+              <p className="securescore-rail-title">{tr("ss.scoreTrend")}</p>
               <div className="card secure-score-trend-card">
                 <div className="secure-score-trend-chart-wrap">
                   <svg viewBox="0 0 300 80" preserveAspectRatio="none">
@@ -854,21 +839,21 @@ export default function SecureScoreTab({ data }) {
                   </svg>
                   <div className="secure-score-trend-legend">
                     <span>
-                      {trend[0]} % il y a {trend.length} j
+                      {tr("ss.trendAgo", { value: trend[0], days: trend.length })}
                     </span>
-                    <span style={{ color: "var(--low)" }}>{percentage} % aujourd'hui</span>
+                    <span style={{ color: "var(--low)" }}>{tr("ss.trendToday", { value: percentage })}</span>
                   </div>
                 </div>
                 <div className="secure-score-trend-stats">
                   <div className="secure-score-trend-stat">
-                    Tendance
+                    {tr("ss.trend")}
                     <strong className={scoreDelta > 0 ? "up" : scoreDelta < 0 ? "down" : ""}>
                       {scoreDelta != null ? `${scoreDelta > 0 ? "+" : ""}${scoreDelta} pt` : "—"}
                     </strong>
                   </div>
                   {industryBenchmarkPct != null && (
                     <div className="secure-score-trend-stat">
-                      Moy. secteur
+                      {tr("ss.industryAvg")}
                       <strong>{industryBenchmarkPct} %</strong>
                     </div>
                   )}
@@ -877,22 +862,19 @@ export default function SecureScoreTab({ data }) {
             </>
           )}
 
-          <p className="securescore-rail-title">Gains rapides</p>
+          <p className="securescore-rail-title">{tr("ss.quickWins")}</p>
           <div className="card securescore-rail-card">
             <p className="card-note secure-score-quickwins-note">
-              {quickWins.length} contrôle{quickWins.length > 1 ? "s" : ""} · déjà visibles dans Vue
-              d'ensemble
+              {tr("ss.quickWinsNote", { count: quickWins.length })}
             </p>
             {quickWins.length === 0 ? (
               <p className="empty">
-                Aucun gain calculable pour l'instant — le catalogue des contrôles n'a pas pu être
-                rapproché des scores du jour (voir l'avertissement de jointure dans
-                selectors.js::computeSecureScoreQuickWins, à vérifier sur données réelles).
+                {tr("ss.noQuickWin")}
               </p>
             ) : (
               <>
                 <p className="card-note secure-score-hint">
-                  Clique une ligne pour voir la marche à suivre et les menaces couvertes.
+                  {tr("ss.clickRowSteps")}
                 </p>
                 <ul className="reco-list">
                   {quickWins.map((q, i) => (
@@ -915,14 +897,14 @@ export default function SecureScoreTab({ data }) {
           className={`secure-score-subtab${view === "score" ? " active" : ""}`}
           onClick={() => setView("score")}
         >
-          Score
+          {tr("ss.tabScore")}
         </button>
         <button
           type="button"
           className={`secure-score-subtab${view === "criticite" ? " active" : ""}`}
           onClick={() => setView("criticite")}
         >
-          Par criticité
+          {tr("ss.tabCriticality")}
         </button>
       </div>
       {view === "score" ? scoreContent : (
@@ -938,7 +920,7 @@ export default function SecureScoreTab({ data }) {
 function CriticiteLevelBadge({ level }) {
   if (!level) return null;
   const color = EXPOSURE_LEVEL_COLORS[level] || EXPOSURE_LEVEL_COLORS.Unknown;
-  const label = EXPOSURE_LEVEL_LABEL_FR[level] || level;
+  const label = EXPOSURE_LEVEL_LABEL[level] || level;
   return (
     <span className="criticite-level-badge" style={{ borderColor: color, color }}>
       <span className="dot" style={{ background: color }} />
@@ -1073,26 +1055,26 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
             score={masteredPct}
             colorForScore={secureScoreLevel}
             suffix="%"
-            ariaLabel={masteredPct != null ? `Score d'exposition maîtrisée ${masteredPct} pourcent` : "Indisponible"}
+            ariaLabel={masteredPct != null ? tr("crit.masteredAria", { pct: masteredPct }) : tr("crit.unavailable")}
           />
           <div className="secure-score-hero-body">
-            <p className="secure-score-kpi-label">Score d'exposition maîtrisée</p>
+            <p className="secure-score-kpi-label">{tr("crit.mastered")}</p>
             <p className="secure-score-value">
               {masteredCount ?? "—"}
-              <span> / {totalMachines ?? "—"} appareils</span>
+              <span>{tr("crit.ofDevices", { total: totalMachines ?? "—" })}</span>
             </p>
             <div className="os-dots">
               <span className="os-dot-chip">
                 <span className="dot" style={{ background: EXPOSURE_LEVEL_COLORS.High }} />
-                {highCount} élevée
+                {tr("crit.high", { count: highCount })}
               </span>
               <span className="os-dot-chip">
                 <span className="dot" style={{ background: EXPOSURE_LEVEL_COLORS.Medium }} />
-                {mediumCount} moyenne
+                {tr("crit.medium", { count: mediumCount })}
               </span>
               <span className="os-dot-chip">
                 <span className="dot" style={{ background: EXPOSURE_LEVEL_COLORS.Low }} />
-                {lowCount} faible
+                {tr("crit.low", { count: lowCount })}
               </span>
             </div>
           </div>
@@ -1101,14 +1083,13 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
         <div className="card secure-score-kpi-card">
           <div className="secure-score-kpi-top">
             <div>
-              <p className="secure-score-kpi-label">Exposition élevée</p>
+              <p className="secure-score-kpi-label">{tr("crit.highExposure")}</p>
               <div className="secure-score-kpi-value">{highCount}</div>
             </div>
-            <span className="card-note secure-score-kpi-top-note">à traiter en priorité</span>
+            <span className="card-note secure-score-kpi-top-note">{tr("crit.fixFirst")}</span>
           </div>
           <p className="secure-score-kpi-sub">
-            {totalExposed > 0 ? Math.round((highCount / totalExposed) * 100) : 0} % des {totalExposed} appareils
-            exposés
+            {tr("crit.pctOfExposed", { pct: totalExposed > 0 ? Math.round((highCount / totalExposed) * 100) : 0, total: totalExposed })}
           </p>
           <div className="secure-score-mini-bar">
             <span style={{ width: `${totalExposed > 0 ? (highCount / totalExposed) * 100 : 0}%`, background: "var(--high)" }} />
@@ -1119,17 +1100,17 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
         <div className="card secure-score-kpi-card">
           <div className="secure-score-kpi-top">
             <div>
-              <p className="secure-score-kpi-label">Logiciels vulnérables</p>
+              <p className="secure-score-kpi-label">{tr("crit.vulnSoftware")}</p>
               <div className="secure-score-kpi-value">{topSoftware.length}</div>
             </div>
-            <span className="card-note secure-score-kpi-top-note">top 5 par niveau</span>
+            <span className="card-note secure-score-kpi-top-note">{tr("crit.top5")}</span>
           </div>
           <p className="secure-score-kpi-sub">
             {bestSoftware
-              ? `${bestSoftware.software_name} en tête (${bestSoftware.totalDevices} appareils)`
+              ? tr("crit.leading", { name: bestSoftware.software_name, count: bestSoftware.totalDevices })
               : softwareLoading
-              ? "Chargement…"
-              : "Aucune donnée pour l'instant"}
+              ? tr("common.loading")
+              : tr("crit.noDataYet")}
           </p>
         </div>
       </section>
@@ -1138,23 +1119,23 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
         <div className="criticite-main">
           <div className="card">
             <div className="card-head">
-              <h2>Top logiciels vulnérables — tous niveaux confondus</h2>
+              <h2>{tr("crit.topSoftware")}</h2>
               <span className="card-note">
-                {topSoftware.length} logiciel{topSoftware.length > 1 ? "s" : ""}
+                {tr("crit.softwareCount", { count: topSoftware.length })}
               </span>
             </div>
             {softwareLoading ? (
-              <p className="card-note">Chargement…</p>
+              <p className="card-note">{tr("common.loading")}</p>
             ) : topSoftware.length === 0 ? (
               softwareAllErrored ? (
-                <p className="error-note">Impossible de charger le classement (les 3 niveaux ont échoué).</p>
+                <p className="error-note">{tr("crit.rankingFailed")}</p>
               ) : (
-                <p className="empty">Aucun logiciel vulnérable détecté sur les 3 niveaux.</p>
+                <p className="empty">{tr("crit.noVulnSoftware")}</p>
               )
             ) : (
               <>
                 <p className="card-note secure-score-hint">
-                  Clique une ligne pour voir les chemins d'évidence et les appareils concernés.
+                  {tr("crit.clickRowPaths")}
                 </p>
                 <ul className="reco-list">
                   {topSoftware.map((s, i) => (
@@ -1196,16 +1177,16 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
 
           <div className="card">
             <div className="card-head">
-              <h2>Postes par niveau d'exposition</h2>
+              <h2>{tr("crit.devicesByLevel")}</h2>
               <span className="card-note">
-                {filteredDevices.length} / {allDevices.length} affichés
+                {tr("crit.shown", { shown: filteredDevices.length, total: allDevices.length })}
               </span>
             </div>
             <div className="filter-bar">
               <input
                 className="filter-input"
                 type="text"
-                placeholder="Rechercher un appareil…"
+                placeholder={tr("crit.searchDevice")}
                 value={deviceSearch}
                 onChange={(e) => setDeviceSearch(e.target.value)}
               />
@@ -1215,7 +1196,7 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
                   className={`criticite-level-chip${deviceLevelFilter === "all" ? " active" : ""}`}
                   onClick={() => setDeviceLevelFilter("all")}
                 >
-                  Tous
+                  {tr("common.all")}
                 </button>
                 {CRITICALITY_LEVELS.map((level) => (
                   <button
@@ -1234,34 +1215,34 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
                     onClick={() => setDeviceLevelFilter(level)}
                   >
                     <span className="dot" style={{ background: EXPOSURE_LEVEL_COLORS[level] }} />
-                    {EXPOSURE_LEVEL_LABEL_FR[level]}
+                    {EXPOSURE_LEVEL_LABEL[level]}
                   </button>
                 ))}
               </div>
             </div>
             {allDevices.length === 0 ? (
-              <p className="empty">Aucun appareil exposé.</p>
+              <p className="empty">{tr("crit.noExposedDevice")}</p>
             ) : (
               <div className="criticite-device-table-wrap">
                 <table className="criticite-device-table">
                   <thead>
                     <tr>
-                      <th>Appareil</th>
-                      <th>OS</th>
-                      <th>Niveau</th>
+                      <th>{tr("crit.col.device")}</th>
+                      <th>{tr("crit.col.os")}</th>
+                      <th>{tr("crit.col.level")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredDevices.length === 0 ? (
                       <tr>
                         <td colSpan={3} className="empty">
-                          Aucun appareil pour ce filtre.
+                          {tr("crit.noDeviceForFilter")}
                         </td>
                       </tr>
                     ) : (
                       filteredDevices.map((d, i) => (
                         <tr key={d.id ?? d.computerDnsName ?? i} onClick={() => openDeviceModal(d)}>
-                          <td className="name">{d.computerDnsName ?? "Device inconnu"}</td>
+                          <td className="name">{d.computerDnsName ?? tr("common.unknownDevice")}</td>
                           <td className="os">{d.osPlatform ?? "—"}</td>
                           <td>
                             <CriticiteLevelBadge level={d.level} />
@@ -1277,45 +1258,45 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
         </div>
 
         <aside className="criticite-rail">
-          <p className="criticite-rail-title">Résumé</p>
+          <p className="criticite-rail-title">{tr("crit.summary")}</p>
           <div className="strip exposure-summary-strip">
             <SummaryCard
               icon={<IconAlertTriangle />}
-              title="Exposition élevée"
+              title={tr("crit.highExposure")}
               value={highCount}
-              hint={`device${highCount > 1 ? "s" : ""} à traiter en priorité`}
+              hint={tr("crit.devicesToFix", { count: highCount })}
               tone={highCount > 0 ? "danger" : "good"}
             />
             <SummaryCard
               icon={<IconLaptop />}
-              title="Devices exposés"
+              title={tr("crit.exposedDevices")}
               value={totalExposed}
-              hint="exposition non nulle (Faible/Moyenne/Élevée)"
+              hint={tr("crit.nonZeroExposure")}
             />
           </div>
 
           {defenderError ? (
             <div className="card exposure-summary-donut">
               <div className="card-head">
-                <h2>Répartition par niveau d'exposition</h2>
+                <h2>{tr("crit.byLevel")}</h2>
               </div>
               <p className="error-note">{defenderError.message}</p>
             </div>
           ) : (
             <div className="exposure-summary-donut">
               <Donut
-                title="Répartition par niveau d'exposition"
+                title={tr("crit.byLevel")}
                 note="exposureLevel — /api/machines"
                 data={data.defenderSummary?.byExposureLevel}
                 colors={EXPOSURE_LEVEL_COLORS}
-                labels={EXPOSURE_LEVEL_LABEL_FR}
+                labels={EXPOSURE_LEVEL_LABEL}
               />
             </div>
           )}
 
           {bestSoftware && (
             <>
-              <p className="criticite-rail-title">Correctif recommandé</p>
+              <p className="criticite-rail-title">{tr("crit.recommendedFix")}</p>
               <div className="card secure-score-bestgain-card">
                 <div className="secure-score-bestgain-icon">
                   <svg
@@ -1335,15 +1316,15 @@ function CriticiteView({ data, exposureApps, deviceVulnApps }) {
                   <strong>{bestSoftware.software_name}</strong>
                 </p>
                 <p className="secure-score-bestgain-impact">
-                  {bestSoftware.totalDevices} appareils · {bestSoftware.cve_count} CVE
-                  {totalExposed > 0 ? ` · ${Math.round((bestSoftware.totalDevices / totalExposed) * 100)} % des exposés` : ""}
+                  {tr("crit.devicesCve", { devices: bestSoftware.totalDevices, cves: bestSoftware.cve_count })}
+                  {totalExposed > 0 ? tr("crit.pctExposed", { pct: Math.round((bestSoftware.totalDevices / totalExposed) * 100) }) : ""}
                 </p>
                 <button
                   type="button"
                   className="secure-score-bestgain-link"
                   onClick={() => setModal({ kind: "software", entry: bestSoftware })}
                 >
-                  Voir le détail
+                  {tr("crit.seeDetail")}
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 4l6 6-6 6" />
                   </svg>
@@ -1385,7 +1366,7 @@ function CriticiteDetailModal({ modal, onClose, deviceVulnApps }) {
   if (!modal) return null;
 
   const isDevice = modal.kind === "device";
-  const title = isDevice ? modal.device.computerDnsName ?? "Device inconnu" : modal.entry.software_name;
+  const title = isDevice ? modal.device.computerDnsName ?? tr("common.unknownDevice") : modal.entry.software_name;
   const deviceDetail = isDevice ? deviceVulnApps.state[modal.machineId] : null;
 
   return (
@@ -1398,16 +1379,16 @@ function CriticiteDetailModal({ modal, onClose, deviceVulnApps }) {
             <p className="card-note">
               {isDevice ? (
                 <>
-                  {modal.device.osPlatform ?? "OS inconnu"} · <CriticiteLevelBadge level={modal.device.level} />
+                  {modal.device.osPlatform ?? tr("common.unknownOs")} · <CriticiteLevelBadge level={modal.device.level} />
                 </>
               ) : (
                 <>
-                  {modal.entry.software_vendor} · {modal.entry.cve_count} CVE · {modal.entry.totalDevices} appareils
+                  {tr("crit.vendorCveDevices", { vendor: modal.entry.software_vendor, cves: modal.entry.cve_count, devices: modal.entry.totalDevices })}
                 </>
               )}
             </p>
           </div>
-          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer">
+          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("common.closeAria")}>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
@@ -1416,11 +1397,11 @@ function CriticiteDetailModal({ modal, onClose, deviceVulnApps }) {
         <div className="wizard-step-body">
           {isDevice ? (
             !deviceDetail || deviceDetail.loading ? (
-              <p className="card-note">Chargement…</p>
+              <p className="card-note">{tr("common.loading")}</p>
             ) : deviceDetail.error ? (
               <p className="error-note">{deviceDetail.error}</p>
             ) : deviceDetail.data.length === 0 ? (
-              <p className="empty">Aucun logiciel vulnérable détecté sur ce device.</p>
+              <p className="empty">{tr("crit.noVulnOnDevice")}</p>
             ) : (
               deviceDetail.data.map((app, i) => (
                 <div key={`${app.software_vendor}-${app.software_name}`} style={{ marginTop: i > 0 ? 16 : 0 }}>
@@ -1437,14 +1418,14 @@ function CriticiteDetailModal({ modal, onClose, deviceVulnApps }) {
                       ))}
                     </div>
                   ) : (
-                    <p className="empty cve-small">Aucun chemin d'évidence retrouvé.</p>
+                    <p className="empty cve-small">{tr("crit.noEvidence")}</p>
                   )}
                 </div>
               ))
             )
           ) : (
             <>
-              <p className="secure-score-detail-section-title">Chemins d'évidence</p>
+              <p className="secure-score-detail-section-title">{tr("crit.evidencePaths")}</p>
               {modal.entry.paths.length > 0 ? (
                 <div className="vuln-path-list">
                   {modal.entry.paths.map((p, i) => (
@@ -1454,9 +1435,9 @@ function CriticiteDetailModal({ modal, onClose, deviceVulnApps }) {
                   ))}
                 </div>
               ) : (
-                <p className="empty cve-small">Aucun chemin d'évidence retrouvé pour ce logiciel.</p>
+                <p className="empty cve-small">{tr("crit.noEvidenceSoftware")}</p>
               )}
-              <p className="secure-score-detail-section-title">Appareils concernés ({modal.entry.device_names.length})</p>
+              <p className="secure-score-detail-section-title">{tr("crit.affectedDevices", { count: modal.entry.device_names.length })}</p>
               {modal.entry.device_names.length > 0 ? (
                 <div className="vuln-device-list">
                   {modal.entry.device_names.map((n, i) => (
@@ -1466,7 +1447,7 @@ function CriticiteDetailModal({ modal, onClose, deviceVulnApps }) {
                   ))}
                 </div>
               ) : (
-                <p className="empty cve-small">Aucun device retrouvé pour ce logiciel.</p>
+                <p className="empty cve-small">{tr("crit.noDeviceSoftware")}</p>
               )}
             </>
           )}

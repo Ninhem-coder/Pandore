@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import DeployAppWizard from "../components/DeployAppWizard.jsx";
 import { IconPicker } from "../components/IconPicker.jsx";
 import { IconUpload } from "../components/icons.jsx";
+import { tr } from "../i18n/core.js";
 
 /**
  * Onglet "Application" > Administration > "Ajouter une application" (2026-08-26, demande de
@@ -75,7 +76,7 @@ function ManualAddForm({ onNavigate }) {
         setJustAdded(true);
       }
     } catch (err) {
-      setError(err.message || "Échec de l'ajout.");
+      setError(err.message || tr("apps.addFailed"));
     } finally {
       setAdding(false);
     }
@@ -87,35 +88,35 @@ function ManualAddForm({ onNavigate }) {
         <input
           type="text"
           className="filter-input"
-          placeholder="Nom de l'application *"
+          placeholder={tr("apps.namePlaceholder")}
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          aria-label="Nom de l'application"
+          aria-label={tr("apps.nameAria")}
         />
         <input
           type="text"
           className="filter-input"
-          placeholder="Éditeur"
+          placeholder={tr("apps.publisher")}
           value={publisher}
           onChange={(e) => setPublisher(e.target.value)}
-          aria-label="Éditeur"
+          aria-label={tr("apps.publisher")}
         />
         <input
           type="text"
           className="filter-input"
-          placeholder="Version"
+          placeholder={tr("apps.version")}
           value={version}
           onChange={(e) => setVersion(e.target.value)}
-          aria-label="Version"
+          aria-label={tr("apps.version")}
         />
       </div>
       <input
         type="text"
         className="filter-input library-manual-note"
-        placeholder="Note (lien, contexte…)"
+        placeholder={tr("apps.notePlaceholder")}
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        aria-label="Note"
+        aria-label={tr("apps.note")}
       />
       <IconPicker
         icon={icon}
@@ -126,15 +127,15 @@ function ManualAddForm({ onNavigate }) {
       />
       <div className="wizard-actions library-manual-actions">
         <button type="submit" className="wizard-secondary-btn" disabled={adding || !displayName.trim()}>
-          {adding ? "Ajout…" : "Ajouter à la bibliothèque"}
+          {adding ? tr("apps.adding") : tr("apps.addToLibrary")}
         </button>
         {justAdded && (
           <button type="button" className="wizard-secondary-btn" onClick={() => onNavigate?.("app-catalog")}>
-            Voir le catalogue
+            {tr("apps.seeCatalog")}
           </button>
         )}
       </div>
-      {justAdded && <p className="card-note">Ajoutée à la bibliothèque.</p>}
+      {justAdded && <p className="card-note">{tr("apps.added")}</p>}
       {error && <p className="error-note">{error}</p>}
     </form>
   );
@@ -171,43 +172,39 @@ export default function AddAppTab({ onNavigate }) {
     <>
       <div className="card">
         <div className="card-head">
-          <h2>Déployer une application</h2>
+          <h2>{tr("apps.deploy")}</h2>
           <button type="button" className="app-catalog-deploy-btn" onClick={() => setWizardOpen(true)}>
             <IconUpload />
-            Déployer une application
+            {tr("apps.deploy")}
           </button>
         </div>
         <p className="card-note">
-          Génère un package Win32 (.intunewin + commandes d'installation/désinstallation + script de détection) via
-          l'assistant — dépôt d'un installeur MSI ou récupération depuis une release GitHub. Ne publie rien sur
-          Intune automatiquement.
+          {tr("apps.deployNote")}
         </p>
       </div>
 
       <div className="card">
         <div className="card-head">
-          <h2>Ajout manuel</h2>
+          <h2>{tr("apps.manualAdd")}</h2>
         </div>
 
-        <p className="filter-chip-group-label">Empaqueter un installeur</p>
+        <p className="filter-chip-group-label">{tr("apps.packageInstaller")}</p>
         <p className="card-note">
-          Dépose un installeur MSI ou un script PowerShell (.ps1) ci-dessous pour l'empaqueter — l'assistant s'ouvre
-          avec ce fichier déjà déposé, choisis ensuite la configuration et la règle de détection avant l'ajout au
-          catalogue.
+          {tr("apps.packageInstallerNote")}
         </p>
         <button type="button" className="add-app-upload-drop" onClick={() => manualFileInputRef.current?.click()}>
           <IconUpload />
-          <span>Choisir un fichier .msi ou .ps1…</span>
+          <span>{tr("apps.chooseFile")}</span>
         </button>
         <input ref={manualFileInputRef} type="file" accept=".msi,.ps1" hidden onChange={handleManualFileChange} />
 
         <div className="add-app-manual-divider">
-          <span>ou</span>
+          <span>{tr("apps.or")}</span>
         </div>
 
-        <p className="filter-chip-group-label">Fiche de référence sans installeur</p>
+        <p className="filter-chip-group-label">{tr("apps.referenceOnly")}</p>
         <p className="card-note">
-          Pour cataloguer une app qui n'a pas besoin d'un livrable technique (déjà packagée ailleurs, app store…).
+          {tr("apps.referenceOnlyNote")}
         </p>
         <ManualAddForm onNavigate={onNavigate} />
       </div>

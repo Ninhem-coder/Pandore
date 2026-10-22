@@ -1,4 +1,6 @@
 import { POLICY_STATUS_COLORS } from "../theme.js";
+import { getLang, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Reste du module d'origine (port de build_compliance_devices_tab_html(), grille par OS +
@@ -54,12 +56,12 @@ export function ReconciliationNote({ policyStatus, settings }) {
   if (!(allSettingsCompliant && policyStatusLower && policyStatusLower !== "compliant")) return null;
   return (
     <p className="footnote">
-      Statut recalculé : <strong>conforme</strong> (réglages ci-dessus tous compliant).
+      {trRich("compliance.recalculated", { strong: <strong>{tr("compliance.miniCompliant")}</strong> })}
       <span
         className="footnote-why"
-        title={`L'agrégat Graph par politique affiche encore « ${policyStatus} » : écart connu entre l'agrégat mis en cache côté Microsoft et l'évaluation en direct des paramètres, qui fait foi ici.`}
+        title={tr("compliance.recalculatedWhy", { status: policyStatus })}
       >
-        pourquoi ↗
+        {tr("compliance.why")}
       </span>
     </p>
   );
@@ -74,37 +76,39 @@ export function ReconciliationNote({ policyStatus, settings }) {
 // avec un sens DIFFÉRENT à chaque fois, confirmé par la liste fournie par Nicolas) — la
 // traduction pour celles-ci doit donc être scopée par (nom de politique, settingName), pas par
 // settingName seul, sous peine d'afficher le même libellé sur 4 réglages différents.
-const _GLOBAL_SETTING_LABELS_FR = {
-  "Device_HealthAttestation/SecureBootEnabled": "Secure Boot activé",
-  "Device_HealthAttestation/BitLockerEnabled": "BitLocker activé",
-  "./DevDetail/SwV": "Bonne version de Windows",
+// Values are [French, English] pairs: these labels describe one tenant's own scripts, so they
+// live next to the code that matches them rather than in the shared dictionaries.
+const _GLOBAL_SETTING_LABELS = {
+  "Device_HealthAttestation/SecureBootEnabled": ["Secure Boot activé", "Secure Boot enabled"],
+  "Device_HealthAttestation/BitLockerEnabled": ["BitLocker activé", "BitLocker enabled"],
+  "./DevDetail/SwV": ["Bonne version de Windows", "Correct Windows version"],
 };
 
-const _POLICY_SETTING_LABELS_FR = {
-  "Windows - Check Disable NetBIOS": { BOOL_IsEquals_true: "NetBIOS est bien désactivé" },
-  "Windows - Check isAutopilot": { Name_IsEquals_Autopilot: "Appareil bien dans Autopilot" },
-  "Windows - Check Disable SMBv1 Server": { BOOL_IsEquals_true: "SMBv1 Server bien désactivé" },
-  "Windows - Check Disable LLMNR": { BOOL_IsEquals_true: "LLMNR bien désactivé" },
+const _POLICY_SETTING_LABELS = {
+  "Windows - Check Disable NetBIOS": { BOOL_IsEquals_true: ["NetBIOS est bien désactivé", "NetBIOS is disabled"] },
+  "Windows - Check isAutopilot": { Name_IsEquals_Autopilot: ["Appareil bien dans Autopilot", "Device is in Autopilot"] },
+  "Windows - Check Disable SMBv1 Server": { BOOL_IsEquals_true: ["SMBv1 Server bien désactivé", "SMBv1 server is disabled"] },
+  "Windows - Check Disable LLMNR": { BOOL_IsEquals_true: ["LLMNR bien désactivé", "LLMNR is disabled"] },
   "Windows - Check Security Apps : MDE": {
-    RealTimeProtectionEnabled_IsEquals_Yes: "Real Time Protection activé",
-    EDRBlockMode_IsEquals_Yes: "Block Mode activé",
-    Service_IsEquals_Yes: "Service bien activé",
-    AMRunningMode_IsEquals_Yes: "Antivirus bien démarré",
-    IsTamperProtected_IsEquals_Yes: "Tamper Protection activé",
-    EDRCloudBlock_IsEquals_Yes: "Cloud Block activé",
-    EnableNetworkProtection_IsEquals_Yes: "Network Protection activé",
+    RealTimeProtectionEnabled_IsEquals_Yes: ["Real Time Protection activé", "Real-time protection enabled"],
+    EDRBlockMode_IsEquals_Yes: ["Block Mode activé", "Block mode enabled"],
+    Service_IsEquals_Yes: ["Service bien activé", "Service is enabled"],
+    AMRunningMode_IsEquals_Yes: ["Antivirus bien démarré", "Antivirus is running"],
+    IsTamperProtected_IsEquals_Yes: ["Tamper Protection activé", "Tamper protection enabled"],
+    EDRCloudBlock_IsEquals_Yes: ["Cloud Block activé", "Cloud block enabled"],
+    EnableNetworkProtection_IsEquals_Yes: ["Network Protection activé", "Network protection enabled"],
   },
-  "Windows - Check SID Local Account": { SID_Status_IsEquals_Compliant: "Pas de SID de compte local" },
-  "Windows - Check Disable IPv6": { BOOL_IsEquals_true: "IPv6 bien désactivé" },
-  "Windows - Check Hostname": { Name_IsEquals_true: "Le nom du poste est au bon format" },
-  "Windows - Check isActive": { BOOL_IsEquals_True: "Appareil bien actif" },
-  "Windows - Check Admin Local": { Name_IsEquals_False: "Compte Administrateur local non présent" },
+  "Windows - Check SID Local Account": { SID_Status_IsEquals_Compliant: ["Pas de SID de compte local", "No local account SID"] },
+  "Windows - Check Disable IPv6": { BOOL_IsEquals_true: ["IPv6 bien désactivé", "IPv6 is disabled"] },
+  "Windows - Check Hostname": { Name_IsEquals_true: ["Le nom du poste est au bon format", "The device name has the right format"] },
+  "Windows - Check isActive": { BOOL_IsEquals_True: ["Appareil bien actif", "Device is active"] },
+  "Windows - Check Admin Local": { Name_IsEquals_False: ["Compte Administrateur local non présent", "No local Administrator account"] },
   "Windows - Check Security App : SentinelOne": {
-    Service_IsEquals_Yes: "Service bien activé",
-    ServiceStatus_IsEquals_Running: "Le service est bien fonctionnel",
-    IsInstalled_IsEquals_Yes: "SentinelOne est bien installé",
-    UninstallEntry_IsEquals_Yes: "Possibilité de le désinstaller",
-    SentinelLabsKey_IsEquals_Yes: "SentinelLabsKey présente",
+    Service_IsEquals_Yes: ["Service bien activé", "Service is enabled"],
+    ServiceStatus_IsEquals_Running: ["Le service est bien fonctionnel", "The service is running"],
+    IsInstalled_IsEquals_Yes: ["SentinelOne est bien installé", "SentinelOne is installed"],
+    UninstallEntry_IsEquals_Yes: ["Possibilité de le désinstaller", "Can be uninstalled"],
+    SentinelLabsKey_IsEquals_Yes: ["SentinelLabsKey présente", "SentinelLabsKey present"],
   },
 };
 
@@ -128,8 +132,8 @@ function _settingLabelFr(policyName, setting) {
   // Clés de la table SANS préfixe d'organisation : "[ORG] Windows - Check X" et "Windows - Check
   // X" partagent les mêmes libellés, quel que soit le préfixe utilisé par le tenant.
   const policyKey = policyName ? policyName.replace(/^\[[^\]]+\]\s*/, "") : null;
-  const composite = policyKey ? _POLICY_SETTING_LABELS_FR[policyKey]?.[raw] : null;
-  return composite || _GLOBAL_SETTING_LABELS_FR[raw] || null;
+  const pair = (policyKey ? _POLICY_SETTING_LABELS[policyKey]?.[raw] : null) || _GLOBAL_SETTING_LABELS[raw];
+  return pair ? pair[getLang() === "fr" ? 0 : 1] : null;
 }
 
 /** `policyName` (2026-09-02, ajouté pour la traduction FR ci-dessus) : le `displayName` de LA
@@ -139,14 +143,14 @@ function _settingLabelFr(policyName, setting) {
  * qui ne le fournirait pas encore. */
 export function DeviceSettingsPanel({ state, policyStatus, policyName }) {
   if (state.loading) {
-    return <p className="empty cve-small">Chargement du détail par paramètre…</p>;
+    return <p className="empty cve-small">{tr("compliance.settingsLoading")}</p>;
   }
   if (state.error) {
-    return <p className="empty cve-small">Impossible de récupérer le détail : {state.error}</p>;
+    return <p className="empty cve-small">{tr("compliance.settingsError", { error: state.error })}</p>;
   }
   const settings = state.settings || [];
   if (settings.length === 0) {
-    return <p className="empty cve-small">Aucun paramètre remonté par Graph pour ce couple device/politique.</p>;
+    return <p className="empty cve-small">{tr("compliance.noSettings")}</p>;
   }
   return (
     <div className="settings-panel">

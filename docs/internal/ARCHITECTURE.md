@@ -163,6 +163,29 @@ flowchart LR
 - **`NAV_TREE`** (structure sidebar) vit dans `components/Sidebar.jsx` (Pandore) /
   `components/VanitasSidebar.jsx` (Vanitas), PAS dans `navigation.js` (qui n'a que
   `resolveSearchTab`/`bumpSearchNav`/`bumpVanitasNav`).
+- **Langue de l'interface (FR/EN, 2026-10-22)** : `frontend/src/i18n/` — dictionnaires plats
+  `fr.js` (référence) / `en.js`, `core.js` (fonctions pures `translate`, `formatStamp`,
+  `LANGUAGES`), `I18nContext.jsx` (`useI18n()` → `{ lang, locale, setLang, t }`, choix gardé en
+  `localStorage` `pandore.lang` + reflété sur `<html lang>`). Tout NOUVEAU texte affiché passe par
+  `t("clé")` avec la clé ajoutée dans LES DEUX dictionnaires (`i18n.test.js` échoue sinon) ;
+  pluriels via `<clé>.one`/`<clé>.other` + `{count}` ; dates/nombres via `locale` (`Intl`), jamais
+  `"fr-FR"` en dur. Libellés de nav = `nav.item.<key>` / `nav.group.<group>` (plus de `label` dans
+  `NAV_TREE`/`VANITAS_NAV`). Sélecteur = bouton globe du rail (`LanguageMenu`, Sidebar.jsx).
+  **Hors composants de coquille** : `tr(key, vars)` (langue courante, `core.js`) — utilisable
+  partout dans le contenu des pages car `<main key={lang}>` (Dashboard.jsx) REMONTE le contenu au
+  changement de langue (pas de libellé figé dans un `useMemo`). Tables de libellés :
+  `localizedTable(prefix, keys)` (valeur lue dans la langue courante, ex. `COMPLIANCE_LABEL`,
+  `EXPOSURE_LEVEL_LABEL` — plus de suffixe `_FR`). Constantes de module (`FILTERS = [{label}]`) :
+  `get label() { return tr(...) }` ou stocker la clé et appeler `tr()` au rendu. Phrases avec
+  balisage : `trRich(key, { n: <strong>{n}</strong> })` (`i18n/rich.jsx`). Les catégories internes
+  ("Non conforme", "Erreur"… de `SEVERITY`/`FAILING_CATEGORIES`) RESTENT des identifiants en
+  français : traduire à l'affichage via `categoryLabel()` (theme.js). Dictionnaires par zone dans
+  `i18n/messages/<zone>.js` (`{ fr, en }` côte à côte), listés par `messages/index.js`.
+  Documentation Vanitas : UN CORPS PAR LANGUE (`VanitasDocsFr.jsx` / `VanitasDocsEn.jsx`, choisi
+  par `getLang()`), pièces communes (sommaire, encadrés, illustrations traduites via `tr`) dans
+  `vanitasDocsParts.jsx` — toute modification du texte se fait dans LES DEUX corps.
+  Traduit à ce jour : coquille + toutes les pages Pandore et Vanitas + doc Vanitas + exports
+  Excel ; reste : messages d'erreur du backend, données démo.
 - **Ne jamais reproduire un logo de marque réelle** sans asset officiel dans le repo — glyphes
   abstraits/neutres.
 
@@ -276,7 +299,7 @@ cd backend && .venv/Scripts/python.exe -m pytest tests/ -q          # 86 tests
 
 # Frontend
 cd frontend && npx vite build                                       # build
-cd frontend && npx vitest run                                       # 131 tests
+cd frontend && npx vitest run                                       # 140 tests
 
 # Serveur Vanitas
 cd endpoint-agent/server && .venv/Scripts/python.exe -m pytest tests/ -q   # 65 tests

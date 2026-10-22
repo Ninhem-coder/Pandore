@@ -4,6 +4,7 @@ import { IconDownload } from "../components/icons.jsx";
 import { exportPatchStatusToExcel } from "../export.js";
 import { isErrorPayload, useVanitasGroups, useVanitasPatchStatus } from "../hooks/useDashboardData.js";
 import { ConfirmButton, VanitasWizardShell, fmtRelative } from "./vanitasShared.jsx";
+import { tr } from "../i18n/core.js";
 
 /**
  * "Vanitas" > Sécurité > Mises à jour Vanitas (2026-09-17, maquette validée par Nicolas —
@@ -21,20 +22,24 @@ import { ConfirmButton, VanitasWizardShell, fmtRelative } from "./vanitasShared.
  * ("installées, attend redémarrage") nécessaire pour les statuts déjà patchés.
  */
 
+// Labels: vp.status.<key>; bucket labels/hints: vp.bucket.<key>[.hint].
 const STATUS_META = {
-  ok: { label: "À jour", tone: "ok" },
-  "pending-install": { label: "En attente d'installation", tone: "pending-install" },
-  installing: { label: "Installation en cours", tone: "installing", live: true },
-  "pending-window": { label: "Patché — attend fenêtre", tone: "pending-window" },
-  forced: { label: "Forcé après délai", tone: "forced" },
-  off: { label: "Hors politique", tone: "off" },
+  ok: { tone: "ok" },
+  "pending-install": { tone: "pending-install" },
+  installing: { tone: "installing", live: true },
+  "pending-window": { tone: "pending-window" },
+  forced: { tone: "forced" },
+  off: { tone: "off" },
 };
+for (const [key, meta] of Object.entries(STATUS_META)) {
+  Object.defineProperty(meta, "label", { get: () => tr(`vp.status.${key}`), enumerable: true });
+}
 
 const UPDATE_BUCKETS = [
-  { key: "in_progress", label: "En cours d'installation", cls: "inprogress" },
-  { key: "todo", label: "À faire", hint: "ciblées par la politique, en file pour le prochain contact", cls: "todo" },
-  { key: "available", label: "Disponibles", hint: "détectées mais hors périmètre — jamais ciblées automatiquement", cls: "" },
-  { key: "installed", label: "Installées", hint: "en attente du redémarrage", cls: "installed" },
+  { key: "in_progress", cls: "inprogress" },
+  { key: "todo", hasHint: true, cls: "todo" },
+  { key: "available", hasHint: true, cls: "" },
+  { key: "installed", hasHint: true, cls: "installed" },
 ];
 
 // Statuts où "Forcer le redémarrage maintenant" a un sens — jamais sur un poste déjà à jour,
@@ -68,7 +73,12 @@ function DeviceDetailModal({ entry, onClose, onForced }) {
     }
   }
 
-  const sections = UPDATE_BUCKETS.map((b) => ({ ...b, items: entry[b.key] ?? [] })).filter((b) => b.items.length > 0);
+  const sections = UPDATE_BUCKETS.map((b) => ({
+    ...b,
+    label: tr(`vp.bucket.${b.key}`),
+    hint: b.hasHint ? tr(`vp.bucket.${b.key}.hint`) : null,
+    items: entry[b.key] ?? [],
+  })).filter((b) => b.items.length > 0);
 
   return (
     <VanitasWizardShell onClose={onClose}>
@@ -82,23 +92,23 @@ function DeviceDetailModal({ entry, onClose, onForced }) {
         </span>
         <div className="vanitas-wiz-header-text">
           <h2>{entry.hostname}</h2>
-          <p>Vanitas · Mises à jour Windows{entry.group_name ? ` · ${entry.group_name}` : ""}</p>
+          <p>Vanitas · {tr("vp.module")}{entry.group_name ? ` · ${entry.group_name}` : ""}</p>
         </div>
       </div>
       <div className="vanitas-wiz-body">
         <div className="vanitas-patch-meta-row">
           <StatusPill status={entry.status} />
-          <span className="vanitas-patch-meta-badge">Dernière vérif. {fmtRelative(entry.updated_at)}</span>
+          <span className="vanitas-patch-meta-badge">{tr("vp.lastCheck", { when: fmtRelative(entry.updated_at) })}</span>
           {entry.window_start && entry.window_end && (
             <span className="vanitas-patch-meta-badge">
-              Fenêtre {entry.window_start}–{entry.window_end} · grâce {entry.grace_days} j
+              {tr("vp.window", { start: entry.window_start, end: entry.window_end, days: entry.grace_days })}
             </span>
           )}
         </div>
 
         {sections.length === 0 ? (
           <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-            Aucune mise à jour connue — poste à jour.
+            {tr("vp.noUpdate")}
           </p>
         ) : (
           sections.map((b) => (
@@ -123,12 +133,12 @@ function DeviceDetailModal({ entry, onClose, onForced }) {
 
         <div className="wizard-actions">
           <button type="button" className="vanitas-ghost-btn" onClick={onClose}>
-            Fermer
+            {tr("vp.close")}
           </button>
           {FORCE_REBOOT_ELIGIBLE.has(entry.status) && (
             <ConfirmButton
-              label="Forcer le redémarrage maintenant"
-              confirmLabel="Confirmer le redémarrage immédiat ?"
+              label={tr("vp.forceReboot")}
+              confirmLabel={tr("vp.forceConfirm")}
               className="vanitas-danger-btn"
               onConfirm={handleForce}
             />
@@ -184,7 +194,7 @@ function PolicyCard({ group, onSaved }) {
       <div className="vanitas-patch-policy-head">
         <div>
           <span className="vanitas-patch-policy-name">{group.name}</span>
-          <span className="vanitas-patch-policy-kind">{group.device_count} poste{group.device_count > 1 ? "s" : ""}</span>
+          <span className="vanitas-patch-policy-kind">{tr("vp.endpoints", { count: group.device_count })}</span>
         </div>
         <label className="vanitas-patch-switch">
           <input type="checkbox" checked={enabled} onChange={(e) => handleToggle(e.target.checked)} disabled={busy} />
@@ -194,7 +204,7 @@ function PolicyCard({ group, onSaved }) {
       </div>
       <div className={`vanitas-patch-policy-config${enabled ? "" : " disabled"}`}>
         <div>
-          <span className="filter-chip-group-label">Fenêtre de redémarrage</span>
+          <span className="filter-chip-group-label">{tr("vp.rebootWindow")}</span>
           <div className="vanitas-patch-window-row">
             <input type="time" value={windowStart} onChange={(e) => setWindowStart(e.target.value)} disabled={busy} />
             <span>→</span>
@@ -203,7 +213,7 @@ function PolicyCard({ group, onSaved }) {
         </div>
         <div className="vanitas-patch-grace-row">
           <span className="filter-chip-group-label" style={{ margin: 0 }}>
-            Délai de grâce
+            {tr("vp.grace")}
           </span>
           <input
             type="number"
@@ -213,10 +223,10 @@ function PolicyCard({ group, onSaved }) {
             onChange={(e) => setGraceDays(e.target.value)}
             disabled={busy}
           />
-          <span>jours avant redémarrage forcé</span>
+          <span>{tr("vp.graceSuffix")}</span>
         </div>
         <button type="button" className="vanitas-queue-btn" onClick={() => save()} disabled={busy}>
-          {busy ? "Enregistrement…" : "Enregistrer"}
+          {busy ? tr("vp.saving") : tr("vp.save")}
         </button>
       </div>
       {error && <p className="error-note">{error}</p>}
@@ -252,7 +262,7 @@ export default function VanitasPatchTab() {
       await exportPatchStatusToExcel(entries);
       setExportState({ status: "idle", error: null });
     } catch (err) {
-      setExportState({ status: "idle", error: err.message || "Échec de l'export Excel." });
+      setExportState({ status: "idle", error: err.message || tr("v.exportFailed") });
     }
   }
 
@@ -273,7 +283,7 @@ export default function VanitasPatchTab() {
   if (loading) {
     return (
       <div className="vanitas-hud">
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
@@ -284,27 +294,27 @@ export default function VanitasPatchTab() {
 
       <div className="vanitas-hud-strip">
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
-          <div className="label">Postes suivis<span className="tag">PARC</span></div>
+          <div className="label">{tr("vp.kpi.tracked")}<span className="tag">{tr("vv.kpi.fleet")}</span></div>
           <div className="value">{counts.all}</div>
           <div className="bar"><i style={{ width: counts.all ? "100%" : "0%" }} /></div>
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-good)" }}>
-          <div className="label">À jour<span className="tag">OK</span></div>
+          <div className="label">{tr("vp.kpi.upToDate")}<span className="tag">OK</span></div>
           <div className="value">{counts.ok}</div>
           <div className="bar"><i style={{ width: counts.all ? `${Math.round((counts.ok / counts.all) * 100)}%` : "0%" }} /></div>
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
-          <div className="label">Attend fenêtre<span className="tag">PATCHÉ</span></div>
+          <div className="label">{tr("vp.kpi.awaiting")}<span className="tag">{tr("vp.kpi.patched")}</span></div>
           <div className="value">{counts["pending-window"]}</div>
           <div className="bar"><i style={{ width: counts.all ? `${Math.round((counts["pending-window"] / counts.all) * 100)}%` : "0%" }} /></div>
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
-          <div className="label">Forcés / délai<span className="tag">≥ GRÂCE</span></div>
+          <div className="label">{tr("vp.kpi.forced")}<span className="tag">{tr("vp.kpi.grace")}</span></div>
           <div className="value">{counts.forced}</div>
           <div className="bar"><i style={{ width: counts.all ? `${Math.round((counts.forced / counts.all) * 100)}%` : "0%" }} /></div>
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-ink-faint)" }}>
-          <div className="label">Hors politique<span className="tag">GROUPE OFF</span></div>
+          <div className="label">{tr("vp.kpi.off")}<span className="tag">{tr("vp.kpi.groupOff")}</span></div>
           <div className="value">{counts.off}</div>
           <div className="bar"><i style={{ width: counts.all ? `${Math.round((counts.off / counts.all) * 100)}%` : "0%" }} /></div>
         </div>
@@ -314,12 +324,12 @@ export default function VanitasPatchTab() {
         <div className="vanitas-hud-main">
           <div className="vanitas-hud-card vanitas-hud-frame">
             <div className="vanitas-hud-card-head">
-              <h2>Postes suivis ({rows.length}/{entries.length})</h2>
+              <h2>{tr("vp.tracked", { shown: rows.length, total: entries.length })}</h2>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span className="vanitas-hud-card-note">CLIC LIGNE → DÉTAIL + JOURNAL DU DÉLAI DE GRÂCE</span>
+                <span className="vanitas-hud-card-note">{tr("vp.clickRow")}</span>
                 <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
                   <IconDownload />
-                  {exportState.status === "exporting" ? "Export…" : "Exporter Excel"}
+                  {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
                 </button>
               </div>
             </div>
@@ -330,7 +340,7 @@ export default function VanitasPatchTab() {
                 <span className="prompt">&gt;</span>
                 <input
                   type="text"
-                  placeholder="grep --poste/--groupe ..."
+                  placeholder={tr("vp.searchPlaceholder")}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   autoComplete="off"
@@ -339,7 +349,7 @@ export default function VanitasPatchTab() {
               <div className="vanitas-hud-chips">
                 <button type="button" className={`vanitas-hud-chip${statusFilter === "all" ? " active" : ""}`} onClick={() => setStatusFilter("all")}>
                   <span className="led" />
-                  TOUTES <span className="n">{counts.all}</span>
+                  {tr("vv.all")} <span className="n">{counts.all}</span>
                 </button>
                 {Object.entries(STATUS_META).map(([key, meta]) => (
                   <button
@@ -356,19 +366,19 @@ export default function VanitasPatchTab() {
             </div>
 
             {entries.length === 0 ? (
-              <p className="vanitas-hud-empty-note">Aucun agent enrôlé pour l'instant.</p>
+              <p className="vanitas-hud-empty-note">{tr("vv.noAgent")}</p>
             ) : rows.length === 0 ? (
-              <p className="vanitas-hud-empty-note">Aucun résultat pour ce filtre.</p>
+              <p className="vanitas-hud-empty-note">{tr("vv.noResult")}</p>
             ) : (
               <div className="vanitas-hud-table-wrap">
                 <table className="vanitas-hud-table">
                   <thead>
                     <tr>
-                      <th>Poste</th>
-                      <th>Groupe</th>
-                      <th>Statut</th>
-                      <th>MàJ sécurité</th>
-                      <th>Dernière vérif.</th>
+                      <th>{tr("vp.col.endpoint")}</th>
+                      <th>{tr("vp.col.group")}</th>
+                      <th>{tr("vp.col.status")}</th>
+                      <th>{tr("vp.col.security")}</th>
+                      <th>{tr("vp.col.lastCheck")}</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -396,10 +406,10 @@ export default function VanitasPatchTab() {
         <aside className="vanitas-hud-rail">
           <div className="vanitas-hud-card vanitas-hud-frame">
             <div className="vanitas-hud-card-head">
-              <h2>Politiques par groupe</h2>
+              <h2>{tr("vp.policies")}</h2>
             </div>
             {(groups.state.data ?? []).length === 0 ? (
-              <p className="vanitas-hud-empty-note">Aucun groupe pour l'instant — crée-en un depuis « Groupes ».</p>
+              <p className="vanitas-hud-empty-note">{tr("vp.noGroup")}</p>
             ) : (
               <div className="vanitas-patch-policy-list">
                 {groups.state.data.map((g) => (
@@ -408,8 +418,7 @@ export default function VanitasPatchTab() {
               </div>
             )}
             <p className="vanitas-hud-empty-note" style={{ padding: "12px 0 0" }}>
-              Un groupe DÉSACTIVÉ garde ses postes visibles dans le tableau (statut « Hors
-              politique ») — jamais patché tant que le bouton n'est pas activé.
+              {tr("vp.disabledNote")}
             </p>
           </div>
         </aside>

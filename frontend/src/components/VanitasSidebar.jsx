@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useI18n } from "../i18n/I18nContext.jsx";
 import { useVanitasAgents } from "../hooks/useDashboardData.js";
 import { hasAnyVanitasAccess, hasVanitasAccess, isOnline } from "../pages/vanitasShared.jsx";
 import {
@@ -64,14 +65,15 @@ import {
  * item Vanitas hormis "Vue d'ensemble" elle-même — cohérent avec "aucun accès à rien" par
  * défaut (demande de Nicolas).
  */
+// Labels are not stored here: `nav.item.<key>` and `nav.group.<group>` in i18n/{fr,en}.js.
 export const VANITAS_NAV = [
-  { key: "vanitas-overview", label: "Vue d'ensemble", icon: <IconGrid /> },
+  { key: "vanitas-overview", icon: <IconGrid /> },
   // "Catalogue d'application" (2026-09-09) — item nu de lecture seule, voir
   // `VanitasAppCatalogTab.jsx`. "Applications" (l'ajout/la modification du catalogue)
   // redescend sous "Administration", voir plus bas.
-  { key: "vanitas-app-catalog", label: "Catalogue d'application", icon: <IconLibrary />, requires: { any: true } },
+  { key: "vanitas-app-catalog", icon: <IconLibrary />, requires: { any: true } },
   {
-    group: "Sécurité",
+    group: "security",
     items: [
       // "Activités suspectes" (jalon "détection d'activités suspectes sur les postes",
       // 2026-09-14) — nichée ici (demande de Nicolas le 2026-09-14, remplace le placement
@@ -80,33 +82,31 @@ export const VANITAS_NAV = [
       // `hasVanitasAccess(user, "activites_suspectes", "write")` dans VanitasSuspiciousActivityTab.jsx).
       {
         key: "vanitas-suspicious-activity",
-        label: "Activités suspectes",
         icon: <IconRadar />,
         requires: { module: "activites_suspectes", level: "read" },
       },
-      { key: "vanitas-compliance", label: "Conformité", icon: <IconShield />, requires: { module: "conformite", level: "read" } },
+      { key: "vanitas-compliance", icon: <IconShield />, requires: { module: "conformite", level: "read" } },
       // "Vulnérabilités" (2026-09-09) — agrégat fleet-wide, aucun module précis, voir
       // VanitasVulnerabilitiesTab.jsx.
-      { key: "vanitas-vulnerabilities", label: "Vulnérabilités", icon: <IconAlertTriangle />, requires: { any: true } },
+      { key: "vanitas-vulnerabilities", icon: <IconAlertTriangle />, requires: { any: true } },
       // "Logiciels obsolètes (EOL)" (2026-09-08) — vue PAR POSTE (voir vanitas_eol.py), même
       // permission que "Postes" côté serveur (require_vanitas_read("postes")).
-      { key: "vanitas-eol", label: "Logiciels obsolètes", icon: <IconPackage />, requires: { module: "postes", level: "read" } },
+      { key: "vanitas-eol", icon: <IconPackage />, requires: { module: "postes", level: "read" } },
     ],
   },
   {
-    group: "Inventaire",
+    group: "inventory",
     items: [
-      { key: "vanitas-devices", label: "Postes", icon: <IconLaptop />, requires: { module: "postes", level: "read" } },
+      { key: "vanitas-devices", icon: <IconLaptop />, requires: { module: "postes", level: "read" } },
       // "Groupes" (2026-09-08) — ranger les postes dans des groupes nommés, voir
       // VanitasGroupsTab.jsx/VanitasGroupDetail.jsx.
-      { key: "vanitas-groups", label: "Groupes", icon: <IconLayers />, requires: { module: "groupes", level: "read" } },
+      { key: "vanitas-groups", icon: <IconLayers />, requires: { module: "groupes", level: "read" } },
       // "Applications déployées" (2026-09-10, "avoir une page pour voir les applications
       // qu'on a déployées") — LECTURE seule d'un agrégat de commandes `install_application`
       // déjà envoyées, même permission que le catalogue ("applications") puisque c'est la
       // même donnée (postes/versions déployés) vue sous un autre angle.
       {
         key: "vanitas-deployed-apps",
-        label: "Applications déployées",
         icon: <IconSend />,
         requires: { module: "applications", level: "read" },
       },
@@ -118,31 +118,30 @@ export const VANITAS_NAV = [
       // même distinction déjà en place pour "Pousser une application".
       {
         key: "vanitas-patch",
-        label: "Mises à jour",
         icon: <IconRefresh />,
         requires: { module: "postes", level: "read" },
       },
     ],
   },
   {
-    group: "Administration",
+    group: "administration",
     items: [
       // "Journal" (2026-09-09, ex-"Commandes") — journal d'activité unifié, agrégat fleet-wide.
-      { key: "vanitas-commands", label: "Journal", icon: <IconTerminal />, requires: { any: true } },
+      { key: "vanitas-commands", icon: <IconTerminal />, requires: { any: true } },
       // "Ajouter un poste" (2026-09-11, "que se soit plus simple à mettre en place via une
       // page sur Vanitas directement") — génère un token d'enrôlement + la commande d'install,
       // voir VanitasEnrollTab.jsx. Même permission que retirer un poste (`vanitas-devices`
       // écriture) : générer un token permet d'enrôler n'importe quel agent SYSTEM.
-      { key: "vanitas-enroll", label: "Ajouter un poste", icon: <IconDownload />, requires: { module: "postes", level: "write" } },
+      { key: "vanitas-enroll", icon: <IconDownload />, requires: { module: "postes", level: "write" } },
       // "Applications" (2026-09-08, redescendu ici le 2026-09-09) — ajout ET modification du
       // catalogue d'installeurs (voir VanitasInstallersTab.jsx). Ancien `adminOnly` remplacé
       // par la permission "applications" (2026-09-10, profils Vanitas).
-      { key: "vanitas-installers", label: "Applications", icon: <IconUpload />, requires: { module: "applications", level: "read" } },
+      { key: "vanitas-installers", icon: <IconUpload />, requires: { module: "applications", level: "read" } },
       // "Profils" (2026-09-10, nouveau) — gestion des profils Vanitas ET des comptes eux-mêmes
       // (déplacée depuis Paramètres). Reste `adminOnly` STRICT (pas `requires: {module}`) :
       // c'est une action d'administration Pandore, jamais une capacité Vanitas assignable via
       // un profil — sinon un profil "tout en écriture" pourrait s'auto-assigner l'admin.
-      { key: "vanitas-profiles", label: "Profils", icon: <IconKey />, requires: { adminOnly: true } },
+      { key: "vanitas-profiles", icon: <IconKey />, requires: { adminOnly: true } },
     ],
   },
   // "Documentation" (2026-09-10, demande de Nicolas) — item nu, accessible à tout compte
@@ -150,7 +149,7 @@ export const VANITAS_NAV = [
   // d'application" : ce n'est pas une capacité par module, c'est une page de référence).
   // Rangé sous un groupe "Aide" depuis la refonte de la sidebar du 2026-10-21 (maquette
   // `Design/maquettes/refonte-ui.html`), à la place de l'ancien épinglage en bas de rail.
-  { group: "Aide", items: [{ key: "vanitas-docs", label: "Documentation", icon: <IconBook />, requires: { any: true } }] },
+  { group: "help", items: [{ key: "vanitas-docs", icon: <IconBook />, requires: { any: true } }] },
 ];
 
 export function isVanitasNavItemVisible(item, user) {
@@ -181,6 +180,7 @@ export function VanitasMark({ size = 15 }) {
  * reste `null` tant que le premier chargement n'a pas abouti, plutôt que d'afficher un
  * "0 en ligne" trompeur pendant le chargement. */
 export function VanitasNavFooter() {
+  const { t } = useI18n();
   const agents = useVanitasAgents();
 
   useEffect(() => {
@@ -194,7 +194,7 @@ export function VanitasNavFooter() {
     return (
       <span className="asb-sync" title={agents.state.error || undefined}>
         <span className="asb-dot down" />
-        Serveur Vanitas injoignable
+        {t("vanitas.status.unreachable")}
       </span>
     );
   }
@@ -202,7 +202,7 @@ export function VanitasNavFooter() {
   return (
     <span className="asb-sync">
       <span className={`asb-dot${onlineCount ? " live" : ""}`} />
-      {onlineCount === null ? "Serveur Vanitas…" : `Serveur Vanitas · ${onlineCount} poste${onlineCount === 1 ? "" : "s"} en ligne`}
+      {onlineCount === null ? t("vanitas.status.loading") : t("vanitas.status.online", { count: onlineCount })}
     </span>
   );
 }

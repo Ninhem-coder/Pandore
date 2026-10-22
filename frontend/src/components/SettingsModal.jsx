@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { api } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
 import { IconSettings } from "./icons.jsx";
+import { tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Page "Paramètres" (2026-09-08, demande de Nicolas — "changer le nom d'utilisateur / mot de
@@ -51,18 +53,21 @@ export default function SettingsModal({ onClose }) {
   // (`WidgetsTestTab.jsx`, seul autre portail de l'app) pour la même classe de problème.
   return createPortal(
     <div className="wizard-overlay">
-      <div className="wizard-shell" ref={shellRef} role="dialog" aria-modal="true" aria-label="Paramètres du compte">
+      <div className="wizard-shell" ref={shellRef} role="dialog" aria-modal="true" aria-label={tr("account.settingsAria")}>
         <div className="wizard-header">
           <span className="wizard-header-icon">
             <IconSettings />
           </span>
           <div className="wizard-header-text">
-            <h2>Paramètres</h2>
+            <h2>{tr("account.settings")}</h2>
             <p className="card-note">
-              Connecté en tant que <b>{user.username}</b> ({user.role === "admin" ? "administrateur" : "lecture seule"})
+              {trRich("account.signedInAs", {
+                user: <b>{user.username}</b>,
+                role: tr(user.role === "admin" ? "account.roleAdmin" : "account.roleReadonly"),
+              })}
             </p>
           </div>
-          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer les paramètres">
+          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("account.closeAria")}>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
@@ -72,8 +77,7 @@ export default function SettingsModal({ onClose }) {
           <AccountSection user={user} updateUser={updateUser} />
           {user.role === "admin" && (
             <p className="cve-small" style={{ marginTop: "-8px" }}>
-              La gestion des comptes et des profils Vanitas vit maintenant dans{" "}
-              <b>Vanitas → Administration → Profils</b>.
+              {trRich("account.vanitasMoved", { path: <b>{tr("account.vanitasPath")}</b> })}
             </p>
           )}
         </div>
@@ -99,15 +103,15 @@ function AccountSection({ user, updateUser }) {
 
     const usernameChanged = username.trim().toLowerCase() !== user.username.toLowerCase();
     if (!usernameChanged && !newPassword) {
-      setError("Aucune modification à enregistrer.");
+      setError(tr("account.noChange"));
       return;
     }
     if (newPassword && newPassword !== confirmPassword) {
-      setError("Les deux mots de passe ne correspondent pas.");
+      setError(tr("account.mismatch"));
       return;
     }
     if (!currentPassword) {
-      setError("Le mot de passe actuel est requis pour confirmer une modification.");
+      setError(tr("account.currentRequired"));
       return;
     }
 
@@ -121,7 +125,7 @@ function AccountSection({ user, updateUser }) {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setSuccess("Modifications enregistrées.");
+      setSuccess(tr("account.saved"));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -132,11 +136,11 @@ function AccountSection({ user, updateUser }) {
   return (
     <div className="card settings-card">
       <div className="card-head">
-        <h2>Mon compte</h2>
+        <h2>{tr("account.myAccount")}</h2>
       </div>
       <form className="settings-form" onSubmit={handleSubmit}>
         <label className="settings-field">
-          Identifiant
+          {tr("login.username")}
           <input
             type="text"
             className="filter-input"
@@ -146,7 +150,7 @@ function AccountSection({ user, updateUser }) {
           />
         </label>
         <label className="settings-field">
-          Nouveau mot de passe (laisser vide pour ne pas changer)
+          {tr("account.newPassword")}
           <input
             type="password"
             className="filter-input"
@@ -156,7 +160,7 @@ function AccountSection({ user, updateUser }) {
           />
         </label>
         <label className="settings-field">
-          Confirmer le nouveau mot de passe
+          {tr("account.confirmPassword")}
           <input
             type="password"
             className="filter-input"
@@ -166,7 +170,7 @@ function AccountSection({ user, updateUser }) {
           />
         </label>
         <label className="settings-field">
-          Mot de passe actuel (requis pour confirmer)
+          {tr("account.currentPassword")}
           <input
             type="password"
             className="filter-input"
@@ -179,7 +183,7 @@ function AccountSection({ user, updateUser }) {
         {success && <p className="card-note">{success}</p>}
         <div className="wizard-actions">
           <button type="submit" className="wizard-primary-btn" disabled={busy}>
-            {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+            {busy ? tr("account.saving") : tr("account.save")}
           </button>
         </div>
       </form>

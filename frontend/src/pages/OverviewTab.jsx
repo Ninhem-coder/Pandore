@@ -3,11 +3,11 @@ import { isErrorPayload, useOverviewSignals, useHistoryTrend, useDefenderAlerts 
 import {
   secureScoreLevel,
   EXPOSURE_LEVEL_COLORS,
-  EXPOSURE_LEVEL_LABEL_FR,
+  EXPOSURE_LEVEL_LABEL,
   CRITICALITY_LEVELS,
   ALERT_SEVERITY_COLORS,
-  ALERT_STATUS_LABEL_FR,
-  SECURE_SCORE_CATEGORY_LABEL_FR,
+  ALERT_STATUS_LABEL,
+  SECURE_SCORE_CATEGORY_LABEL,
 } from "../theme.js";
 import { computeTopRiskDevices, computeNewDevices, computeHistoryTrend, buildDonutEntries } from "../selectors.js";
 import TopStrip from "../components/TopStrip.jsx";
@@ -20,6 +20,7 @@ import DonutLegend from "../components/DonutLegend.jsx";
 import RecommendationsList from "../components/RecommendationsList.jsx";
 import TopAlertsList from "../components/TopAlertsList.jsx";
 import { IconGauge, IconTarget, IconBookmark, IconShield, IconGrip } from "../components/icons.jsx";
+import { currentLocale, tr } from "../i18n/core.js";
 
 /**
  * Onglet "Vue d'ensemble" — v4 (2026-08-27). Après un aller-retour sur un onglet de test
@@ -117,7 +118,7 @@ function SignalCard({ icon, label, note, onClick, children, tone, tileRef, dragH
         <span className="signal-label">{label}</span>
         <span
           className="ov2-grip"
-          title="Glisser pour réorganiser"
+          title={tr("common.dragToReorder")}
           onClick={(e) => e.stopPropagation()}
           {...dragHandleProps}
         >
@@ -126,7 +127,7 @@ function SignalCard({ icon, label, note, onClick, children, tone, tileRef, dragH
       </div>
       {children}
       {note && <p className="signal-note">{note}</p>}
-      <span className="signal-goto">Voir le détail →</span>
+      <span className="signal-goto">{tr("overview.seeDetail")}</span>
     </div>
   );
 }
@@ -187,7 +188,7 @@ function SecureScoreHeaderLabel({ pct, delta }) {
 function TrendArrow({ delta, favorableDirection }) {
   if (delta == null || delta === 0) {
     return (
-      <span className="trend-arrow trend-arrow-flat" title="Stable">
+      <span className="trend-arrow trend-arrow-flat" title={tr("overview.stable")}>
         →
       </span>
     );
@@ -195,7 +196,7 @@ function TrendArrow({ delta, favorableDirection }) {
   const up = delta > 0;
   const improved = favorableDirection === "up" ? up : !up;
   return (
-    <span className={`trend-arrow ${improved ? "trend-arrow-good" : "trend-arrow-bad"}`} title={up ? "En hausse" : "En baisse"}>
+    <span className={`trend-arrow ${improved ? "trend-arrow-good" : "trend-arrow-bad"}`} title={tr(up ? "overview.rising" : "overview.falling")}>
       {up ? "↑" : "↓"}
     </span>
   );
@@ -207,10 +208,10 @@ function TrendArrow({ delta, favorableDirection }) {
 const SEVERITY_ORDER = Object.keys(ALERT_SEVERITY_COLORS);
 
 // Tuile "Secure Score" (2026-08-27, retour de Nicolas : "juste mettre le % des données,
-// appareil, applications, identité") — 4 des 5 catégories de `SECURE_SCORE_CATEGORY_LABEL_FR`
+// appareil, applications, identité") — 4 des 5 catégories de `SECURE_SCORE_CATEGORY_LABEL`
 // (Infrastructure exclue, pas demandée), dans l'ordre énoncé par Nicolas. Clés Graph
 // (`controlCategory`), pas les libellés FR — traduites à l'affichage via
-// `SECURE_SCORE_CATEGORY_LABEL_FR`.
+// `SECURE_SCORE_CATEGORY_LABEL`.
 const SECURE_SCORE_MINI_CATEGORIES = ["Data", "Device", "Apps", "Identity"];
 
 /** Fenêtre de l'historique des cartes "Tendance" : 90 jours = la totalité de l'historique
@@ -230,8 +231,8 @@ function TileControls({ cardKey, sizeIndex, onResize, dragHandleProps }) {
         className="ov2-size-btn"
         onClick={() => onResize(cardKey, -1)}
         disabled={sizeIndex <= 0}
-        title="Réduire la tuile"
-        aria-label="Réduire la tuile"
+        title={tr("overview.shrinkTile")}
+        aria-label={tr("overview.shrinkTile")}
       >
         −
       </button>
@@ -240,12 +241,12 @@ function TileControls({ cardKey, sizeIndex, onResize, dragHandleProps }) {
         className="ov2-size-btn"
         onClick={() => onResize(cardKey, 1)}
         disabled={sizeIndex >= SIZE_STEPS.length - 1}
-        title="Agrandir la tuile"
-        aria-label="Agrandir la tuile"
+        title={tr("overview.growTile")}
+        aria-label={tr("overview.growTile")}
       >
         +
       </button>
-      <span className="ov2-grip" title="Glisser pour réorganiser" {...dragHandleProps}>
+      <span className="ov2-grip" title={tr("common.dragToReorder")} {...dragHandleProps}>
         <IconGrip />
       </span>
     </div>
@@ -272,7 +273,7 @@ function TrendMiniCard({ title, note, unit, favorableDirection, metric, loading,
         </div>
       </div>
       {loading ? (
-        <p className="signal-loading">Chargement…</p>
+        <p className="signal-loading">{tr("common.loading")}</p>
       ) : error ? (
         <p className="error-note">{error}</p>
       ) : !metric || metric.current == null ? (
@@ -288,10 +289,10 @@ function TrendMiniCard({ title, note, unit, favorableDirection, metric, loading,
           </div>
           <div className="trend-delta-row">
             <span>
-              vs 7 jours : <DeltaBadge delta={metric.delta7} unit={unit} favorableDirection={favorableDirection} />
+              {tr("overview.vs7")} <DeltaBadge delta={metric.delta7} unit={unit} favorableDirection={favorableDirection} />
             </span>
             <span>
-              vs 30 jours : <DeltaBadge delta={metric.delta30} unit={unit} favorableDirection={favorableDirection} />
+              {tr("overview.vs30")} <DeltaBadge delta={metric.delta30} unit={unit} favorableDirection={favorableDirection} />
             </span>
           </div>
         </>
@@ -518,7 +519,7 @@ export default function OverviewTab({ data, onNavigate }) {
     const counts = { New: 0, InProgress: 0, Resolved: 0 };
     (alerts.alerts || []).forEach((a) => {
       if (a?.error) return;
-      const st = a.status && ALERT_STATUS_LABEL_FR[a.status] ? a.status : "Unknown";
+      const st = a.status && ALERT_STATUS_LABEL[a.status] ? a.status : "Unknown";
       counts[st] = (counts[st] || 0) + 1;
     });
     return counts;
@@ -553,14 +554,14 @@ export default function OverviewTab({ data, onNavigate }) {
   const mainBody = {
     "compliance-trend": (
       <TrendMiniCard
-        title="Conformité (Intune)"
-        note="taux de conformité"
+        title={tr("overview.complianceTrend")}
+        note={tr("overview.complianceRate")}
         unit="%"
         favorableDirection="up"
         metric={intuneComplianceMetric}
         loading={history.loading}
         error={history.error}
-        emptyHint="Historique en construction — repasse dans quelques jours pour voir la tendance."
+        emptyHint={tr("overview.historyBuilding")}
         cardKey="compliance-trend"
         sizeIndex={main.sizes["compliance-trend"] ?? 0}
         onResize={main.resize}
@@ -579,7 +580,7 @@ export default function OverviewTab({ data, onNavigate }) {
         metric={historyTrend.defender}
         loading={history.loading}
         error={history.error}
-        emptyHint="Historique en construction — repasse dans quelques jours pour voir la tendance."
+        emptyHint={tr("overview.historyBuilding")}
         cardKey="exposure-trend"
         sizeIndex={main.sizes["exposure-trend"] ?? 0}
         onResize={main.resize}
@@ -673,9 +674,9 @@ export default function OverviewTab({ data, onNavigate }) {
         }}
       >
         <div className="card-head">
-          <h2>Top devices à risque</h2>
+          <h2>{tr("overview.topRisk")}</h2>
           <div className="ov2-head-right">
-            <span className="card-note">exposureLevel + alertes actives</span>
+            <span className="card-note">{tr("overview.topRiskNote")}</span>
             <TileControls cardKey="top-risk" sizeIndex={main.sizes["top-risk"] ?? 3} onResize={main.resize} dragHandleProps={main.dragHandleProps("top-risk")} />
           </div>
         </div>
@@ -698,9 +699,9 @@ export default function OverviewTab({ data, onNavigate }) {
         }}
       >
         <div className="card-head">
-          <h2>Nouveaux devices (7 jours)</h2>
+          <h2>{tr("overview.newDevices")}</h2>
           <div className="ov2-head-right">
-            <span className="card-note">firstSeen ≤ 7j</span>
+            <span className="card-note">{tr("overview.newDevicesNote")}</span>
             <TileControls cardKey="new-devices" sizeIndex={main.sizes["new-devices"] ?? 3} onResize={main.resize} dragHandleProps={main.dragHandleProps("new-devices")} />
           </div>
         </div>
@@ -723,9 +724,9 @@ export default function OverviewTab({ data, onNavigate }) {
         }}
       >
         <div className="card-head">
-          <h2>Alertes Defender</h2>
+          <h2>{tr("overview.defenderAlerts")}</h2>
           <div className="ov2-head-right">
-            <span className="card-note">{activeAlertsCount} active{activeAlertsCount > 1 ? "s" : ""}</span>
+            <span className="card-note">{tr("overview.activeCount", { count: activeAlertsCount })}</span>
             <TileControls cardKey="defender-alerts" sizeIndex={main.sizes["defender-alerts"] ?? 3} onResize={main.resize} dragHandleProps={main.dragHandleProps("defender-alerts")} />
           </div>
         </div>
@@ -734,17 +735,17 @@ export default function OverviewTab({ data, onNavigate }) {
         ) : (
           <>
             <div className="ov2-alerts-donut-row">
-              <DonutSvg entries={severityBreakdown.entries} centerText={severityBreakdown.total} ariaLabel="Alertes par sévérité" size="sm" />
+              <DonutSvg entries={severityBreakdown.entries} centerText={severityBreakdown.total} ariaLabel={tr("overview.alertsBySeverity")} size="sm" />
               <DonutLegend entries={severityBreakdown.entries} size="sm" />
             </div>
             <div className="ov2-status-row">
               {Object.entries(statusBreakdown).map(([key, count]) => (
                 <span key={key} className="ov2-status-chip">
-                  <b>{count}</b> {ALERT_STATUS_LABEL_FR[key] || key}
+                  <b>{count}</b> {ALERT_STATUS_LABEL[key] || key}
                 </span>
               ))}
             </div>
-            <p className="filter-chip-group-label ov2-top-alerts-label">Top alertes — sévérité décroissante</p>
+            <p className="filter-chip-group-label ov2-top-alerts-label">{tr("overview.topAlerts")}</p>
             <TopAlertsList alerts={topAlerts} onSelectDevice={(name) => onNavigate?.("device-overview", name)} />
           </>
         )}
@@ -762,9 +763,9 @@ export default function OverviewTab({ data, onNavigate }) {
         }}
       >
         <div className="card-head">
-          <h2>Top recommandations</h2>
+          <h2>{tr("overview.topRecommendations")}</h2>
           <div className="ov2-head-right">
-            <span className="card-note">exposureImpact décroissant</span>
+            <span className="card-note">{tr("overview.topRecommendationsNote")}</span>
             <TileControls cardKey="recommendations" sizeIndex={main.sizes.recommendations ?? 5} onResize={main.resize} dragHandleProps={main.dragHandleProps("recommendations")} />
           </div>
         </div>
@@ -777,7 +778,7 @@ export default function OverviewTab({ data, onNavigate }) {
     <>
       <TopStrip
         score={score}
-        measuredAt={data.exposureScore?.time ? new Date(data.exposureScore.time).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : null}
+        measuredAt={data.exposureScore?.time ? new Date(data.exposureScore.time).toLocaleTimeString(currentLocale(), { hour: "2-digit", minute: "2-digit" }) : null}
         exposureError={exposureError}
         defenderError={defenderError}
         intuneError={intuneError}
@@ -802,9 +803,9 @@ export default function OverviewTab({ data, onNavigate }) {
               structurel. (Le sélecteur de plage a depuis été retiré, le 2026-10-21 — le `<div>`
               reste, aucune raison de revenir à `<p>`.) */}
           <div className="section-title">
-            Tendance &amp; répartitions — glisse une carte par sa poignée pour réorganiser, −/+ pour redimensionner
+            {tr("overview.trendsTitle")}
             <button type="button" className="ov2-reset-btn" onClick={main.resetLayout}>
-              Réinitialiser
+              {tr("common.reset")}
             </button>
           </div>
           <div className="ov2-main-grid">
@@ -825,9 +826,9 @@ export default function OverviewTab({ data, onNavigate }) {
 
         <aside className="ov2-rail">
           <p className="ov2-rail-title">
-            Signaux
+            {tr("overview.signals")}
             <button type="button" className="ov2-reset-btn" onClick={rail.resetLayout}>
-              Réinitialiser
+              {tr("common.reset")}
             </button>
           </p>
           <div className="signal-grid">
@@ -851,7 +852,7 @@ export default function OverviewTab({ data, onNavigate }) {
                       {...tileProps}
                     >
                       {signals.loading ? (
-                        <p className="signal-loading">Chargement…</p>
+                        <p className="signal-loading">{tr("common.loading")}</p>
                       ) : signals.errors.secureScore ? (
                         <p className="signal-error">{signals.errors.secureScore}</p>
                       ) : (
@@ -867,7 +868,7 @@ export default function OverviewTab({ data, onNavigate }) {
                                 >
                                   {pct != null ? `${pct}%` : "—"}
                                 </span>
-                                <span className="secure-score-mini-label">{SECURE_SCORE_CATEGORY_LABEL_FR[catKey]}</span>
+                                <span className="secure-score-mini-label">{SECURE_SCORE_CATEGORY_LABEL[catKey]}</span>
                               </div>
                             );
                           })}
@@ -883,9 +884,9 @@ export default function OverviewTab({ data, onNavigate }) {
                   <div key={key} className={`ov2-rail-cell${wrapperClass}`}>
                     <SignalCard
                       icon={<IconTarget />}
-                      label="Par criticité"
+                      label={tr("overview.byCriticality")}
                       onClick={() => onNavigate?.("secure-score")}
-                      note={criticalityTotal > 0 ? `${criticalityTotal} devices avec une exposition à traiter` : "Aucun device exposé High/Medium/Low"}
+                      note={criticalityTotal > 0 ? tr("overview.criticalityNote", { count: criticalityTotal }) : tr("overview.criticalityNone")}
                       {...tileProps}
                     >
                       {defenderError ? (
@@ -904,7 +905,7 @@ export default function OverviewTab({ data, onNavigate }) {
                                   background: EXPOSURE_LEVEL_COLORS[c.level],
                                   opacity: isZero ? 0.12 : isDimmed ? 0.35 : 1,
                                 }}
-                                title={`${EXPOSURE_LEVEL_LABEL_FR[c.level]} : ${c.count}`}
+                                title={`${EXPOSURE_LEVEL_LABEL[c.level]} : ${c.count}`}
                                 onMouseEnter={() => setHoveredCriticality(c.level)}
                                 onMouseLeave={() => setHoveredCriticality(null)}
                               />
@@ -921,7 +922,7 @@ export default function OverviewTab({ data, onNavigate }) {
                             onMouseLeave={() => setHoveredCriticality(null)}
                           >
                             <i style={{ background: EXPOSURE_LEVEL_COLORS[c.level] }} aria-hidden="true" />
-                            <span className="signal-crit-legend-label">{EXPOSURE_LEVEL_LABEL_FR[c.level]}</span>
+                            <span className="signal-crit-legend-label">{EXPOSURE_LEVEL_LABEL[c.level]}</span>
                             <span className="signal-crit-legend-count">{c.count}</span>
                           </div>
                         ))}
@@ -936,28 +937,28 @@ export default function OverviewTab({ data, onNavigate }) {
                   <div key={key} className={`ov2-rail-cell${wrapperClass}`}>
                     <SignalCard
                       icon={<IconBookmark />}
-                      label="Suivi CVE"
+                      label={tr("overview.cveWatch")}
                       onClick={() => onNavigate?.("cve-watch")}
                       note={
                         signals.watchedCves.length === 0
-                          ? "Aucune CVE suivie pour l'instant"
-                          : `${signals.watchedCves.length} CVE suivie${signals.watchedCves.length > 1 ? "s" : ""}`
+                          ? tr("overview.noWatchedCve")
+                          : tr("overview.watchedCves", { count: signals.watchedCves.length })
                       }
                       tone={watchedExposedCount > 0 ? "high" : undefined}
                       {...tileProps}
                     >
                       {signals.loading ? (
-                        <p className="signal-loading">Chargement…</p>
+                        <p className="signal-loading">{tr("common.loading")}</p>
                       ) : signals.errors.watchedCves ? (
                         <p className="signal-error">{signals.errors.watchedCves}</p>
                       ) : signals.watchedCves.length === 0 ? (
-                        <p className="signal-note-inline">Épingle une CVE depuis l'onglet Vulnérabilités pour la revoir ici.</p>
+                        <p className="signal-note-inline">{tr("overview.pinCveHint")}</p>
                       ) : (
                         <>
                           <div className="signal-body-row">
                             <div className="signal-value">{watchedExposedCount}</div>
                             <div className="signal-value-caption">
-                              exposée{watchedExposedCount > 1 ? "s" : ""} sur le parc
+                              {tr("overview.exposedOnFleet", { count: watchedExposedCount })}
                               {topWatchedCve ? <span className="signal-mono"> · {topWatchedCve.cve_code}</span> : null}
                             </div>
                           </div>
@@ -971,7 +972,7 @@ export default function OverviewTab({ data, onNavigate }) {
                                   setCveExpanded((v) => !v);
                                 }}
                               >
-                                {cveExpanded ? "Voir moins ▲" : "Voir toutes les CVE ▾"}
+                                {cveExpanded ? tr("common.seeLess") : tr("overview.seeAllCves")}
                               </button>
                               {cveExpanded && (
                                 <ul className="ov2-mini-list" onClick={(e) => e.stopPropagation()}>
@@ -979,7 +980,7 @@ export default function OverviewTab({ data, onNavigate }) {
                                     <li key={e.cve_code}>
                                       <span className="ov2-mono">{e.cve_code}</span>
                                       <span className={(e.result?.affected_count || 0) > 0 ? "ov2-tag-high" : "ov2-tag-ok"}>
-                                        {e.error ? "erreur" : `${e.result?.affected_count ?? 0} device${(e.result?.affected_count ?? 0) > 1 ? "s" : ""}`}
+                                        {e.error ? tr("common.error") : tr("common.devices", { count: e.result?.affected_count ?? 0 })}
                                       </span>
                                     </li>
                                   ))}
@@ -1001,22 +1002,22 @@ export default function OverviewTab({ data, onNavigate }) {
                       icon={<IconShield />}
                       label="ANSSI / CERT-FR"
                       onClick={() => onNavigate?.("vulnerabilities")}
-                      note="Avis CERT-FR récents rapprochés de l'inventaire logiciel complet du parc"
+                      note={tr("overview.anssiNote")}
                       tone={signals.anssiMatches.length > 0 ? "med" : undefined}
                       {...tileProps}
                     >
                       {signals.loading ? (
-                        <p className="signal-loading">Chargement…</p>
+                        <p className="signal-loading">{tr("common.loading")}</p>
                       ) : signals.errors.anssiMatches ? (
                         <p className="signal-error">{signals.errors.anssiMatches}</p>
                       ) : signals.anssiMatches.length === 0 ? (
-                        <p className="signal-note-inline">Aucun rapprochement plausible sur la fenêtre récente.</p>
+                        <p className="signal-note-inline">{tr("overview.noAnssiMatch")}</p>
                       ) : (
                         <>
                           <div className="signal-body-row">
                             <div className="signal-value">{signals.anssiMatches.length}</div>
                             <div className="signal-value-caption">
-                              avis rapproché{signals.anssiMatches.length > 1 ? "s" : ""}
+                              {tr("overview.anssiMatches", { count: signals.anssiMatches.length })}
                               {topAnssiMatch ? <span className="signal-mono"> · {topAnssiMatch.certfr_ref}</span> : null}
                             </div>
                           </div>
@@ -1030,14 +1031,14 @@ export default function OverviewTab({ data, onNavigate }) {
                                   setAnssiExpanded((v) => !v);
                                 }}
                               >
-                                {anssiExpanded ? "Voir moins ▲" : "Voir tous les avis ▾"}
+                                {anssiExpanded ? tr("common.seeLess") : tr("overview.seeAllAdvisories")}
                               </button>
                               {anssiExpanded && (
                                 <ul className="ov2-mini-list" onClick={(e) => e.stopPropagation()}>
                                   {signals.anssiMatches.slice(0, 8).map((m, i) => (
                                     <li key={m.certfr_ref ?? i}>
                                       <span className="ov2-mono">{m.certfr_ref}</span>
-                                      <span className="ov2-tag-med">{m.matched_software || m.title || "logiciel du parc"}</span>
+                                      <span className="ov2-tag-med">{m.matched_software || m.title || tr("overview.fleetSoftware")}</span>
                                     </li>
                                   ))}
                                 </ul>
@@ -1068,8 +1069,8 @@ export default function OverviewTab({ data, onNavigate }) {
                 >
                   <div className="ov2-compliance-card">
                     <div className="ov2-compliance-head">
-                      <h2>Conformité du parc</h2>
-                      <span className="ov2-grip" title="Glisser pour réorganiser" {...tileProps.dragHandleProps}>
+                      <h2>{tr("overview.fleetCompliance")}</h2>
+                      <span className="ov2-grip" title={tr("common.dragToReorder")} {...tileProps.dragHandleProps}>
                         <IconGrip />
                       </span>
                     </div>

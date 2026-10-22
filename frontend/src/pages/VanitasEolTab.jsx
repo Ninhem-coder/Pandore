@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { IconDownload } from "../components/icons.jsx";
 import { exportEolToExcel } from "../export.js";
 import { useVanitasAgentEol, useVanitasAgents, useVanitasInstallers } from "../hooks/useDashboardData.js";
+import { localizedTable, tr } from "../i18n/core.js";
 
-const TYPE_LABEL_FR = { dotnet: ".NET Framework", os: "Système d'exploitation", software: "Logiciel" };
+const TYPE_LABEL = localizedTable("veol.type", ["dotnet", "os", "software"]);
 
 // Mot-clé simple pour rapprocher une occurrence EOL d'un installeur du catalogue Vanitas
 // (point 5 de la revue comparative — "suggérer une mise à jour si une version plus récente
@@ -83,10 +84,10 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
   async function handleExport() {
     setExportState({ status: "exporting", error: null });
     try {
-      await exportEolToExcel(allRows, TYPE_LABEL_FR);
+      await exportEolToExcel(allRows, TYPE_LABEL);
       setExportState({ status: "idle", error: null });
     } catch (err) {
-      setExportState({ status: "idle", error: err.message || "Échec de l'export Excel." });
+      setExportState({ status: "idle", error: err.message || tr("v.exportFailed") });
     }
   }
 
@@ -119,7 +120,7 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
   if (loading) {
     return (
       <div className="vanitas-hud">
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
@@ -131,7 +132,7 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
       <div className="vanitas-hud-strip">
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
           <div className="label">
-            Occurrences EOL<span className="tag">PARC</span>
+            {tr("veol.kpi.occurrences")}<span className="tag">{tr("vv.kpi.fleet")}</span>
           </div>
           <div className="value">{allRows.length}</div>
           <div className="bar">
@@ -140,7 +141,7 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
           <div className="label">
-            Déjà EOL<span className="tag">URGENT</span>
+            {tr("veol.kpi.alreadyEol")}<span className="tag">URGENT</span>
           </div>
           <div className="value">{alreadyEolCount}</div>
           <div className="bar">
@@ -149,7 +150,7 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-warn)" }}>
           <div className="label">
-            Bientôt obsolète<span className="tag">≤ 90J</span>
+            {tr("veol.kpi.soon")}<span className="tag">{tr("veol.kpi.within90")}</span>
           </div>
           <div className="value">{upcomingCount}</div>
           <div className="bar">
@@ -158,7 +159,7 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent2)" }}>
           <div className="label">
-            Postes concernés<span className="tag">TOTAL</span>
+            {tr("vv.kpi.affected")}<span className="tag">{tr("vv.kpi.total")}</span>
           </div>
           <div className="value">{affectedHostCount}</div>
           <div className="bar">
@@ -173,14 +174,14 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
 
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
-          <h2>{rows.length} occurrences</h2>
+          <h2>{tr("veol.occurrences", { count: rows.length })}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span className="vanitas-hud-card-note">
-              {stillCollecting ? "collecte en cours…" : "dates réelles endoflife.date — voir vanitas/eol.py"}
+              {stillCollecting ? tr("vv.collecting") : tr("veol.note")}
             </span>
             <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
               <IconDownload />
-              {exportState.status === "exporting" ? "Export…" : "Exporter Excel"}
+              {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
             </button>
           </div>
         </div>
@@ -191,7 +192,7 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
             <span className="prompt">&gt;</span>
             <input
               type="text"
-              placeholder="grep --hostname/--logiciel ..."
+              placeholder={tr("veol.searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoComplete="off"
@@ -200,12 +201,12 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
         </div>
 
         {(agents.state.data ?? []).length === 0 ? (
-          <p className="vanitas-hud-empty-note">Aucun agent enrôlé pour l'instant.</p>
+          <p className="vanitas-hud-empty-note">{tr("vv.noAgent")}</p>
         ) : rows.length === 0 ? (
           <p className="vanitas-hud-empty-note">
             {allRows.length === 0
-              ? "Aucun logiciel/OS obsolète ou bientôt obsolète détecté sur le parc actuel."
-              : "Aucun résultat pour ce filtre."}
+              ? tr("veol.noEol")
+              : tr("vv.noResult")}
           </p>
         ) : (
           <div className="vanitas-hud-table-wrap">
@@ -221,13 +222,13 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
               </colgroup>
               <thead>
                 <tr>
-                  <th>Poste</th>
-                  <th>Type</th>
-                  <th>État</th>
-                  <th>Logiciel/OS</th>
+                  <th>{tr("veol.col.endpoint")}</th>
+                  <th>{tr("veol.col.type")}</th>
+                  <th>{tr("veol.col.state")}</th>
+                  <th>{tr("veol.col.software")}</th>
                   <th>Version</th>
-                  <th>Constat</th>
-                  <th>Catalogue</th>
+                  <th>{tr("veol.col.finding")}</th>
+                  <th>{tr("veol.col.catalog")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -238,10 +239,10 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
                       <td className="vanitas-hud-host">
                         <span className="name">{r.hostname}</span>
                       </td>
-                      <td>{TYPE_LABEL_FR[r.type] || r.type}</td>
+                      <td>{TYPE_LABEL[r.type] || r.type}</td>
                       <td>
                         <span className={`vanitas-hud-status-pill ${r.is_eol ? "bad" : "warn"}`}>
-                          {r.is_eol ? "EOL" : "Bientôt"}
+                          {r.is_eol ? "EOL" : tr("veol.soon")}
                         </span>
                       </td>
                       <td>{r.name}</td>
@@ -252,10 +253,10 @@ export default function VanitasEolTab({ onNavigateVanitas, vanitasNav }) {
                           <button
                             type="button"
                             className="vanitas-ghost-btn"
-                            title={`« ${match.name}${match.version ? " v" + match.version : ""} » déjà au catalogue — à vérifier, correspondance approximative`}
+                            title={tr("veol.matchTitle", { name: `${match.name}${match.version ? " v" + match.version : ""}` })}
                             onClick={() => onNavigateVanitas?.("vanitas-installers")}
                           >
-                            ↑ MàJ au catalogue
+                            {tr("veol.updateInCatalog")}
                           </button>
                         ) : (
                           <span className="cve-small">—</span>

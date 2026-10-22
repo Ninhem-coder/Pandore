@@ -10,6 +10,8 @@ import {
   useVanitasComplianceSummary,
 } from "../hooks/useDashboardData.js";
 import { ConfirmButton, VanitasWizardShell, fmtRelative } from "./vanitasShared.jsx";
+import { getLang, localizedTable, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 // "Règles de conformité" (page d'Administration séparée) a été retirée le 2026-09-09 (demande
 // de Nicolas — "on gère tout depuis Conformité") : `TEMPLATE` vit désormais ici, seul
@@ -40,11 +42,40 @@ if ($true) {
     exit 1
 }
 `;
+const TEMPLATE_EN = `# ── Compliance contract (read by the Vanitas agent) ─────────────────────────────
+# This script MUST end with:
+#   exit 0   -> endpoint COMPLIANT
+#   exit 1   -> endpoint NON-COMPLIANT (or any other non-zero code)
+#
+# Real pitfall (confirmed by testing): printing an error (Write-Error, Write-Warning...)
+# WITHOUT calling "exit" explicitly leaves the script COMPLIANT by default, even if a
+# problem was detected. Always end with an explicit "exit".
+#
+# Optional: the last output line can be a JSON object {"reason": "...", "expected": "...",
+# "actual": "..."} to show a structured detail (expected/actual) in the dashboard instead of
+# the raw text. Optional and backward compatible — a script that only prints free text keeps
+# displaying exactly as before.
+
+if ($true) {
+    Write-Output "Check passed"
+    exit 0
+} else {
+    # Structured detail example (last line, compact JSON):
+    # Write-Output (@{reason="BitLocker disabled on C:"; expected="on"; actual="off"} | ConvertTo-Json -Compress)
+    Write-Output "Problem detected: ..."
+    exit 1
+}
+`;
+
+/** Script template in the current interface language. */
+function template() {
+  return getLang() === "fr" ? TEMPLATE : TEMPLATE_EN;
+}
 
 function stateLabel(compliant) {
-  if (compliant === true) return "Conforme";
-  if (compliant === false) return "Non conforme";
-  return "Erreur";
+  if (compliant === true) return tr("vc.compliant");
+  if (compliant === false) return tr("vc.nonCompliant");
+  return tr("vc.error");
 }
 
 function stateTone(compliant) {
@@ -108,7 +139,7 @@ function DetailCell({ detail }) {
       {structured.reason && <div className="compliance-detail-reason">{structured.reason}</div>}
       {(structured.expected !== undefined || structured.actual !== undefined) && (
         <div className="compliance-detail-compare">
-          {structured.expected !== undefined && <span className="compliance-cmp-tag">attendu : {String(structured.expected)}</span>}
+          {structured.expected !== undefined && <span className="compliance-cmp-tag">{tr("vc.expected", { value: String(structured.expected) })}</span>}
           {structured.actual !== undefined && (
             <span
               className={`compliance-cmp-tag ${
@@ -119,7 +150,7 @@ function DetailCell({ detail }) {
                   : ""
               }`}
             >
-              obtenu : {String(structured.actual)}
+              {tr("vc.actual", { value: String(structured.actual) })}
             </span>
           )}
         </div>
@@ -128,7 +159,7 @@ function DetailCell({ detail }) {
   );
 }
 
-const CREATE_STEP_LABELS = { 1: "Informations", 2: "Script", 3: "Résultat" };
+const CREATE_STEP_LABELS = localizedTable("vc.step", ["1", "2", "3"]);
 
 /**
  * Assistant "Créer une règle" (2026-09-09, maquette validée par Nicolas — "on pourrait pas
@@ -143,7 +174,7 @@ const CREATE_STEP_LABELS = { 1: "Informations", 2: "Script", 3: "Résultat" };
  */
 function CreateRuleWizard({ onClose, onCreated }) {
   const [name, setName] = useState("");
-  const [script, setScript] = useState(TEMPLATE);
+  const [script, setScript] = useState(template);
   const [stepIdx, setStepIdx] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -186,8 +217,8 @@ function CreateRuleWizard({ onClose, onCreated }) {
           <IconShield />
         </div>
         <div className="vanitas-wiz-header-text">
-          <h2>Créer une règle de conformité</h2>
-          <p>Catalogue Vanitas · Conformité</p>
+          <h2>{tr("vc.createTitle")}</h2>
+          <p>{tr("vc.createSubtitle")}</p>
         </div>
       </div>
 
@@ -209,25 +240,23 @@ function CreateRuleWizard({ onClose, onCreated }) {
         {stepIdx === 0 && (
           <>
             <div>
-              <p className="filter-chip-group-label">Nom de la règle</p>
+              <p className="filter-chip-group-label">{tr("vc.ruleName")}</p>
               <input
                 className="filter-input"
                 style={{ flex: "none", width: "100%" }}
                 type="text"
-                placeholder="ex. « BitLocker activé »"
+                placeholder={tr("vc.ruleNamePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
               />
             </div>
             <p style={{ fontFamily: "var(--hud-sans)", fontSize: "12px", color: "var(--hud-ink-dim)", lineHeight: 1.6, margin: 0 }}>
-              Une règle est un script PowerShell qui s'exécute avec les droits <b style={{ color: "var(--hud-ink)" }}>SYSTEM</b> sur
-              tous les postes enrôlés, à chaque cycle de vérification automatique. Le nom apparaîtra tel quel dans la liste des règles
-              de cette page.
+              {trRich("vc.ruleExplain", { system: <b style={{ color: "var(--hud-ink)" }}>SYSTEM</b> })}
             </p>
             <div className="wizard-actions">
               <button type="button" className="vanitas-wiz-primary-btn" disabled={!name.trim()} onClick={() => goTo(1)}>
-                Suivant
+                {tr("vc.next")}
               </button>
             </div>
           </>
@@ -236,15 +265,19 @@ function CreateRuleWizard({ onClose, onCreated }) {
         {stepIdx === 1 && (
           <>
             <div className="compliance-wiz-warn">
-              Le script doit se terminer par <code>exit 0</code> (conforme) ou <code>exit 1</code> (non conforme) — signaler une
-              erreur sans appeler <code>exit</code> explicitement laisse le poste <b>CONFORME</b> par défaut.
+              {trRich("vc.exitWarn", {
+                exit0: <code>exit 0</code>,
+                exit1: <code>exit 1</code>,
+                exit: <code>exit</code>,
+                compliant: <b>{tr("vc.compliantUpper")}</b>,
+              })}
             </div>
             <div>
-              <p className="filter-chip-group-label">Script PowerShell</p>
+              <p className="filter-chip-group-label">{tr("vc.psScript")}</p>
               <textarea className="vanitas-rule-script-input" value={script} onChange={(e) => setScript(e.target.value)} spellCheck={false} rows={14} disabled={busy} />
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
                 <label className="vanitas-rule-file-btn">
-                  Déposer un fichier .ps1
+                  {tr("vc.dropPs1")}
                   <input type="file" accept=".ps1" onChange={handleFile} disabled={busy} hidden />
                 </label>
               </div>
@@ -252,10 +285,10 @@ function CreateRuleWizard({ onClose, onCreated }) {
             {error && <p className="error-note">{error}</p>}
             <div className="wizard-actions">
               <button type="button" className="vanitas-ghost-btn" onClick={() => goTo(0)} disabled={busy}>
-                Retour
+                {tr("vc.back")}
               </button>
               <button type="button" className="vanitas-wiz-primary-btn" disabled={!script.trim() || busy} onClick={handleCreate}>
-                {busy ? "Création…" : "Créer la règle"}
+                {busy ? tr("vc.creating") : tr("vc.createRule")}
               </button>
             </div>
           </>
@@ -269,16 +302,15 @@ function CreateRuleWizard({ onClose, onCreated }) {
                   <path d="M4 10.5l4 4 8-9" />
                 </svg>
               </div>
-              <div className="vanitas-wiz-result-title">Règle créée.</div>
+              <div className="vanitas-wiz-result-title">{tr("vc.created")}</div>
               <div style={{ fontFamily: "var(--hud-mono)", fontSize: "13px", color: "var(--hud-accent)" }}>{name}</div>
               <p className="vanitas-hud-empty-note" style={{ textAlign: "left" }}>
-                Reste <b style={{ color: "var(--hud-ink)" }}>désactivée</b> par défaut, comme toute règle nouvellement créée — ferme
-                cette fenêtre, clique sur la règle dans la liste puis « Activer » quand tu es prêt à la déployer sur le parc.
+                {trRich("vc.createdNote", { disabled: <b style={{ color: "var(--hud-ink)" }}>{tr("vc.disabledWord")}</b> })}
               </p>
             </div>
             <div className="wizard-actions">
               <button type="button" className="vanitas-wiz-primary-btn" onClick={onClose}>
-                Fermer
+                {tr("vc.close")}
               </button>
             </div>
           </>
@@ -418,8 +450,8 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
         <div className="vanitas-wiz-header-text">
           <h2>{rule.name}</h2>
           <p>
-            {rule.enabled ? "Activée" : "Désactivée"}
-            {rule.devices.length > 0 ? ` · ${rule.devices.length} poste${rule.devices.length > 1 ? "s" : ""} évalué${rule.devices.length > 1 ? "s" : ""}` : " · pas encore évaluée"}
+            {tr(rule.enabled ? "vc.enabled" : "vc.disabled")}
+            {rule.devices.length > 0 ? tr("vc.evaluated", { count: rule.devices.length }) : tr("vc.notEvaluated")}
           </p>
         </div>
       </div>
@@ -427,12 +459,12 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
         {!editing && (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <button type="button" className="vanitas-queue-btn" onClick={handleToggleEnabled} disabled={busy}>
-              {rule.enabled ? "Désactiver" : "Activer"}
+              {tr(rule.enabled ? "vc.disable" : "vc.enable")}
             </button>
             <button type="button" className="vanitas-queue-btn" onClick={startEditing} disabled={busy}>
-              Modifier
+              {tr("vc.edit")}
             </button>
-            <ConfirmButton label="Supprimer" confirmLabel="Confirmer ?" className="vanitas-danger-btn" onConfirm={handleDelete} disabled={busy} />
+            <ConfirmButton label={tr("vc.delete")} confirmLabel={tr("v.confirm")} className="vanitas-danger-btn" onConfirm={handleDelete} disabled={busy} />
           </div>
         )}
 
@@ -440,23 +472,23 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
 
         {editing ? (
           !scriptLoaded ? (
-            <p className="vanitas-hud-empty-note">CHARGEMENT DU SCRIPT…</p>
+            <p className="vanitas-hud-empty-note">{tr("vc.loadingScript")}</p>
           ) : (
             <>
               <div>
-                <p className="filter-chip-group-label">Nom</p>
+                <p className="filter-chip-group-label">{tr("vc.name")}</p>
                 <input className="filter-input" style={{ flex: "none", width: "100%" }} type="text" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} disabled={busy} />
               </div>
               <div>
-                <p className="filter-chip-group-label">Script PowerShell</p>
+                <p className="filter-chip-group-label">{tr("vc.psScript")}</p>
                 <textarea className="vanitas-rule-script-input" value={scriptDraft} onChange={(e) => setScriptDraft(e.target.value)} spellCheck={false} rows={14} disabled={busy} />
               </div>
               <div className="wizard-actions">
                 <button type="button" className="vanitas-ghost-btn" onClick={cancelEditing} disabled={busy}>
-                  Annuler
+                  {tr("vc.cancel")}
                 </button>
                 <button type="button" className="vanitas-wiz-primary-btn" disabled={!nameDraft.trim() || !scriptDraft.trim() || busy} onClick={handleSaveEdit}>
-                  {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+                  {busy ? tr("vc.saving") : tr("vc.save")}
                 </button>
               </div>
             </>
@@ -466,23 +498,23 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
             {rule.devices.length === 0 ? (
               <p className="vanitas-hud-empty-note">
                 {rule.enabled
-                  ? "Aucun résultat pour l'instant — les postes n'ont pas encore été contrôlés."
-                  : "Règle désactivée — clique « Activer » ci-dessus pour lancer les vérifications."}
+                  ? tr("vc.noResultYet")
+                  : tr("vc.ruleDisabled")}
               </p>
             ) : (
               <>
                 <div className="compliance-detail-kpis">
                   <div className="compliance-detail-kpi good">
-                    <div className="lbl">Conformes</div>
+                    <div className="lbl">{tr("vc.compliantPl")}</div>
                     <div className="val">{counts.compliant}</div>
                   </div>
                   <div className="compliance-detail-kpi bad">
-                    <div className="lbl">Non conformes</div>
+                    <div className="lbl">{tr("vc.nonCompliantPl")}</div>
                     <div className="val">{counts.nonCompliant}</div>
                   </div>
                   {counts.error > 0 && (
                     <div className="compliance-detail-kpi warn">
-                      <div className="lbl">Erreur</div>
+                      <div className="lbl">{tr("vc.error")}</div>
                       <div className="val">{counts.error}</div>
                     </div>
                   )}
@@ -492,21 +524,21 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M4 10.5l4 4 8-9" />
                     </svg>
-                    Ce script exporte un détail structuré (attendu/obtenu) en plus du texte.
+                    {tr("vc.structuredHint")}
                   </p>
                 )}
                 <div className="vanitas-hud-search">
                   <span className="prompt">&gt;</span>
-                  <input type="text" placeholder="Filtrer par poste..." value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+                  <input type="text" placeholder={tr("vc.filterEndpoint")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
                 </div>
                 <div className="compliance-detail-table-wrap">
                   <table className="compliance-detail-table">
                     <thead>
                       <tr>
-                        <th>Poste</th>
-                        <th>Statut</th>
-                        <th>Détail</th>
-                        <th>Dernier contrôle</th>
+                        <th>{tr("vc.col.endpoint")}</th>
+                        <th>{tr("vc.col.status")}</th>
+                        <th>{tr("vc.col.detail")}</th>
+                        <th>{tr("vc.col.lastCheck")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -525,7 +557,7 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
                       {filtered.length === 0 && (
                         <tr>
                           <td colSpan={4} className="vanitas-hud-cmd-none" style={{ padding: "16px" }}>
-                            0 résultat pour ce filtre.
+                            {tr("vc.noFilterResult")}
                           </td>
                         </tr>
                       )}
@@ -536,7 +568,7 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
             )}
             <div className="wizard-actions">
               <button type="button" className="vanitas-ghost-btn" onClick={onClose}>
-                Fermer
+                {tr("vc.close")}
               </button>
             </div>
           </>
@@ -662,7 +694,7 @@ export default function VanitasComplianceTab() {
       await exportConformiteToExcel(rules);
       setExportState({ status: "idle", error: null });
     } catch (err) {
-      setExportState({ status: "idle", error: err.message || "Échec de l'export Excel." });
+      setExportState({ status: "idle", error: err.message || tr("v.exportFailed") });
     }
   }
 
@@ -672,7 +704,7 @@ export default function VanitasComplianceTab() {
   if (loading) {
     return (
       <div className="vanitas-hud">
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
@@ -684,7 +716,8 @@ export default function VanitasComplianceTab() {
       <div className="vanitas-hud-strip">
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
           <div className="label">
-            Postes<span className="tag">TOTAL</span>
+            {tr("vc.kpi.endpoints")}
+            <span className="tag">{tr("vc.kpi.total")}</span>
           </div>
           <div className="value">{counts.total}</div>
           <div className="bar">
@@ -693,7 +726,8 @@ export default function VanitasComplianceTab() {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-good)" }}>
           <div className="label">
-            Conformes<span className="tag">100%</span>
+            {tr("vc.kpi.compliant")}
+            <span className="tag">100%</span>
           </div>
           <div className="value">{counts.compliant}</div>
           <div className="bar">
@@ -702,7 +736,8 @@ export default function VanitasComplianceTab() {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
           <div className="label">
-            Non conformes<span className="tag">≥ 1</span>
+            {tr("vc.kpi.nonCompliant")}
+            <span className="tag">≥ 1</span>
           </div>
           <div className="value">{counts.nonCompliant}</div>
           <div className="bar">
@@ -711,7 +746,8 @@ export default function VanitasComplianceTab() {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent2)" }}>
           <div className="label">
-            Règles suivies<span className="tag">ACTIVES</span>
+            {tr("vc.kpi.rules")}
+            <span className="tag">{tr("vc.kpi.active")}</span>
           </div>
           <div className="value">{enabledRuleCount}</div>
           <div className="bar">
@@ -722,21 +758,21 @@ export default function VanitasComplianceTab() {
 
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
-          <h2>Règles de conformité</h2>
+          <h2>{tr("vc.rules")}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span className="vanitas-hud-card-note">clic → détail par poste</span>
+            <span className="vanitas-hud-card-note">{tr("vc.clickDetail")}</span>
             <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
               <IconDownload />
-              {exportState.status === "exporting" ? "Export…" : "Exporter Excel"}
+              {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
             </button>
             <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowCreateWizard(true)}>
-              + Créer une règle
+              {tr("vc.newRule")}
             </button>
           </div>
         </div>
         {exportState.error && <p className="error-note" style={{ margin: "0 0 12px" }}>{exportState.error}</p>}
         {rules.length === 0 ? (
-          <p className="vanitas-hud-empty-note">Aucune règle de conformité pour l'instant.</p>
+          <p className="vanitas-hud-empty-note">{tr("vc.noRule")}</p>
         ) : (
           <div>
             {rules.map((r) => {
@@ -747,7 +783,7 @@ export default function VanitasComplianceTab() {
                 <div className="compliance-rule-row" key={r.id} onClick={() => setSelectedRuleId(r.id)}>
                   <div className="compliance-rule-main">
                     <span className="compliance-rule-name">{r.name}</span>
-                    <span className={`compliance-rule-badge ${r.enabled ? "on" : "off"}`}>{r.enabled ? "Activée" : "Désactivée"}</span>
+                    <span className={`compliance-rule-badge ${r.enabled ? "on" : "off"}`}>{tr(r.enabled ? "vc.enabled" : "vc.disabled")}</span>
                   </div>
                   {r.devices.length > 0 ? (
                     <div className="compliance-rule-counts">
@@ -756,7 +792,7 @@ export default function VanitasComplianceTab() {
                       {errorCount > 0 && <span className="warn">⚠ {errorCount}</span>}
                     </div>
                   ) : (
-                    <span className="compliance-rule-none">pas encore évaluée</span>
+                    <span className="compliance-rule-none">{tr("vc.notEvaluatedShort")}</span>
                   )}
                   <span className="vanitas-hud-chev">›</span>
                 </div>

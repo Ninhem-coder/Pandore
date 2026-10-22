@@ -609,8 +609,9 @@ function agentCommands(agent) {
   return once(`cmds:${agent.id}`, () => {
     const d = agent._device;
     const base = NOW - int(1, 20) * HOUR;
+    // Ids unique across the fleet (like the real server) — the fleet-wide lists key rows by id.
     const cmd = (id, type, minutesAgo, result, extra = {}) => ({
-      id,
+      id: AGENTS.indexOf(agent) * 100 + id,
       command_type: type,
       parameters: extra.parameters ?? null,
       status: extra.status ?? "completed",

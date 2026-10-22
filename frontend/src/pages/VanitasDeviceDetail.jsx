@@ -27,6 +27,8 @@ import {
   summarizeGroupRules,
   VanitasWizardShell,
 } from "./vanitasShared.jsx";
+import { currentLocale, localizedTable, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 const TONE_VAR = { low: "var(--low)", medium: "var(--amber)", high: "var(--high)", star: "var(--star)" };
 
@@ -50,10 +52,10 @@ function certTone(days) {
   return "low";
 }
 
-const CERT_STATE_LABEL = { high: "Expiré", medium: "Expire bientôt", low: "Valide" };
+const CERT_STATE_LABEL = localizedTable("vdd.cert", ["high", "medium", "low"]);
 
 function certStateLabel(days) {
-  return CERT_STATE_LABEL[certTone(days)] ?? "Inconnu";
+  return CERT_STATE_LABEL[certTone(days)] ?? tr("common.unknown");
 }
 
 // "Historique des commandes" (2026-09-11, "mettre la commande puis quand on clique mettre
@@ -66,7 +68,7 @@ function commandTone(c) {
   return "low";
 }
 
-const COMMAND_STATE_LABEL = { medium: "En cours", high: "Échec", low: "Terminée" };
+const COMMAND_STATE_LABEL = localizedTable("vdd.cmd", ["medium", "high", "low"]);
 
 function commandStateLabel(c) {
   return COMMAND_STATE_LABEL[commandTone(c)];
@@ -81,7 +83,7 @@ function complianceRuleTone(r) {
   return "medium";
 }
 
-const COMPLIANCE_RULE_LABEL = { low: "Conforme", high: "Non conforme", medium: "Erreur" };
+const COMPLIANCE_RULE_LABEL = localizedTable("vdd.rule", ["low", "high", "medium"]);
 
 function complianceRuleLabel(r) {
   return COMPLIANCE_RULE_LABEL[complianceRuleTone(r)];
@@ -112,15 +114,11 @@ function diskTone(pct) {
 // contre le vrai poste : un SSD NVMe réel ET un vrai disque mécanique renvoient tous les deux
 // "Fixed hard disk media") — traduction du libellé WMI brut, jamais un badge SSD/HDD inventé.
 // Une valeur WMI absente de cette table s'affiche telle quelle plutôt que masquée.
-const DISK_MEDIA_LABEL_FR = {
-  "Fixed hard disk media": "Disque fixe",
-  "Removable Media": "Amovible",
-  "External hard disk media": "Disque externe",
-};
+const DISK_MEDIA_LABEL = localizedTable("vdd.disk", ["Fixed hard disk media", "Removable Media", "External hard disk media"]);
 
 function diskMediaLabel(mediaType) {
   if (!mediaType) return null;
-  return DISK_MEDIA_LABEL_FR[mediaType] ?? mediaType;
+  return DISK_MEDIA_LABEL[mediaType] ?? mediaType;
 }
 
 // Périphériques PCI — `Status` WMI (2026-09-11) : "OK" = fonctionne normalement, toute autre
@@ -131,33 +129,110 @@ function pciStatusTone(status) {
   return status === "OK" ? "low" : "high";
 }
 
+// "suspicious": même journal que l'onglet transverse, filtré sur cet agent (2026-09-14).
+// "event-log": recherche PONCTUELLE à la demande (2026-09-16), voir VanitasEventLogPane.jsx.
+// Labels and group names are getters, read in the current interface language.
 const NAV_ITEMS = [
-  { key: "overview", label: "Vue d'ensemble" },
-  { group: "Système", items: [
-    { key: "os", label: "Système d'exploitation" },
-    { key: "hardware", label: "Matériel" },
-    { key: "network", label: "Identité & réseau" },
-  ]},
-  { group: "Sécurité", items: [
-    { key: "cert", label: "Certificat & enrôlement" },
-    { key: "vulns", label: "Vulnérabilités" },
-    { key: "compliance", label: "Conformité" },
-    // "Activités suspectes" (jalon "détection d'activités suspectes sur les postes",
-    // 2026-09-14) — même journal que l'onglet transverse (VanitasSuspiciousActivityTab.jsx),
-    // filtré ICI sur l'agent_id déjà connu de cette fiche plutôt que listé fleet-wide.
-    { key: "suspicious", label: "Activités suspectes" },
-    // "Journal d'événements Windows" (2026-09-16) — recherche PONCTUELLE à la demande, à
-    // distinguer du flux "Activités suspectes" juste au-dessus (filtré en continu). Voir
-    // VanitasEventLogPane.jsx.
-    { key: "event-log", label: "Journal d'événements" },
-  ]},
-  { group: "Inventaire", items: [
-    { key: "apps", label: "Applications" },
-  ]},
-  { group: "Administration", items: [
-    { key: "commands", label: "Commandes" },
-    { key: "terminal", label: "Terminal" },
-  ]},
+  {
+    key: "overview",
+    get label() {
+      return tr("vdd.nav.overview");
+    },
+  },
+  {
+    get group() {
+      return tr("vdd.nav.system");
+    },
+    items: [
+      {
+        key: "os",
+        get label() {
+          return tr("vdd.nav.os");
+        },
+      },
+      {
+        key: "hardware",
+        get label() {
+          return tr("vdd.nav.hardware");
+        },
+      },
+      {
+        key: "network",
+        get label() {
+          return tr("vdd.nav.network");
+        },
+      },
+    ],
+  },
+  {
+    get group() {
+      return tr("vdd.nav.security");
+    },
+    items: [
+      {
+        key: "cert",
+        get label() {
+          return tr("vdd.nav.cert");
+        },
+      },
+      {
+        key: "vulns",
+        get label() {
+          return tr("vdd.nav.vulns");
+        },
+      },
+      {
+        key: "compliance",
+        get label() {
+          return tr("vdd.nav.compliance");
+        },
+      },
+      {
+        key: "suspicious",
+        get label() {
+          return tr("vdd.nav.suspicious");
+        },
+      },
+      {
+        key: "event-log",
+        get label() {
+          return tr("vdd.nav.event-log");
+        },
+      },
+    ],
+  },
+  {
+    get group() {
+      return tr("vdd.nav.inventory");
+    },
+    items: [
+      {
+        key: "apps",
+        get label() {
+          return tr("vdd.nav.apps");
+        },
+      },
+    ],
+  },
+  {
+    get group() {
+      return tr("vdd.nav.administration");
+    },
+    items: [
+      {
+        key: "commands",
+        get label() {
+          return tr("vdd.nav.commands");
+        },
+      },
+      {
+        key: "terminal",
+        get label() {
+          return tr("vdd.nav.terminal");
+        },
+      },
+    ],
+  },
 ];
 
 /**
@@ -190,31 +265,31 @@ function CommandDetailModal({ command, hostname, onClose }) {
         <div className="vanitas-cmd-detail-meta">
           <span className={`vanitas-cmd-detail-status-pill ${tone}`}>{commandStateLabel(command)}</span>
           <span className="vanitas-cmd-detail-meta-item">
-            Lancée par <b>{command.actor ?? "inconnu"}</b>
+            {trRich("vdd.launchedBy", { who: <b>{command.actor ?? tr("vdd.unknownActor")}</b> })}
           </span>
           <span className="vanitas-cmd-detail-meta-item">
-            Lancée le <b>{fmtDateTime(command.created_at)}</b>
+            {trRich("vdd.launchedOn", { date: <b>{fmtDateTime(command.created_at)}</b> })}
           </span>
           {command.completed_at && (
             <span className="vanitas-cmd-detail-meta-item">
-              Terminée le <b>{fmtDateTime(command.completed_at)}</b>
+              {trRich("vdd.completedOn", { date: <b>{fmtDateTime(command.completed_at)}</b> })}
             </span>
           )}
         </div>
 
         {prettyParams && (
           <>
-            <p className="vanitas-cmd-detail-section-title">Paramètres</p>
+            <p className="vanitas-cmd-detail-section-title">{tr("vdd.parameters")}</p>
             <pre className="vanitas-cmd-detail-pre">{prettyParams}</pre>
           </>
         )}
 
-        <p className="vanitas-cmd-detail-section-title">Résultat</p>
+        <p className="vanitas-cmd-detail-section-title">{tr("vdd.result")}</p>
         {prettyResult ? (
           <pre className="vanitas-cmd-detail-pre">{prettyResult}</pre>
         ) : (
           <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-            Aucun résultat rapporté pour l'instant.
+            {tr("vdd.noResult")}
           </p>
         )}
       </div>
@@ -399,7 +474,7 @@ export default function VanitasDeviceDetail({
   const pciByCategory = useMemo(() => {
     const groups = new Map();
     for (const d of hardware?.pci_devices ?? []) {
-      const key = d.category ?? "Autres";
+      const key = d.category ?? tr("vdd.otherCategory");
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(d);
     }
@@ -594,7 +669,7 @@ export default function VanitasDeviceDetail({
   return (
     <div>
       <button type="button" className="vanitas-detail-back" onClick={onBack}>
-        ← Retour à la liste des postes
+        {tr("vdd.back")}
       </button>
 
       <div className="vanitas-detail-hero">
@@ -603,16 +678,16 @@ export default function VanitasDeviceDetail({
           <div>
             <p className="vanitas-detail-name">{agent.hostname}</p>
             <div className="vanitas-detail-hero-sub">
-              <span>{online ? "En ligne" : "Silencieux"} · vu <b>{fmtRelative(agent.last_seen)}</b></span>
-              <span>Enrôlé le <b>{fmtDate(agent.enrolled_at)}</b></span>
-              <span><b>{agent.apps_count}</b> applications</span>
+              <span>{trRich("vdd.seen", { status: tr(online ? "vdd.online" : "vdd.silent"), when: <b>{fmtRelative(agent.last_seen)}</b> })}</span>
+              <span>{trRich("vdd.enrolledOn", { date: <b>{fmtDate(agent.enrolled_at)}</b> })}</span>
+              <span>{trRich("vdd.appsCount", { n: <b>{agent.apps_count}</b> })}</span>
             </div>
           </div>
         </div>
         <div className="vanitas-detail-hero-actions">
           <ConfirmButton
-            label="Désinstaller à distance"
-            confirmLabel="Confirmer la désinstallation ?"
+            label={tr("vdd.uninstall")}
+            confirmLabel={tr("vdd.uninstallConfirm")}
             className="vanitas-danger-btn"
             disabled={lifecycleBusy}
             onConfirm={handleUninstall}
@@ -624,12 +699,12 @@ export default function VanitasDeviceDetail({
               en 403, une action sans issue plutôt qu'une simple absence. */}
           {canWritePostes && (
             <ConfirmButton
-              label="Retirer de l'inventaire"
-              confirmLabel="Confirmer le retrait ?"
+              label={tr("vdd.removeInventory")}
+              confirmLabel={tr("vdd.removeConfirm")}
               className="vanitas-danger-btn"
               disabled={lifecycleBusy}
               onConfirm={handleRemoveFromInventory}
-              title="Pensé pour un poste déjà décommissionné/désinstallé — si l'agent tourne encore, il continuera de fonctionner sur son poste mais disparaîtra du dashboard tant qu'il n'est pas ré-enrôlé."
+              title={tr("vdd.removeTitle")}
             />
           )}
         </div>
@@ -643,9 +718,9 @@ export default function VanitasDeviceDetail({
           style={{ "--tile-accent": TONE_VAR[certTone(certDays) ?? "star"] }}
           onClick={() => goto("cert")}
         >
-          <div className="vanitas-health-label">Certificat</div>
+          <div className="vanitas-health-label">{tr("vdd.tile.cert")}</div>
           <div className={`vanitas-health-value ${certTone(certDays) ?? "star"}`}>
-            {certDays === null ? "—" : `${Math.max(0, Math.round(certDays))} j`}
+            {certDays === null ? "—" : tr("vdd.days", { n: Math.max(0, Math.round(certDays)) })}
           </div>
         </button>
         <button
@@ -654,8 +729,8 @@ export default function VanitasDeviceDetail({
           style={{ "--tile-accent": TONE_VAR[worstVulnTone] }}
           onClick={() => goto("vulns")}
         >
-          <div className="vanitas-health-label">Vulnérabilités</div>
-          <div className={`vanitas-health-value ${worstVulnTone}`}>{vulnList.length.toLocaleString("fr-FR")}</div>
+          <div className="vanitas-health-label">{tr("vdd.tile.vulns")}</div>
+          <div className={`vanitas-health-value ${worstVulnTone}`}>{vulnList.length.toLocaleString(currentLocale())}</div>
         </button>
         <button
           type="button"
@@ -663,7 +738,7 @@ export default function VanitasDeviceDetail({
           style={{ "--tile-accent": TONE_VAR[diskTone(diskPct) ?? "star"] }}
           onClick={() => goto("hardware")}
         >
-          <div className="vanitas-health-label">Disque système</div>
+          <div className="vanitas-health-label">{tr("vdd.tile.disk")}</div>
           <div className={`vanitas-health-value ${diskTone(diskPct) ?? "star"}`}>
             {diskPct === null ? "—" : `${diskPct} %`}
           </div>
@@ -674,7 +749,7 @@ export default function VanitasDeviceDetail({
           style={{ "--tile-accent": TONE_VAR.star }}
           onClick={() => goto("apps")}
         >
-          <div className="vanitas-health-label">Applications</div>
+          <div className="vanitas-health-label">{tr("vdd.tile.apps")}</div>
           <div className="vanitas-health-value star">{appsList.length}</div>
         </button>
         <button
@@ -683,7 +758,7 @@ export default function VanitasDeviceDetail({
           style={{ "--tile-accent": TONE_VAR.star }}
           onClick={() => goto("commands")}
         >
-          <div className="vanitas-health-label">Commandes (7j)</div>
+          <div className="vanitas-health-label">{tr("vdd.tile.commands")}</div>
           <div className="vanitas-health-value star">{commandsLast7d}</div>
         </button>
       </div>
@@ -695,7 +770,7 @@ export default function VanitasDeviceDetail({
             className={`vanitas-detail-nav-item${activePane === "overview" ? " active" : ""}`}
             onClick={() => goto("overview")}
           >
-            Vue d'ensemble
+            {tr("vdd.nav.overview")}
           </button>
           {NAV_ITEMS.slice(1).map((group) => (
             <div key={group.group}>
@@ -720,13 +795,16 @@ export default function VanitasDeviceDetail({
               <div className="vanitas-ov-tile span-2" style={{ "--tile-accent": "var(--star)" }}>
                 <div className="vanitas-ov-tile-head">
                   <div className="vanitas-ov-tile-icon">◆</div>
-                  <div className="vanitas-ov-tile-title">Identité du poste</div>
+                  <div className="vanitas-ov-tile-title">{tr("vdd.identity")}</div>
                 </div>
                 <div className="vanitas-ov-tile-main" style={{ fontSize: "16px" }}>{agent.hostname}</div>
                 <div className="vanitas-ov-tile-sub">
-                  {diagnostic?.os_version ?? "Système inconnu — lance un diagnostic système"}
+                  {diagnostic?.os_version ?? tr("vdd.unknownSystem")}
                   <br />
-                  Enrôlé le <b>{fmtDate(agent.enrolled_at)}</b> · id <span style={{ fontFamily: "var(--mono)" }}>{agent.id.slice(0, 8)}…</span>
+                  {trRich("vdd.enrolledId", {
+                    date: <b>{fmtDate(agent.enrolled_at)}</b>,
+                    id: <span style={{ fontFamily: "var(--mono)" }}>{agent.id.slice(0, 8)}…</span>,
+                  })}
                 </div>
                 {/* Groupes (2026-09-08, many-to-many) — point d'entrée principal pour
                     affecter/retirer ce poste de PLUSIEURS groupes STATIQUES à la fois, voir
@@ -739,9 +817,9 @@ export default function VanitasDeviceDetail({
                     paire) — `group_ids` ne distingue pas encore adhésion directe/héritée. Rare
                     à l'échelle actuelle du parc, pas corrigé dans ce jalon. */}
                 <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
-                  <span className="vanitas-kv-label" style={{ fontSize: "11px" }}>Groupes</span>
+                  <span className="vanitas-kv-label" style={{ fontSize: "11px" }}>{tr("vdd.groups")}</span>
                   {agentGroupIds.length === 0 && (
-                    <span className="cve-small" style={{ color: "var(--ink-faint)" }}>Aucun</span>
+                    <span className="cve-small" style={{ color: "var(--ink-faint)" }}>{tr("vdd.none")}</span>
                   )}
                   {agentGroupIds.map((gid) => {
                     const g = groupById.get(gid);
@@ -759,7 +837,7 @@ export default function VanitasDeviceDetail({
                           alignItems: "center",
                           gap: "6px",
                         }}
-                        title={isDynamic ? `Membre automatique (règle : ${summarizeGroupRules(g.rules)})` : g.name}
+                        title={isDynamic ? tr("vd.dynamicMember", { rule: summarizeGroupRules(g.rules) }) : g.name}
                       >
                         {g.name}
                         {!isDynamic && (
@@ -781,7 +859,7 @@ export default function VanitasDeviceDetail({
                       onChange={(e) => handleAddToGroup(e.target.value)}
                       disabled={groupBusy}
                     >
-                      <option value="">+ ajouter à un groupe</option>
+                      <option value="">{tr("vdd.addToGroup")}</option>
                       {staticGroups
                         .filter((g) => !agentGroupIds.includes(g.id))
                         .map((g) => (
@@ -798,29 +876,25 @@ export default function VanitasDeviceDetail({
               <div className="vanitas-ov-tile" style={{ "--tile-accent": online ? "var(--low)" : "var(--ink-faint)" }}>
                 <div className="vanitas-ov-tile-head">
                   <div className="vanitas-ov-tile-icon">●</div>
-                  <div className="vanitas-ov-tile-title">Disponibilité</div>
+                  <div className="vanitas-ov-tile-title">{tr("vdd.availability")}</div>
                 </div>
                 <div className="vanitas-ov-tile-main" style={{ color: online ? "var(--low)" : "var(--ink-faint)" }}>
-                  {online ? "En ligne" : "Silencieux"}
+                  {tr(online ? "vdd.online" : "vdd.silent")}
                 </div>
                 <div className="vanitas-ov-tile-sub">
-                  vu <b>{fmtRelative(agent.last_seen)}</b>
-                  {diagnostic?.uptime && (
-                    <>
-                      {" "}· uptime <b>{diagnostic.uptime.split(".")[0]}</b>
-                    </>
-                  )}
+                  {trRich("vdd.seenShort", { when: <b>{fmtRelative(agent.last_seen)}</b> })}
+                  {diagnostic?.uptime && trRich("vdd.uptimeShort", { uptime: <b>{diagnostic.uptime.split(".")[0]}</b> })}
                 </div>
               </div>
 
               <div className="vanitas-ov-tile" style={{ "--tile-accent": TONE_VAR[certTone(certDays) ?? "star"] }}>
                 <div className="vanitas-ov-tile-head">
                   <div className="vanitas-ov-tile-icon">🛡</div>
-                  <div className="vanitas-ov-tile-title">Certificat</div>
+                  <div className="vanitas-ov-tile-title">{tr("vdd.tile.cert")}</div>
                 </div>
                 <div className="vanitas-ov-tile-main">
                   {certDays === null ? "—" : Math.max(0, Math.round(certDays))}{" "}
-                  <span className="unit">jours restants</span>
+                  <span className="unit">{tr("vdd.daysLeftUnit")}</span>
                 </div>
                 {certDays !== null && (
                   <div className="vanitas-cert-bar-track" style={{ marginBottom: 0 }}>
@@ -834,37 +908,37 @@ export default function VanitasDeviceDetail({
                   </div>
                 )}
                 <button type="button" className="vanitas-ov-tile-link" onClick={() => goto("cert")}>
-                  Voir le certificat →
+                  {tr("vdd.seeCert")}
                 </button>
               </div>
 
               <div className="vanitas-ov-tile" style={{ "--tile-accent": TONE_VAR[diskTone(diskPct) ?? "star"] }}>
                 <div className="vanitas-ov-tile-head">
                   <div className="vanitas-ov-tile-icon">▥</div>
-                  <div className="vanitas-ov-tile-title">Disque système</div>
+                  <div className="vanitas-ov-tile-title">{tr("vdd.tile.disk")}</div>
                 </div>
                 <div className="vanitas-ov-tile-main">{diskPct === null ? "—" : `${diskPct} %`}</div>
                 <div className="vanitas-ov-tile-sub">
                   {diagnostic
-                    ? <>{fmtBytes(diagnostic.disk_free_bytes)} libres / {fmtBytes(diagnostic.disk_total_bytes)}</>
-                    : "Aucune donnée — lance un diagnostic système"}
+                    ? tr("vdd.freeOf", { free: fmtBytes(diagnostic.disk_free_bytes), total: fmtBytes(diagnostic.disk_total_bytes) })
+                    : tr("vdd.noDataDiag")}
                 </div>
                 <button type="button" className="vanitas-ov-tile-link" onClick={() => goto("hardware")}>
-                  Voir le matériel →
+                  {tr("vdd.seeHardware")}
                 </button>
               </div>
 
               <div className="vanitas-ov-tile span-2" style={{ "--tile-accent": TONE_VAR[worstVulnTone] }}>
                 <div className="vanitas-ov-tile-head">
                   <div className="vanitas-ov-tile-icon">⚠</div>
-                  <div className="vanitas-ov-tile-title">Vulnérabilités</div>
+                  <div className="vanitas-ov-tile-title">{tr("vdd.tile.vulns")}</div>
                 </div>
                 <div className="vanitas-ov-tile-main">
-                  {vulnList.length.toLocaleString("fr-FR")}{" "}
-                  <span className="unit">CVE sur {new Set(vulnList.map((v) => v.product_name)).size} logiciels</span>
+                  {vulnList.length.toLocaleString(currentLocale())}{" "}
+                  <span className="unit">{tr("vdd.cveOnSoftware", { count: new Set(vulnList.map((v) => v.product_name)).size })}</span>
                 </div>
                 {vulnList.length === 0 ? (
-                  <div className="vanitas-ov-tile-sub">Aucune correspondance CVE sur l'inventaire actuel.</div>
+                  <div className="vanitas-ov-tile-sub">{tr("vdd.noCveMatchShort")}</div>
                 ) : (
                   <div className="vanitas-ov-mini-list">
                     {vulnList.slice(0, 3).map((v, i) => (
@@ -877,7 +951,7 @@ export default function VanitasDeviceDetail({
                   </div>
                 )}
                 <button type="button" className="vanitas-ov-tile-link" onClick={() => goto("vulns")}>
-                  Voir {vulnList.length > 0 ? `les ${vulnList.length} CVE` : "le détail"} →
+                  {vulnList.length > 0 ? tr("vdd.seeCves", { count: vulnList.length }) : tr("vdd.seeDetail")}
                 </button>
               </div>
 
@@ -887,59 +961,59 @@ export default function VanitasDeviceDetail({
                   <div className="vanitas-ov-tile-title">Windows Update</div>
                 </div>
                 <div className="vanitas-ov-tile-main">
-                  {windowsUpdate ? windowsUpdate.pending_count : "—"} <span className="unit">en attente</span>
+                  {windowsUpdate ? windowsUpdate.pending_count : "—"} <span className="unit">{tr("vdd.pendingUnit")}</span>
                 </div>
                 <div className="vanitas-ov-tile-sub">
-                  {windowsUpdateCommand ? `vérifié ${fmtRelative(windowsUpdateCommand.created_at)}` : "jamais vérifié"}
+                  {windowsUpdateCommand ? tr("vdd.checkedAgo", { when: fmtRelative(windowsUpdateCommand.created_at) }) : tr("vdd.neverChecked")}
                 </div>
                 <button type="button" className="vanitas-ov-tile-link" onClick={() => goto("os")}>
-                  Voir le détail →
+                  {tr("vdd.seeDetail")}
                 </button>
               </div>
 
               <div className="vanitas-ov-tile" style={{ "--tile-accent": "var(--star)" }}>
                 <div className="vanitas-ov-tile-head">
                   <div className="vanitas-ov-tile-icon">▦</div>
-                  <div className="vanitas-ov-tile-title">Applications</div>
+                  <div className="vanitas-ov-tile-title">{tr("vdd.tile.apps")}</div>
                 </div>
-                <div className="vanitas-ov-tile-main">{appsList.length} <span className="unit">installées</span></div>
+                <div className="vanitas-ov-tile-main">{appsList.length} <span className="unit">{tr("vdd.installedUnit")}</span></div>
                 <div className="vanitas-ov-tile-sub">
-                  {inv?.data?.collected_at ? `inventaire à jour (${fmtRelative(inv.data.collected_at)})` : "aucun inventaire reçu"}
+                  {inv?.data?.collected_at ? tr("vdd.inventoryUpToDate", { when: fmtRelative(inv.data.collected_at) }) : tr("vdd.noInventory")}
                 </div>
                 <button type="button" className="vanitas-ov-tile-link" onClick={() => goto("apps")}>
-                  Voir la liste →
+                  {tr("vdd.seeList")}
                 </button>
               </div>
 
               <div className="vanitas-ov-tile" style={{ "--tile-accent": agentBehindSource ? "var(--amber)" : "var(--low)" }}>
                 <div className="vanitas-ov-tile-head">
                   <div className="vanitas-ov-tile-icon">⇪</div>
-                  <div className="vanitas-ov-tile-title">Agent</div>
+                  <div className="vanitas-ov-tile-title">{tr("vdd.agent")}</div>
                 </div>
                 <div className="vanitas-ov-tile-main">
-                  {agent.agent_version ? `v${agent.agent_version}` : "version inconnue"}
+                  {agent.agent_version ? `v${agent.agent_version}` : tr("vd.unknownVersion")}
                 </div>
                 <div className="vanitas-ov-tile-sub">
                   {sourceVersionCmp === null
-                    ? `Dernière version du code : v${LATEST_AGENT_VERSION} (comparaison impossible)`
+                    ? tr("vdd.agentNoCompare", { version: LATEST_AGENT_VERSION })
                     : agentBehindSource
-                      ? `Nouvelle version disponible dans le code — v${LATEST_AGENT_VERSION}`
-                      : `À jour avec le code source (v${LATEST_AGENT_VERSION}).`}
+                      ? tr("vdd.agentBehind", { version: LATEST_AGENT_VERSION })
+                      : tr("vdd.agentUpToDate", { version: LATEST_AGENT_VERSION })}
                 </div>
                 {canWriteApplications && latestAgentPackage && agentIsOutdated && (
                   <>
                     {updateQueued ? (
                       <span className="cve-small" style={{ color: "var(--low)" }}>
-                        Commande mise en file — visible dans "Commandes" ci-dessous.
+                        {tr("vdd.updateQueued")}
                       </span>
                     ) : (
                       <ConfirmButton
-                        label="Mettre à jour maintenant"
-                        confirmLabel="Confirmer ?"
+                        label={tr("vdd.updateNow")}
+                        confirmLabel={tr("vdd.confirmShort")}
                         className="vanitas-ov-tile-link"
                         disabled={updateBusy}
                         onConfirm={handleUpdateAgent}
-                        title="Remplace le binaire de l'agent et redémarre le service — confirmation requise."
+                        title={tr("vdd.updateTitle")}
                       />
                     )}
                     {updateError && <p className="error-note" style={{ marginTop: "6px" }}>{updateError}</p>}
@@ -950,10 +1024,10 @@ export default function VanitasDeviceDetail({
               <div className="vanitas-ov-tile span-2" style={{ "--tile-accent": "var(--star)" }}>
                 <div className="vanitas-ov-tile-head">
                   <div className="vanitas-ov-tile-icon">▸</div>
-                  <div className="vanitas-ov-tile-title">Dernières commandes</div>
+                  <div className="vanitas-ov-tile-title">{tr("vdd.lastCommands")}</div>
                 </div>
                 {commandList.length === 0 ? (
-                  <div className="vanitas-ov-tile-sub">Aucune commande envoyée à cet agent.</div>
+                  <div className="vanitas-ov-tile-sub">{tr("vdd.noCommandSent")}</div>
                 ) : (
                   <div className="vanitas-ov-mini-list" style={{ marginTop: "2px" }}>
                     {commandList.slice(0, 3).map((c) => (
@@ -970,7 +1044,8 @@ export default function VanitasDeviceDetail({
                           }}
                         />
                         <span className="vanitas-ov-mini-name">
-                          {COMMAND_LABELS[c.command_type] ?? c.command_type} — {c.status === "pending" || c.status === "running" ? "en cours" : c.success ? "terminée" : "échouée"}
+                          {COMMAND_LABELS[c.command_type] ?? c.command_type} —{" "}
+                          {tr(c.status === "pending" || c.status === "running" ? "vdd.cmdInProgress" : c.success ? "vdd.cmdDone" : "vdd.cmdFailed")}
                         </span>
                         <span className="vanitas-ov-mini-meta">{fmtRelative(c.created_at)}</span>
                       </div>
@@ -978,7 +1053,7 @@ export default function VanitasDeviceDetail({
                   </div>
                 )}
                 <button type="button" className="vanitas-ov-tile-link" onClick={() => goto("commands")}>
-                  Voir tout l'historique →
+                  {tr("vdd.seeHistory")}
                 </button>
               </div>
             </div>
@@ -1004,8 +1079,8 @@ export default function VanitasDeviceDetail({
               <div className="vanitas-os-panes">
               <div className="card">
                 <div className="card-head">
-                  <h2>Système d'exploitation</h2>
-                  <span className="card-note">inventaire périodique + "Diagnostic système"</span>
+                  <h2>{tr("vdd.nav.os")}</h2>
+                  <span className="card-note">{tr("vdd.osSources")}</span>
                 </div>
                 {inv?.data?.os_caption || inv?.data?.os_version ? (
                   <>
@@ -1034,40 +1109,40 @@ export default function VanitasDeviceDetail({
 
                     <div className="vanitas-os-kv-grid">
                       <div className="vanitas-kv-row">
-                        <span className="vanitas-kv-label">Nom d'hôte</span>
+                        <span className="vanitas-kv-label">{tr("vdd.kv.hostname")}</span>
                         <span className="vanitas-kv-value">{agent.hostname}</span>
                       </div>
                       <div className="vanitas-kv-row">
-                        <span className="vanitas-kv-label">Disponibilité (uptime)</span>
+                        <span className="vanitas-kv-label">{tr("vdd.kv.uptime")}</span>
                         <span className="vanitas-kv-value">{diagnostic?.uptime?.split(".")[0] ?? "—"}</span>
                       </div>
 
                       <div className="vanitas-kv-row">
-                        <span className="vanitas-kv-label">Architecture</span>
+                        <span className="vanitas-kv-label">{tr("vdd.kv.architecture")}</span>
                         <span className="vanitas-kv-value">{inv.data.os_architecture ?? "—"}</span>
                       </div>
                       <div className="vanitas-kv-row">
-                        <span className="vanitas-kv-label">Dernier diagnostic</span>
+                        <span className="vanitas-kv-label">{tr("vdd.kv.lastDiagnostic")}</span>
                         <span className="vanitas-kv-value">
-                          {diagnosticCommand ? fmtDateTime(diagnosticCommand.created_at) : "jamais"}
+                          {diagnosticCommand ? fmtDateTime(diagnosticCommand.created_at) : tr("vdd.never")}
                         </span>
                       </div>
 
                       <div className="vanitas-kv-row">
-                        <span className="vanitas-kv-label">Utilisateur enregistré</span>
+                        <span className="vanitas-kv-label">{tr("vdd.kv.registeredUser")}</span>
                         <span className="vanitas-kv-value">{inv.data.os_registered_user ?? "—"}</span>
                       </div>
                       <div className="vanitas-kv-row">
-                        <span className="vanitas-kv-label">Dernière synchro inventaire</span>
+                        <span className="vanitas-kv-label">{tr("vdd.kv.lastInventorySync")}</span>
                         <span className="vanitas-kv-value">{fmtRelative(inv.data.collected_at)}</span>
                       </div>
 
                       <div className="vanitas-kv-row">
-                        <span className="vanitas-kv-label">Date d'installation</span>
+                        <span className="vanitas-kv-label">{tr("vdd.kv.installDate")}</span>
                         <span className="vanitas-kv-value">{fmtDate(inv.data.os_install_date)}</span>
                       </div>
                       <div className="vanitas-kv-row">
-                        <span className="vanitas-kv-label">Fuseau horaire</span>
+                        <span className="vanitas-kv-label">{tr("vdd.kv.timezone")}</span>
                         <span className="vanitas-kv-value">{inv.data.os_utc_offset ?? "—"}</span>
                       </div>
                     </div>
@@ -1075,8 +1150,7 @@ export default function VanitasDeviceDetail({
                     {!diagnostic && (
                       <>
                         <p className="empty" style={{ marginTop: "16px" }}>
-                          Diagnostic système jamais exécuté — disponibilité et date de dernier
-                          diagnostic incomplètes ci-dessus.
+                          {tr("vdd.diagNeverRun")}
                         </p>
                         <CommandForm agentId={agent.id} onQueued={onQueued} initialType="system_diagnostic" />
                       </>
@@ -1087,21 +1161,21 @@ export default function VanitasDeviceDetail({
                   // mais un diagnostic système existe déjà — au moins ces 3 infos restent affichées.
                   <div className="vanitas-kv-list">
                     <div className="vanitas-kv-row">
-                      <span className="vanitas-kv-label">Version</span>
+                      <span className="vanitas-kv-label">{tr("vdd.kv.version")}</span>
                       <span className="vanitas-kv-value">{diagnostic.os_version}</span>
                     </div>
                     <div className="vanitas-kv-row">
-                      <span className="vanitas-kv-label">Disponibilité (uptime)</span>
+                      <span className="vanitas-kv-label">{tr("vdd.kv.uptime")}</span>
                       <span className="vanitas-kv-value">{diagnostic.uptime?.split(".")[0] ?? "—"}</span>
                     </div>
                     <div className="vanitas-kv-row">
-                      <span className="vanitas-kv-label">Dernier diagnostic</span>
+                      <span className="vanitas-kv-label">{tr("vdd.kv.lastDiagnostic")}</span>
                       <span className="vanitas-kv-value">{fmtDateTime(diagnosticCommand?.created_at)}</span>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <p className="empty">Jamais exécuté sur ce poste.</p>
+                    <p className="empty">{tr("vdd.neverRun")}</p>
                     <CommandForm agentId={agent.id} onQueued={onQueued} initialType="system_diagnostic" />
                   </>
                 )}
@@ -1109,21 +1183,21 @@ export default function VanitasDeviceDetail({
 
               <div className="card">
                 <div className="card-head">
-                  <h2>Mises à jour Windows</h2>
-                  <span className="card-note">via commande "Vérifier les mises à jour Windows"</span>
+                  <h2>{tr("vdd.windowsUpdates")}</h2>
+                  <span className="card-note">{tr("vdd.viaCheckUpdates")}</span>
                 </div>
                 {windowsUpdate ? (
                   <>
                     <p className="card-note" style={{ marginBottom: "12px" }}>
                       <span className={`badge ${windowsUpdate.pending_count > 0 ? "medium" : "low"}`}>
-                        {windowsUpdate.pending_count} mise{windowsUpdate.pending_count > 1 ? "s" : ""} à jour
-                      </span>{" "}
-                      · vérifié le {fmtDateTime(windowsUpdateCommand?.created_at)}
+                        {tr("vdd.updatesCount", { count: windowsUpdate.pending_count })}
+                      </span>
+                      {tr("vdd.checkedOn", { date: fmtDateTime(windowsUpdateCommand?.created_at) })}
                     </p>
                     {windowsUpdate.titles?.length > 0 && (
                       <div className="vanitas-detail-table-wrap">
                         <table className="cve-device-table">
-                          <thead><tr><th>Titre</th></tr></thead>
+                          <thead><tr><th>{tr("vdd.title")}</th></tr></thead>
                           <tbody>
                             {windowsUpdate.titles.map((t, i) => (
                               <tr key={i}><td>{t}</td></tr>
@@ -1135,7 +1209,7 @@ export default function VanitasDeviceDetail({
                   </>
                 ) : (
                   <>
-                    <p className="empty">Jamais vérifié sur ce poste.</p>
+                    <p className="empty">{tr("vdd.neverCheckedHere")}</p>
                     <CommandForm agentId={agent.id} onQueued={onQueued} initialType="check_windows_updates" />
                   </>
                 )}
@@ -1154,21 +1228,21 @@ export default function VanitasDeviceDetail({
               {(diagnostic || hardware) && (
                 <div className="vanitas-hw-stat-strip">
                   <div className="vanitas-hw-stat-tile" style={{ "--tile-accent": TONE_VAR[diskTone(diskPct) ?? "star"] }}>
-                    <div className="vanitas-hw-stat-label">Disque système</div>
+                    <div className="vanitas-hw-stat-label">{tr("vdd.hw.systemDisk")}</div>
                     <div className="vanitas-hw-stat-value">{diskPct === null ? "—" : `${diskPct} %`}</div>
                   </div>
                   <div className="vanitas-hw-stat-tile" style={{ "--tile-accent": "var(--star)" }}>
-                    <div className="vanitas-hw-stat-label">Mémoire totale</div>
+                    <div className="vanitas-hw-stat-label">{tr("vdd.hw.totalMemory")}</div>
                     <div className="vanitas-hw-stat-value">
                       {hardware?.total_memory_bytes ? fmtBytes(hardware.total_memory_bytes) : "—"}
                     </div>
                   </div>
                   <div className="vanitas-hw-stat-tile" style={{ "--tile-accent": "var(--star)" }}>
-                    <div className="vanitas-hw-stat-label">Disques physiques</div>
+                    <div className="vanitas-hw-stat-label">{tr("vdd.hw.physicalDisks")}</div>
                     <div className="vanitas-hw-stat-value">{hardware?.disks?.length ?? "—"}</div>
                   </div>
                   <div className="vanitas-hw-stat-tile" style={{ "--tile-accent": "var(--star)" }}>
-                    <div className="vanitas-hw-stat-label">Périphériques PCI</div>
+                    <div className="vanitas-hw-stat-label">{tr("vdd.hw.pciDevices")}</div>
                     <div className="vanitas-hw-stat-value">{hardware?.pci_devices?.length ?? "—"}</div>
                   </div>
                 </div>
@@ -1176,8 +1250,8 @@ export default function VanitasDeviceDetail({
 
             <div className="card">
               <div className="card-head">
-                <h2>Matériel</h2>
-                {hardwareCommand && <span className="card-note">collecté {fmtRelative(hardwareCommand.created_at)}</span>}
+                <h2>{tr("vdd.hardware")}</h2>
+                {hardwareCommand && <span className="card-note">{tr("vdd.collectedAgo", { when: fmtRelative(hardwareCommand.created_at) })}</span>}
               </div>
 
               {hardware ? (
@@ -1190,13 +1264,13 @@ export default function VanitasDeviceDetail({
                             <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
                           </svg>
                         </div>
-                        <div className="vanitas-hw-info-card-title">Identité machine</div>
+                        <div className="vanitas-hw-info-card-title">{tr("vdd.hw.machineIdentity")}</div>
                       </div>
                       <div className="vanitas-kv-list">
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">Fabricant</span><span className="vanitas-kv-value">{hardware.manufacturer ?? "—"}</span></div>
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">Modèle</span><span className="vanitas-kv-value">{hardware.model ?? "—"}</span></div>
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">N° de série</span><span className="vanitas-kv-value">{hardware.serial_number ?? "—"}</span></div>
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">UUID</span><span className="vanitas-kv-value">{hardware.uuid ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.manufacturer")}</span><span className="vanitas-kv-value">{hardware.manufacturer ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.model")}</span><span className="vanitas-kv-value">{hardware.model ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.serial")}</span><span className="vanitas-kv-value">{hardware.serial_number ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.uuid")}</span><span className="vanitas-kv-value">{hardware.uuid ?? "—"}</span></div>
                       </div>
                     </div>
                     <div className="vanitas-hw-info-card">
@@ -1206,13 +1280,13 @@ export default function VanitasDeviceDetail({
                             <path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                           </svg>
                         </div>
-                        <div className="vanitas-hw-info-card-title">BIOS &amp; carte mère</div>
+                        <div className="vanitas-hw-info-card-title">{tr("vdd.hw.biosBoard")}</div>
                       </div>
                       <div className="vanitas-kv-list">
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">Version BIOS</span><span className="vanitas-kv-value">{hardware.bios_version ?? "—"}</span></div>
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">Date BIOS</span><span className="vanitas-kv-value">{hardware.bios_release_date ?? "—"}</span></div>
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">Carte mère</span><span className="vanitas-kv-value">{hardware.motherboard_model ?? "—"}</span></div>
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">N° série carte mère</span><span className="vanitas-kv-value">{hardware.motherboard_serial_number ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.biosVersion")}</span><span className="vanitas-kv-value">{hardware.bios_version ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.biosDate")}</span><span className="vanitas-kv-value">{hardware.bios_release_date ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.motherboard")}</span><span className="vanitas-kv-value">{hardware.motherboard_model ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.motherboardSerial")}</span><span className="vanitas-kv-value">{hardware.motherboard_serial_number ?? "—"}</span></div>
                       </div>
                     </div>
                     <div className="vanitas-hw-info-card">
@@ -1222,22 +1296,23 @@ export default function VanitasDeviceDetail({
                             <rect x="5" y="2" width="10" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
                           </svg>
                         </div>
-                        <div className="vanitas-hw-info-card-title">Châssis</div>
+                        <div className="vanitas-hw-info-card-title">{tr("vdd.hw.chassis")}</div>
                       </div>
                       <div className="vanitas-kv-list">
-                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">Type</span><span className="vanitas-kv-value">{hardware.chassis_type ?? "—"}</span></div>
+                        <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.type")}</span><span className="vanitas-kv-value">{hardware.chassis_type ?? "—"}</span></div>
                       </div>
                     </div>
                   </div>
 
                   <div className="vanitas-hw-group-title" style={{ marginTop: "20px" }}>
-                    Mémoire{hardware.total_memory_bytes ? ` — ${fmtBytes(hardware.total_memory_bytes)}` : ""}
+                    {tr("vdd.memory")}
+                    {hardware.total_memory_bytes ? ` — ${fmtBytes(hardware.total_memory_bytes)}` : ""}
                   </div>
                   {hardware.memory_modules?.length > 0 ? (
                     <div className="vanitas-dimm-grid">
                       {hardware.memory_modules.map((m, i) => (
                         <div className="vanitas-dimm-card" key={i}>
-                          <div className="vanitas-dimm-slot">{m.slot ?? `Barrette ${i + 1}`}</div>
+                          <div className="vanitas-dimm-slot">{m.slot ?? tr("vdd.dimm", { n: i + 1 })}</div>
                           <div className="vanitas-dimm-size">{fmtBytes(m.capacity_bytes)}</div>
                           <div className="vanitas-dimm-meta">
                             {m.speed_mhz ? `${m.speed_mhz} MT/s` : "—"}
@@ -1247,10 +1322,10 @@ export default function VanitasDeviceDetail({
                       ))}
                     </div>
                   ) : (
-                    <p className="empty">Aucune barrette détectée.</p>
+                    <p className="empty">{tr("vdd.noDimm")}</p>
                   )}
 
-                  <div className="vanitas-hw-group-title" style={{ marginTop: "20px" }}>Disques physiques</div>
+                  <div className="vanitas-hw-group-title" style={{ marginTop: "20px" }}>{tr("vdd.hw.physicalDisks")}</div>
                   {hardware.disks?.length > 0 ? (
                     <div className="vanitas-hw-device-grid">
                       {hardware.disks.map((d, i) => (
@@ -1262,7 +1337,7 @@ export default function VanitasDeviceDetail({
                               </svg>
                             </div>
                             <div>
-                              <div className="vanitas-hw-device-name">{d.model ?? "Disque"}</div>
+                              <div className="vanitas-hw-device-name">{d.model ?? tr("vdd.diskDefault")}</div>
                               <div className="vanitas-hw-device-sub">{d.interface_type ?? "—"}</div>
                             </div>
                           </div>
@@ -1278,22 +1353,22 @@ export default function VanitasDeviceDetail({
                       ))}
                     </div>
                   ) : (
-                    <p className="empty">Aucun disque détecté.</p>
+                    <p className="empty">{tr("vdd.noDisk")}</p>
                   )}
 
-                  <div className="vanitas-hw-group-title" style={{ marginTop: "20px" }}>Carte(s) graphique(s)</div>
+                  <div className="vanitas-hw-group-title" style={{ marginTop: "20px" }}>{tr("vdd.gpus")}</div>
                   {hardware.graphics_cards?.length > 0 ? (
                     <div className="vanitas-hw-gpu-grid">
                       {hardware.graphics_cards.map((g, i) => (
                         <div className="vanitas-hw-gpu-card" key={i}>
                           <div className="vanitas-hw-gpu-name">{g.name ?? "GPU"}</div>
                           <div className="vanitas-hw-gpu-kv">
-                            <span>Pilote</span>
+                            <span>{tr("vdd.driver")}</span>
                             <span>{g.driver_version ?? "—"}</span>
                           </div>
                           {g.adapter_ram_bytes != null && (
                             <div className="vanitas-hw-gpu-kv">
-                              <span>Mémoire vidéo (WMI)</span>
+                              <span>{tr("vdd.vram")}</span>
                               <span>{fmtBytes(g.adapter_ram_bytes)}</span>
                             </div>
                           )}
@@ -1301,19 +1376,19 @@ export default function VanitasDeviceDetail({
                             g.adapter_ram_bytes >= 3.5 * 1024 ** 3 &&
                             g.adapter_ram_bytes <= 4.5 * 1024 ** 3 && (
                               <div className="vanitas-hw-gpu-note">
-                                Plafonnée à 4 Go par un bug WMI connu sur les GPU récents — valeur réelle probablement
-                                supérieure.
+                                {tr("vdd.vramBug")}
                               </div>
                             )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="empty">Aucune carte graphique détectée.</p>
+                    <p className="empty">{tr("vdd.noGpu")}</p>
                   )}
 
                   <div className="vanitas-hw-group-title" style={{ marginTop: "20px" }}>
-                    Périphériques PCI{hardware.pci_devices?.length ? ` — ${hardware.pci_devices.length}` : ""}
+                    {tr("vdd.hw.pciDevices")}
+                    {hardware.pci_devices?.length ? ` — ${hardware.pci_devices.length}` : ""}
                   </div>
                   {pciByCategory.length > 0 ? (
                     pciByCategory.map(([category, items]) => (
@@ -1326,7 +1401,7 @@ export default function VanitasDeviceDetail({
                           <div className="vanitas-detail-table-wrap">
                             <table className="cve-device-table">
                               <thead>
-                                <tr><th>Nom</th><th>Fournisseur</th><th>Pilote</th><th>Adresse</th><th>État</th></tr>
+                                <tr><th>{tr("vdd.pci.name")}</th><th>{tr("vdd.pci.vendor")}</th><th>{tr("vdd.pci.driver")}</th><th>{tr("vdd.pci.address")}</th><th>{tr("vdd.pci.state")}</th></tr>
                               </thead>
                               <tbody>
                                 {items.map((d, i) => (
@@ -1351,18 +1426,17 @@ export default function VanitasDeviceDetail({
                       </details>
                     ))
                   ) : (
-                    <p className="empty">Aucun périphérique PCI détecté.</p>
+                    <p className="empty">{tr("vdd.noPci")}</p>
                   )}
 
                   <p className="card-note" style={{ marginTop: "18px" }}>
-                    État S.M.A.R.T. des disques : pas encore collecté (scope à ajouter plus tard
-                    si besoin).
+                    {tr("vdd.smartNote")}
                   </p>
                 </>
               ) : (
                 <>
                   <p className="empty" style={{ marginTop: diagnostic ? "16px" : 0 }}>
-                    Inventaire matériel jamais exécuté sur ce poste.
+                    {tr("vdd.hwNeverRun")}
                   </p>
                   <CommandForm agentId={agent.id} onQueued={onQueued} initialType="hardware_inventory" />
                 </>
@@ -1374,8 +1448,8 @@ export default function VanitasDeviceDetail({
           {activePane === "network" && (
             <div className="card">
               <div className="card-head">
-                <h2>Identité &amp; réseau</h2>
-                {hardwareCommand && <span className="card-note">collecté {fmtRelative(hardwareCommand.created_at)}</span>}
+                <h2>{tr("vdd.identityNetwork")}</h2>
+                {hardwareCommand && <span className="card-note">{tr("vdd.collectedAgo", { when: fmtRelative(hardwareCommand.created_at) })}</span>}
               </div>
               {hardware ? (
                 <>
@@ -1387,18 +1461,18 @@ export default function VanitasDeviceDetail({
                           <path d="M4 17c1-3.5 4-5 6-5s5 1.5 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                         </svg>
                       </div>
-                      <div className="vanitas-hw-info-card-title">Identité de session</div>
+                      <div className="vanitas-hw-info-card-title">{tr("vdd.hw.sessionIdentity")}</div>
                     </div>
                     <div className="vanitas-net-identity-kv">
-                      <div className="vanitas-kv-row"><span className="vanitas-kv-label">Utilisateur</span><span className="vanitas-kv-value">{hardware.session_user || "Non renseigné"}</span></div>
-                      <div className="vanitas-kv-row"><span className="vanitas-kv-label">Domaine</span><span className="vanitas-kv-value">{hardware.domain ?? "—"}</span></div>
-                      <div className="vanitas-kv-row"><span className="vanitas-kv-label">Nom DNS complet</span><span className="vanitas-kv-value">{hardware.dns_host_name ?? "—"}</span></div>
+                      <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.user")}</span><span className="vanitas-kv-value">{hardware.session_user || tr("vdd.notSet")}</span></div>
+                      <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.domain")}</span><span className="vanitas-kv-value">{hardware.domain ?? "—"}</span></div>
+                      <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.fqdn")}</span><span className="vanitas-kv-value">{hardware.dns_host_name ?? "—"}</span></div>
                     </div>
                   </div>
 
                   {hardware.network_adapters?.length > 0 ? (
                     <>
-                      <div className="vanitas-hw-group-title">Interfaces réseau — {hardware.network_adapters.length}</div>
+                      <div className="vanitas-hw-group-title">{tr("vdd.interfaces", { count: hardware.network_adapters.length })}</div>
                       <div className="vanitas-net-iface-grid">
                         {hardware.network_adapters.map((n, i) => {
                           const isPrimary = hardware.primary_ip_address &&
@@ -1406,23 +1480,23 @@ export default function VanitasDeviceDetail({
                           return (
                             <div className={`vanitas-net-iface-card${isPrimary ? " primary" : ""}`} key={i}>
                               <div className="vanitas-net-iface-top">
-                                <div className="vanitas-net-iface-name">{n.description ?? "Interface"}</div>
-                                {isPrimary && <span className="vanitas-net-primary-badge">Principale</span>}
+                                <div className="vanitas-net-iface-name">{n.description ?? tr("vdd.interface")}</div>
+                                {isPrimary && <span className="vanitas-net-primary-badge">{tr("vdd.primary")}</span>}
                               </div>
-                              <div className="vanitas-net-iface-row"><span>Adresse IP</span><span>{n.ip_addresses?.join(", ") || "—"}</span></div>
-                              <div className="vanitas-net-iface-row"><span>Adresse MAC</span><span>{n.mac_address ?? "—"}</span></div>
+                              <div className="vanitas-net-iface-row"><span>{tr("vdd.ip")}</span><span>{n.ip_addresses?.join(", ") || "—"}</span></div>
+                              <div className="vanitas-net-iface-row"><span>{tr("vdd.mac")}</span><span>{n.mac_address ?? "—"}</span></div>
                             </div>
                           );
                         })}
                       </div>
                     </>
                   ) : (
-                    <p className="empty">Aucune interface réseau détectée.</p>
+                    <p className="empty">{tr("vdd.noInterface")}</p>
                   )}
                 </>
               ) : (
                 <>
-                  <p className="empty">Inventaire matériel jamais exécuté sur ce poste.</p>
+                  <p className="empty">{tr("vdd.hwNeverRun")}</p>
                   <CommandForm agentId={agent.id} onQueued={onQueued} initialType="hardware_inventory" />
                 </>
               )}
@@ -1438,7 +1512,7 @@ export default function VanitasDeviceDetail({
             return (
               <div className="card">
                 <div className="card-head">
-                  <h2>Certificat &amp; enrôlement</h2>
+                  <h2>{tr("vdd.certEnrollment")}</h2>
                 </div>
 
                 <div className="vanitas-cert-hero">
@@ -1454,7 +1528,10 @@ export default function VanitasDeviceDetail({
                         {certStateLabel(certDays)}
                       </span>
                       <span className="vanitas-cert-hero-days">
-                        Expire le <b>{fmtDate(agent.cert_not_after)}</b> · <b>{certDays === null ? "—" : Math.max(0, Math.round(certDays))}</b> jours restants
+                        {trRich("vdd.expiresOn", {
+                          date: <b>{fmtDate(agent.cert_not_after)}</b>,
+                          days: <b>{certDays === null ? "—" : Math.max(0, Math.round(certDays))}</b>,
+                        })}
                       </span>
                     </div>
                     <div className="vanitas-cert-bar-track">
@@ -1464,12 +1541,12 @@ export default function VanitasDeviceDetail({
                 </div>
 
                 <div className="vanitas-cert-kv-grid">
-                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">Numéro de série</span><span className="vanitas-kv-value">{agent.cert_serial ?? "—"}</span></div>
-                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">Émis par</span><span className="vanitas-kv-value">EndpointAgent Root CA</span></div>
-                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">Sujet (CN)</span><span className="vanitas-kv-value" style={{ maxWidth: "none", whiteSpace: "normal", wordBreak: "break-all" }}>{agent.id}</span></div>
-                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">Usage</span><span className="vanitas-kv-value">Authentification client (mTLS)</span></div>
-                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">Poste enrôlé le</span><span className="vanitas-kv-value">{fmtDate(agent.enrolled_at)}</span></div>
-                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">Certificat valide depuis</span><span className="vanitas-kv-value">{fmtDate(validSince)}</span></div>
+                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.certSerial")}</span><span className="vanitas-kv-value">{agent.cert_serial ?? "—"}</span></div>
+                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.issuedBy")}</span><span className="vanitas-kv-value">EndpointAgent Root CA</span></div>
+                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.subject")}</span><span className="vanitas-kv-value" style={{ maxWidth: "none", whiteSpace: "normal", wordBreak: "break-all" }}>{agent.id}</span></div>
+                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.usage")}</span><span className="vanitas-kv-value">{tr("vdd.clientAuth")}</span></div>
+                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.enrolledOn")}</span><span className="vanitas-kv-value">{fmtDate(agent.enrolled_at)}</span></div>
+                  <div className="vanitas-kv-row"><span className="vanitas-kv-label">{tr("vdd.kv.certValidSince")}</span><span className="vanitas-kv-value">{fmtDate(validSince)}</span></div>
                 </div>
 
                 <div className="vanitas-cert-note-row">
@@ -1477,8 +1554,7 @@ export default function VanitasDeviceDetail({
                     <path d="M10 5v6M10 14.5v.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                     <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.4" />
                   </svg>
-                  <p>Renouvellement automatique dès qu'il reste <b>moins de 30 jours</b> avant expiration
-                  — l'agent renégocie lui-même un nouveau certificat auprès du serveur, sans action manuelle.</p>
+                  <p>{trRich("vdd.autoRenew", { strong: <b>{tr("vdd.lessThan30")}</b> })}</p>
                 </div>
               </div>
             );
@@ -1487,20 +1563,20 @@ export default function VanitasDeviceDetail({
           {activePane === "vulns" && (
             <div className="card">
               <div className="card-head">
-                <h2>Vulnérabilités rapprochées</h2>
+                <h2>{tr("vdd.matchedVulns")}</h2>
                 <span className="card-note">
-                  {vulnList.length.toLocaleString("fr-FR")} CVE sur {new Set(vulnList.map((v) => v.product_name)).size} logiciels
+                  {vulnList.length.toLocaleString(currentLocale())} {tr("vdd.cveOnSoftware", { count: new Set(vulnList.map((v) => v.product_name)).size })}
                 </span>
               </div>
               {vulnList.length === 0 ? (
-                <p className="empty">Aucune correspondance CVE trouvée sur l'inventaire actuel.</p>
+                <p className="empty">{tr("vdd.noCveMatch")}</p>
               ) : (
                 <>
                   <div className="vanitas-vuln-toolbar">
                     <input
                       className="filter-input"
                       type="text"
-                      placeholder="Filtrer par CVE ou logiciel..."
+                      placeholder={tr("vdd.vulnFilter")}
                       value={vulnQuery}
                       onChange={(e) => setVulnQuery(e.target.value)}
                       style={{ width: "300px" }}
@@ -1511,7 +1587,7 @@ export default function VanitasDeviceDetail({
                         className={`filter-chip${vulnSeverityFilter === "all" ? " active" : ""}`}
                         onClick={() => setVulnSeverityFilter("all")}
                       >
-                        Toutes <span style={{ opacity: 0.6 }}>{vulnSeverityCounts.all}</span>
+                        {tr("vdd.allF")} <span style={{ opacity: 0.6 }}>{vulnSeverityCounts.all}</span>
                       </button>
                       {VULN_SEVERITY_ORDER.filter((s) => vulnSeverityCounts[s] > 0).map((s) => (
                         <button
@@ -1529,25 +1605,23 @@ export default function VanitasDeviceDetail({
 
                   {vulnList.length > 500 && (
                     <p className="error-note" style={{ marginBottom: "14px" }}>
-                      Ce rapprochement n'est pas filtré par date de publication : un logiciel très
-                      exposé historiquement (navigateur, lecteur PDF...) peut remonter des dizaines
-                      de milliers de CVE anciennes, sans lien avec la version réellement installée.
+                      {tr("vdd.notDateFiltered")}
                     </p>
                   )}
                   {filteredVulnList.length === 0 ? (
-                    <p className="empty">Aucun résultat pour ce filtre.</p>
+                    <p className="empty">{tr("vdd.noResultFilter")}</p>
                   ) : (
                     <>
                       <div className="vanitas-detail-table-wrap">
                         <table className="cve-device-table">
                           <thead>
                             <tr>
-                              <th>Sévérité</th>
-                              <th>Logiciel</th>
-                              <th>Version</th>
+                              <th>{tr("vdd.col.severity")}</th>
+                              <th>{tr("vdd.col.software")}</th>
+                              <th>{tr("vdd.col.version")}</th>
                               <th>CVE</th>
                               <th>CVSS</th>
-                              <th>Publiée</th>
+                              <th>{tr("vdd.col.published")}</th>
                               <th></th>
                             </tr>
                           </thead>
@@ -1564,7 +1638,7 @@ export default function VanitasDeviceDetail({
                                   <span className={`badge ${severityTone(v.severity)}`}>{severityLabelFr(v.severity)}</span>
                                   {v.version_affected === null && (
                                     <div className="cve-small" style={{ color: "var(--ink-faint)", marginTop: "4px" }}>
-                                      Correspondance indéterminée (version non comparable).
+                                      {tr("vdd.indeterminate")}
                                     </div>
                                   )}
                                 </td>
@@ -1586,8 +1660,10 @@ export default function VanitasDeviceDetail({
                           style={{ marginTop: "14px" }}
                           onClick={() => setVulnVisibleCount((n) => n + VULN_REVEAL_STEP)}
                         >
-                          Afficher {Math.min(VULN_REVEAL_STEP, filteredVulnList.length - vulnVisibleCount)} de plus
-                          (sur {(filteredVulnList.length - vulnVisibleCount).toLocaleString("fr-FR")} restantes)
+                          {tr("vdd.showMore", {
+                            step: Math.min(VULN_REVEAL_STEP, filteredVulnList.length - vulnVisibleCount),
+                            remaining: (filteredVulnList.length - vulnVisibleCount).toLocaleString(currentLocale()),
+                          })}
                         </button>
                       )}
                     </>
@@ -1608,32 +1684,32 @@ export default function VanitasDeviceDetail({
           {activePane === "compliance" && (
             <div className="card">
               <div className="card-head">
-                <h2>Conformité</h2>
+                <h2>{tr("vdd.compliance")}</h2>
                 {compliance?.data?.collected_at && (
-                  <span className="card-note">dernier contrôle {fmtRelative(compliance.data.collected_at)}</span>
+                  <span className="card-note">{tr("vdd.lastCheck", { when: fmtRelative(compliance.data.collected_at) })}</span>
                 )}
               </div>
               {compliance?.status === "loading" ? (
-                <p className="empty">Chargement…</p>
+                <p className="empty">{tr("common.loading")}</p>
               ) : complianceList.length === 0 ? (
-                <p className="empty">Aucun résultat de conformité pour ce poste pour l'instant.</p>
+                <p className="empty">{tr("vdd.noComplianceResult")}</p>
               ) : (
                 <>
                   <div className="vanitas-compliance-stat-strip">
                     <div className="vanitas-compliance-stat-tile" style={{ "--tile-accent": TONE_VAR.low }}>
-                      <div className="vanitas-compliance-stat-label">Conforme</div>
+                      <div className="vanitas-compliance-stat-label">{tr("vdd.rule.low")}</div>
                       <div className="vanitas-compliance-stat-value">
                         {complianceList.filter((r) => r.compliant === true).length}
                       </div>
                     </div>
                     <div className="vanitas-compliance-stat-tile" style={{ "--tile-accent": TONE_VAR.high }}>
-                      <div className="vanitas-compliance-stat-label">Non conforme</div>
+                      <div className="vanitas-compliance-stat-label">{tr("vdd.rule.high")}</div>
                       <div className="vanitas-compliance-stat-value">
                         {complianceList.filter((r) => r.compliant === false).length}
                       </div>
                     </div>
                     <div className="vanitas-compliance-stat-tile" style={{ "--tile-accent": TONE_VAR.medium }}>
-                      <div className="vanitas-compliance-stat-label">Erreur</div>
+                      <div className="vanitas-compliance-stat-label">{tr("vdd.rule.medium")}</div>
                       <div className="vanitas-compliance-stat-value">
                         {complianceList.filter((r) => r.compliant !== true && r.compliant !== false).length}
                       </div>
@@ -1662,9 +1738,9 @@ export default function VanitasDeviceDetail({
           {activePane === "suspicious" && (
             <div className="card">
               <div className="card-head">
-                <h2>Activités suspectes</h2>
+                <h2>{tr("vdd.suspicious")}</h2>
                 <span className="card-note">
-                  {suspiciousEvents.state.data.length} événement{suspiciousEvents.state.data.length > 1 ? "s" : ""}
+                  {tr("vdd.events", { count: suspiciousEvents.state.data.length })}
                 </span>
               </div>
               <SuspiciousEventsTable
@@ -1689,29 +1765,29 @@ export default function VanitasDeviceDetail({
           {activePane === "apps" && (
             <div className="card">
               <div className="card-head">
-                <h2>Applications installées</h2>
+                <h2>{tr("vdd.installedApps")}</h2>
                 <span className="card-note">
-                  {appsFilter ? `${filteredApps.length} / ${appsList.length}` : appsList.length} application{appsList.length > 1 ? "s" : ""}
+                  {tr("vdd.appsShown", { count: appsList.length, shown: appsFilter ? `${filteredApps.length} / ${appsList.length}` : appsList.length })}
                 </span>
               </div>
               <input
                 className="filter-input"
                 type="text"
-                placeholder="Filtrer par nom ou éditeur..."
+                placeholder={tr("vdd.appsFilter")}
                 value={appsFilter}
                 onChange={(e) => setAppsFilter(e.target.value)}
                 style={{ marginBottom: "14px", width: "320px" }}
               />
               {filteredApps.length === 0 ? (
-                <p className="empty">{appsList.length === 0 ? "Aucun inventaire reçu pour l'instant." : "Aucun résultat pour ce filtre."}</p>
+                <p className="empty">{appsList.length === 0 ? tr("vdd.noInventoryYet") : tr("vdd.noResultFilter")}</p>
               ) : (
                 <div className="vanitas-detail-table-wrap">
                   <table className="cve-device-table">
                     <thead>
                       <tr>
-                        <th>Nom</th>
-                        <th>Éditeur</th>
-                        <th>Version</th>
+                        <th>{tr("vdd.col.name")}</th>
+                        <th>{tr("vdd.col.publisher")}</th>
+                        <th>{tr("vdd.col.version")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1732,13 +1808,13 @@ export default function VanitasDeviceDetail({
           {activePane === "commands" && (
             <div className="card">
               <div className="card-head">
-                <h2>Historique des commandes</h2>
+                <h2>{tr("vdd.commandHistory")}</h2>
               </div>
               {commands.error && <p className="error-note">{commands.error}</p>}
               {commands.status === "loading" ? (
-                <p className="empty">Chargement…</p>
+                <p className="empty">{tr("common.loading")}</p>
               ) : commandList.length === 0 ? (
-                <p className="empty">Aucune commande envoyée à cet agent.</p>
+                <p className="empty">{tr("vdd.noCommandSent")}</p>
               ) : (
                 <div className="vanitas-cmd-list">
                   {commandList.map((c) => (
@@ -1787,43 +1863,37 @@ export default function VanitasDeviceDetail({
           {activePane === "terminal" && (
             <div className="vanitas-hud card">
               <div className="vanitas-hud-card-head">
-                <h2>Terminal PowerShell</h2>
+                <h2>{tr("vdd.terminal")}</h2>
               </div>
               {!canWriteTerminal ? (
                 <p className="empty">
-                  Ton profil Vanitas ne donne pas accès au terminal — ce terminal exécute du
-                  PowerShell en SYSTEM sur ce poste.
+                  {tr("vdd.noTerminalAccess")}
                 </p>
               ) : !shellQueuedAt ? (
                 <>
                   <p className="vanitas-hud-terminal-warning">
-                    Ouvre une <b>vraie session interactive</b> sur ce poste — l'agent tourne en
-                    tant que <b>SYSTEM</b> (compte local le plus privilégié de Windows) : toute
-                    commande tapée ici s'exécute avec ce niveau de droits. Chaque ligne tapée et
-                    chaque sortie sont journalisées de façon permanente. Une seule session active
-                    à la fois par poste.
+                    {trRich("vdd.terminalWarning", { real: <b>{tr("vdd.realSession")}</b>, system: <b>SYSTEM</b> })}
                   </p>
                   <ConfirmButton
-                    label="Ouvrir un terminal PowerShell"
-                    confirmLabel="Confirmer l'ouverture ?"
+                    label={tr("vdd.openTerminal")}
+                    confirmLabel={tr("vdd.confirmOpen")}
                     className="vanitas-danger-btn"
                     onConfirm={handleStartShell}
-                    title="Exécution de code niveau SYSTEM sur ce poste — confirmation requise."
+                    title={tr("vdd.openTitle")}
                   />
                   {shellStartError && <p className="error-note" style={{ marginTop: "10px" }}>{shellStartError}</p>}
                 </>
               ) : !shellSessionId ? (
                 <p className="vanitas-hud-terminal-waiting">
-                  En attente que l'agent démarre la session (jusqu'à 5 min, même délai que
-                  n'importe quelle commande)…
+                  {tr("vdd.waitingAgent")}
                 </p>
               ) : (
                 <>
                   <div className="vanitas-hud-terminal-status-row">
                     <span className={shell.status === "stale" ? "stale" : "live"}>
-                      {shell.status === "active" && "● session active"}
-                      {shell.status === "stale" && "● session probablement morte (agent injoignable)"}
-                      {(shell.status === "closed" || shell.status === "timed_out") && "○ session fermée"}
+                      {shell.status === "active" && tr("vdd.sessionActive")}
+                      {shell.status === "stale" && tr("vdd.sessionStale")}
+                      {(shell.status === "closed" || shell.status === "timed_out") && tr("vdd.sessionClosed")}
                     </span>
                     <button
                       type="button"
@@ -1831,13 +1901,13 @@ export default function VanitasDeviceDetail({
                       onClick={shell.stop}
                       disabled={shell.status !== "active"}
                     >
-                      Fermer la session
+                      {tr("vdd.closeSession")}
                     </button>
                   </div>
                   {shell.error && <p className="error-note" style={{ marginBottom: "10px" }}>{shell.error}</p>}
                   <div className="vanitas-hud-terminal-log">
                     {shell.events.length === 0 ? (
-                      <span style={{ color: "var(--hud-ink-faint)" }}>En attente de la première commande…</span>
+                      <span style={{ color: "var(--hud-ink-faint)" }}>{tr("vdd.waitingFirst")}</span>
                     ) : (
                       shell.events.map((e) => (
                         <div key={e.id} className={`vanitas-hud-terminal-line ${e.direction === "input" ? "input" : e.source}`}>
@@ -1852,12 +1922,12 @@ export default function VanitasDeviceDetail({
                       type="text"
                       value={terminalInput}
                       onChange={(e) => setTerminalInput(e.target.value)}
-                      placeholder="Commande PowerShell…"
+                      placeholder={tr("vdd.psPlaceholder")}
                       disabled={shell.status !== "active"}
                       autoComplete="off"
                     />
                     <button type="submit" disabled={shell.status !== "active" || !terminalInput.trim()}>
-                      Envoyer
+                      {tr("vdd.send")}
                     </button>
                   </form>
                 </>

@@ -1,4 +1,5 @@
 import { ALERT_SEVERITY_COLORS, formatRelativeDays } from "../theme.js";
+import { tr } from "../i18n/core.js";
 
 /**
  * "Top alertes" (2026-08-27, retour de Nicolas sur la tuile "Alertes Defender" de Vue
@@ -17,7 +18,7 @@ export default function TopAlertsList({ alerts, onSelectDevice }) {
   const rows = alerts || [];
 
   if (rows.length === 0) {
-    return <p className="empty">Aucune alerte active pour l'instant.</p>;
+    return <p className="empty">{tr("overview.noActiveAlert")}</p>;
   }
 
   return (
@@ -27,11 +28,11 @@ export default function TopAlertsList({ alerts, onSelectDevice }) {
         const name = a.computerDnsName;
         const rowContent = (
           <>
-            <span className="top-alert-dot" style={{ background: color }} title={a.severity || "Sévérité inconnue"} />
+            <span className="top-alert-dot" style={{ background: color }} title={a.severity || tr("overview.unknownSeverity")} />
             <span className="top-alert-main">
-              <span className="top-alert-title">{a.title || "Alerte sans titre"}</span>
+              <span className="top-alert-title">{a.title || tr("overview.untitledAlert")}</span>
               <span className="sub">
-                {name ?? "Device inconnu"} · {formatRelativeDays(a.alertCreationTime)}
+                {name ?? tr("common.unknownDevice")} · {formatRelativeDays(a.alertCreationTime)}
               </span>
             </span>
           </>

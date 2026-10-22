@@ -4,6 +4,7 @@ import { IconDownload } from "../components/icons.jsx";
 import { exportVulnerabilitiesToExcel } from "../export.js";
 import { isErrorPayload, useVanitasAgents, useVanitasCveAvis } from "../hooks/useDashboardData.js";
 import { VanitasWizardShell, fmtDate, severityLabelFr, severityTone } from "./vanitasShared.jsx";
+import { tr } from "../i18n/core.js";
 
 const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 // "Concerné" (bad) avant "Indéterminé" (warn) avant "Exclu" (good) — le plus urgent d'abord,
@@ -16,9 +17,7 @@ function affectedStatus(versionAffected) {
   return "warn";
 }
 function affectedLabel(versionAffected) {
-  if (versionAffected === true) return "Concerné";
-  if (versionAffected === false) return "Exclu";
-  return "Indéterminé";
+  return tr(`vv.affected.${affectedStatus(versionAffected)}`);
 }
 
 /** Une carte par poste exposé, dans le détail d'une CVE — même gabarit quel que soit le
@@ -119,7 +118,7 @@ export function CveDetailModal({ group, onClose, deviceScope }) {
         </div>
         <div className="vanitas-wiz-header-text">
           <h2>{group.cve_id}</h2>
-          <p>Vanitas · {deviceScope ? deviceScope : "Vulnérabilités"}</p>
+          <p>Vanitas · {deviceScope ? deviceScope : tr("vv.module")}</p>
         </div>
       </div>
 
@@ -127,72 +126,71 @@ export function CveDetailModal({ group, onClose, deviceScope }) {
         <div className="vanitas-vuln-meta-row">
           <span className="vanitas-vuln-meta-badge">CVSS {group.cvss_score ?? "—"}</span>
           <span className={`vanitas-hud-sev-pill ${severityTone(group.severity)}`}>{severityLabelFr(group.severity)}</span>
-          <span className="vanitas-vuln-meta-badge">Publiée le {fmtDate(group.published)}</span>
+          <span className="vanitas-vuln-meta-badge">{tr("vv.publishedOn", { date: fmtDate(group.published) })}</span>
         </div>
 
         <div>
-          <p className="filter-chip-group-label">Produit(s) concerné(s)</p>
+          <p className="filter-chip-group-label">{tr("vv.products")}</p>
           <div className="vanitas-vuln-product-list">
             {group.products.map((p) => (
               <div key={`${p.name}-${p.version}`} className="vanitas-vuln-product-row">
-                <b>{p.name}</b> <span>version de référence : {p.version || "—"}</span>
+                <b>{p.name}</b> <span>{tr("vv.refVersion", { version: p.version || "—" })}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div>
-          <p className="filter-chip-group-label">Description &amp; plan d'action (CERT-FR)</p>
+          <p className="filter-chip-group-label">{tr("vv.certfrTitle")}</p>
           {certfrLoading ? (
             <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-              Recherche d'un avis CERT-FR…
+              {tr("vv.certfrLoading")}
             </p>
           ) : certfr ? (
             <div className="vanitas-vuln-certfr-block">
               <div className="vanitas-vuln-certfr-ref-row">
                 <span className="vanitas-vuln-certfr-ref">{certfr.certfr_ref}</span>
-                <span className="cve-small">publié le {fmtDate(certfr.published)}</span>
+                <span className="cve-small">{tr("vv.certfrPublished", { date: fmtDate(certfr.published) })}</span>
               </div>
               <div className="vanitas-vuln-certfr-title">{certfr.title}</div>
               {certfr.summary && (
                 <>
-                  <p className="vanitas-vuln-certfr-sub">Résumé</p>
+                  <p className="vanitas-vuln-certfr-sub">{tr("vv.summary")}</p>
                   <p className="vanitas-vuln-certfr-text">{certfr.summary}</p>
                 </>
               )}
               {certfr.solution && (
                 <>
-                  <p className="vanitas-vuln-certfr-sub">Plan d'action</p>
+                  <p className="vanitas-vuln-certfr-sub">{tr("vv.actionPlan")}</p>
                   <p className="vanitas-vuln-certfr-solution">{certfr.solution}</p>
                 </>
               )}
               <a className="vanitas-vuln-certfr-link" href={certfr.url} target="_blank" rel="noopener noreferrer">
-                Voir l'avis d'origine ↗
+                {tr("vv.originalAdvisory")}
               </a>
             </div>
           ) : (
             <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-              Aucun avis CERT-FR rapproché pour cette CVE sur les 14 derniers jours — vérifier
-              directement sur NVD (lien ci-dessous).
+              {tr("vv.noCertfr")}
             </p>
           )}
         </div>
 
         {!deviceScope && (
           <div>
-            <p className="filter-chip-group-label">Appareils exposés ({group.devices.length})</p>
+            <p className="filter-chip-group-label">{tr("vv.exposedDevices", { count: group.devices.length })}</p>
             <div className="vanitas-vuln-summary">
-              {pill("all", "tous", group.devices.length)}
-              {pill("bad", counts.bad > 1 ? "concernés" : "concerné", counts.bad)}
-              {pill("warn", "indéterminé(s)", counts.warn)}
-              {pill("good", counts.good > 1 ? "exclus" : "exclu", counts.good)}
+              {pill("all", tr("vv.pill.all"), group.devices.length)}
+              {pill("bad", tr("vv.pill.bad", { count: counts.bad }), counts.bad)}
+              {pill("warn", tr("vv.pill.warn"), counts.warn)}
+              {pill("good", tr("vv.pill.good", { count: counts.good }), counts.good)}
             </div>
             {group.devices.length > 4 && (
               <div className="vanitas-hud-search vanitas-vuln-search">
                 <span className="prompt">&gt;</span>
                 <input
                   type="text"
-                  placeholder="Rechercher un poste..."
+                  placeholder={tr("vv.searchDevice")}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   autoComplete="off"
@@ -202,7 +200,7 @@ export function CveDetailModal({ group, onClose, deviceScope }) {
             <div className="vanitas-vuln-device-list">
               {filteredDevices.length === 0 ? (
                 <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-                  Aucun poste ne correspond à ce filtre.
+                  {tr("vv.noDeviceMatch")}
                 </p>
               ) : (
                 filteredDevices.map((d) => <DeviceRow key={`${d.agentId}-${d.product_name}`} device={d} />)
@@ -218,10 +216,10 @@ export function CveDetailModal({ group, onClose, deviceScope }) {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Voir sur NVD ↗
+            {tr("vv.viewNvd")}
           </a>
           <button type="button" className="vanitas-ghost-btn" onClick={onClose}>
-            Fermer
+            {tr("vv.close")}
           </button>
         </div>
       </div>
@@ -355,7 +353,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
       await exportVulnerabilitiesToExcel(groups);
       setExportState({ status: "idle", error: null });
     } catch (err) {
-      setExportState({ status: "idle", error: err.message || "Échec de l'export Excel." });
+      setExportState({ status: "idle", error: err.message || tr("v.exportFailed") });
     }
   }
 
@@ -398,7 +396,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
   if (loading) {
     return (
       <div className="vanitas-hud">
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
@@ -410,7 +408,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
       <div className="vanitas-hud-strip">
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
           <div className="label">
-            CVE distinctes<span className="tag">PARC</span>
+            {tr("vv.kpi.distinct")}<span className="tag">{tr("vv.kpi.fleet")}</span>
           </div>
           <div className="value">{groups.length}</div>
           <div className="bar">
@@ -419,7 +417,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
           <div className="label">
-            Sévérité élevée/critique<span className="tag">≥ HIGH</span>
+            {tr("vv.kpi.highCrit")}<span className="tag">≥ HIGH</span>
           </div>
           <div className="value">{highOrCriticalCount}</div>
           <div className="bar">
@@ -428,7 +426,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent2)" }}>
           <div className="label">
-            Postes concernés<span className="tag">TOTAL</span>
+            {tr("vv.kpi.affected")}<span className="tag">{tr("vv.kpi.total")}</span>
           </div>
           <div className="value">{affectedHostCount}</div>
           <div className="bar">
@@ -441,7 +439,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-good)" }}>
           <div className="label">
-            Exposition moyenne<span className="tag">POSTES/CVE</span>
+            {tr("vv.kpi.avg")}<span className="tag">{tr("vv.kpi.perCve")}</span>
           </div>
           <div className="value">{avgExposure}</div>
           <div className="bar">
@@ -455,11 +453,11 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
           <h2>{rows.length} CVE</h2>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span className="vanitas-hud-card-note">
-              {stillCollecting ? "collecte en cours…" : "CLIC LIGNE → DÉTAIL + APPAREILS EXPOSÉS"}
+              {stillCollecting ? tr("vv.collecting") : tr("vv.clickRow")}
             </span>
             <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
               <IconDownload />
-              {exportState.status === "exporting" ? "Export…" : "Exporter Excel"}
+              {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
             </button>
           </div>
         </div>
@@ -470,7 +468,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
             <span className="prompt">&gt;</span>
             <input
               type="text"
-              placeholder="grep --cve/--produit ..."
+              placeholder={tr("vv.searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoComplete="off"
@@ -479,7 +477,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
           <div className="vanitas-hud-chips">
             <button type="button" className={`vanitas-hud-chip${severityFilter === "all" ? " active" : ""}`} onClick={() => setSeverityFilter("all")}>
               <span className="led" />
-              TOUTES <span className="n">{severityCounts.all}</span>
+              {tr("vv.all")} <span className="n">{severityCounts.all}</span>
             </button>
             {SEVERITY_ORDER.map((s) => (
               <button
@@ -496,10 +494,10 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
         </div>
 
         {(agents.state.data ?? []).length === 0 ? (
-          <p className="vanitas-hud-empty-note">Aucun agent enrôlé pour l'instant.</p>
+          <p className="vanitas-hud-empty-note">{tr("vv.noAgent")}</p>
         ) : rows.length === 0 ? (
           <p className="vanitas-hud-empty-note">
-            {groups.length === 0 ? "Aucune vulnérabilité détectée sur le parc actuel." : "Aucun résultat pour ce filtre."}
+            {groups.length === 0 ? tr("vv.noVuln") : tr("vv.noResult")}
           </p>
         ) : (
           <div className="vanitas-hud-table-wrap">
@@ -516,11 +514,11 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
               <thead>
                 <tr>
                   <th>CVE</th>
-                  <th>Produit(s)</th>
+                  <th>{tr("vv.col.products")}</th>
                   <th>CVSS</th>
-                  <th>Sévérité</th>
-                  <th>Publiée</th>
-                  <th>Postes exposés</th>
+                  <th>{tr("vv.col.severity")}</th>
+                  <th>{tr("vv.col.published")}</th>
+                  <th>{tr("vv.col.exposed")}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -536,7 +534,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
                     <td className="vanitas-hud-cmd-none">{fmtDate(g.published)}</td>
                     <td>
                       <span className="vanitas-hud-apps-badge">
-                        {g.devices.length} poste{g.devices.length > 1 ? "s" : ""}
+                        {tr("vv.endpoints", { count: g.devices.length })}
                       </span>
                     </td>
                     <td>

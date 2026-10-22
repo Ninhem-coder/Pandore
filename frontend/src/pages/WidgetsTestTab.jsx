@@ -4,11 +4,11 @@ import { useDefenderAlerts, useAlertDetails } from "../hooks/useDashboardData.js
 import { IconTarget, IconShield, IconMessage, IconLayers } from "../components/icons.jsx";
 import {
   ALERT_SEVERITY_COLORS,
-  ALERT_SEVERITY_LABEL_FR,
+  ALERT_SEVERITY_LABEL,
   ALERT_STATUS_COLORS,
-  ALERT_STATUS_LABEL_FR,
+  ALERT_STATUS_LABEL,
   ALERT_CLASSIFICATION_COLORS,
-  ALERT_CLASSIFICATION_LABEL_FR,
+  ALERT_CLASSIFICATION_LABEL,
   GENERIC_PALETTE,
 } from "../theme.js";
 
@@ -26,6 +26,8 @@ const EVIDENCE_TYPE_COLORS = {
   MailMessage: GENERIC_PALETTE[4],
 };
 import { buildDonutEntries } from "../selectors.js";
+import { currentLocale, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Onglet "Widgets (test)" (2026-08-17, V42) — refonte demandée par Nicolas : les quatre
@@ -102,7 +104,7 @@ import { buildDonutEntries } from "../selectors.js";
  */
 
 function normalizeStatus(a) {
-  return a?.status && ALERT_STATUS_LABEL_FR[a.status] ? a.status : "Unknown";
+  return a?.status && ALERT_STATUS_LABEL[a.status] ? a.status : "Unknown";
 }
 
 function normalizeSeverity(a) {
@@ -115,14 +117,57 @@ function normalizeSeverity(a) {
  * remontée en tête (V46, maquette validée) — c'est la première chose à scanner d'un coup
  * d'œil ; "Assigné à"/"Détection" ajoutées le même jour, mêmes champs déjà présents sur
  * l'objet alerte, aucun nouveau mécanisme de filtre nécessaire. */
+// Labels are getters: read in the current interface language when the table renders.
 const FILTERABLE_COLUMNS = {
-  severity: { label: "Sévérité", getValue: normalizeSeverity, formatValue: (v) => ALERT_SEVERITY_LABEL_FR[v] || v },
-  title: { label: "Alerte", getValue: (a) => a.title || "—", formatValue: (v) => v },
-  status: { label: "Statut", getValue: normalizeStatus, formatValue: (v) => ALERT_STATUS_LABEL_FR[v] || v },
-  category: { label: "Catégorie", getValue: (a) => a.category || "—", formatValue: (v) => v },
-  device: { label: "Device", getValue: (a) => a.computerDnsName || "—", formatValue: (v) => v },
-  assignedTo: { label: "Assigné à", getValue: (a) => a.assignedTo || "Non assigné", formatValue: (v) => v },
-  detectionSource: { label: "Détection", getValue: (a) => a.detectionSource || "—", formatValue: (v) => v },
+  severity: {
+    get label() {
+      return tr("alerts.col.severity");
+    },
+    getValue: normalizeSeverity,
+    formatValue: (v) => ALERT_SEVERITY_LABEL[v] || v,
+  },
+  title: {
+    get label() {
+      return tr("alerts.col.title");
+    },
+    getValue: (a) => a.title || "—",
+    formatValue: (v) => v,
+  },
+  status: {
+    get label() {
+      return tr("alerts.col.status");
+    },
+    getValue: normalizeStatus,
+    formatValue: (v) => ALERT_STATUS_LABEL[v] || v,
+  },
+  category: {
+    get label() {
+      return tr("alerts.col.category");
+    },
+    getValue: (a) => a.category || "—",
+    formatValue: (v) => v,
+  },
+  device: {
+    get label() {
+      return tr("alerts.col.device");
+    },
+    getValue: (a) => a.computerDnsName || "—",
+    formatValue: (v) => v,
+  },
+  assignedTo: {
+    get label() {
+      return tr("alerts.col.assignedTo");
+    },
+    getValue: (a) => a.assignedTo || tr("alerts.unassigned"),
+    formatValue: (v) => v,
+  },
+  detectionSource: {
+    get label() {
+      return tr("alerts.col.detection");
+    },
+    getValue: (a) => a.detectionSource || "—",
+    formatValue: (v) => v,
+  },
 };
 
 /** `threatName` (spécifique, ex. "PUAMiner:Win32/CoinMiner") avec repli sur `threatFamilyName`
@@ -168,18 +213,18 @@ function AlertSeverityCell({ severity }) {
     <span className="alert-sev-cell">
       <span className="alert-sev-stripe" style={{ background: color }} />
       <span className="alert-sev-label" style={{ color }}>
-        {ALERT_SEVERITY_LABEL_FR[key]}
+        {ALERT_SEVERITY_LABEL[key]}
       </span>
     </span>
   );
 }
 
 function AlertStatusBadge({ status }) {
-  const key = ALERT_STATUS_LABEL_FR[status] ? status : "Unknown";
+  const key = ALERT_STATUS_LABEL[status] ? status : "Unknown";
   const color = ALERT_STATUS_COLORS[key];
   return (
     <span className="cve-badge" style={{ borderColor: `${color}66`, color }}>
-      {ALERT_STATUS_LABEL_FR[key]}
+      {ALERT_STATUS_LABEL[key]}
     </span>
   );
 }
@@ -188,7 +233,7 @@ function formatDateTime(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 /** mitreTechniques est documenté tantôt comme une chaîne, tantôt comme un tableau selon les
@@ -241,18 +286,14 @@ function describeEvidence(e) {
  * juste au-dessus. */
 function AlertDetailPanel({ detail, severity }) {
   if (!detail || detail.loading) {
-    return <p className="card-note">Chargement du détail…</p>;
+    return <p className="card-note">{tr("alerts.detailLoading")}</p>;
   }
   if (detail.error) {
     return (
       <div className="alert-detail-error">
         <p className="error-note">{detail.error}</p>
         <p className="card-note">
-          Le détail d'une alerte (GET /api/alerts/&#123;id&#125;) exige spécifiquement le rôle
-          applicatif <strong>Alert.ReadWrite.All</strong> côté Defender — la liste, elle,
-          accepte aussi Alert.Read.All seul. Si l'erreur mentionne "Missing application
-          roles", voir la procédure de correction déjà documentée pour ce dashboard (accord
-          admin du rôle, puis redémarrage d'api_server.py).
+          {trRich("alerts.detailRoleHint", { id: "{id}", role: <strong>Alert.ReadWrite.All</strong> })}
         </p>
       </div>
     );
@@ -280,44 +321,44 @@ function AlertDetailPanel({ detail, severity }) {
           <div className="alert-detail-card">
             <div className="alert-detail-section-head">
               <IconLayers />
-              <span>Détails</span>
+              <span>{tr("alerts.details")}</span>
             </div>
             <div className="alert-detail-meta">
               <div className="alert-detail-meta-item">
-                <span className="alert-detail-meta-label">Classification</span>
+                <span className="alert-detail-meta-label">{tr("alerts.classification")}</span>
                 <span>
                   <span className="cve-badge" style={{ borderColor: `${classificationColor}66`, color: classificationColor }}>
-                    {ALERT_CLASSIFICATION_LABEL_FR[classificationKey]}
+                    {ALERT_CLASSIFICATION_LABEL[classificationKey]}
                   </span>
                 </span>
               </div>
               <div className="alert-detail-meta-item">
-                <span className="alert-detail-meta-label">Détermination</span>
+                <span className="alert-detail-meta-label">{tr("alerts.determination")}</span>
                 <span>{d.determination || "—"}</span>
               </div>
               <div className="alert-detail-meta-item">
-                <span className="alert-detail-meta-label">État investigation</span>
+                <span className="alert-detail-meta-label">{tr("alerts.investigationState")}</span>
                 <span>{d.investigationState || "—"}</span>
               </div>
               <div className="alert-detail-meta-item">
-                <span className="alert-detail-meta-label">Utilisateur lié</span>
+                <span className="alert-detail-meta-label">{tr("alerts.relatedUser")}</span>
                 <span>{relatedUser ? `${relatedUser.userName || "—"}${relatedUser.domainName ? `@${relatedUser.domainName}` : ""}` : "—"}</span>
               </div>
               <div className="alert-detail-meta-item">
-                <span className="alert-detail-meta-label">Assigné à</span>
-                <span>{d.assignedTo || "Non assigné"}</span>
+                <span className="alert-detail-meta-label">{tr("alerts.col.assignedTo")}</span>
+                <span>{d.assignedTo || tr("alerts.unassigned")}</span>
               </div>
               <div className="alert-detail-meta-item">
-                <span className="alert-detail-meta-label">ID d'incident</span>
+                <span className="alert-detail-meta-label">{tr("alerts.incidentId")}</span>
                 <span className="cve-mono">{d.incidentId ?? "—"}</span>
               </div>
               <div className="alert-detail-meta-item">
-                <span className="alert-detail-meta-label">Groupe RBAC</span>
+                <span className="alert-detail-meta-label">{tr("alerts.rbacGroup")}</span>
                 <span>{d.rbacGroupName || "—"}</span>
               </div>
               {d.resolvedTime && (
                 <div className="alert-detail-meta-item">
-                  <span className="alert-detail-meta-label">Résolue le</span>
+                  <span className="alert-detail-meta-label">{tr("alerts.resolvedOn")}</span>
                   <span className="cve-mono cve-small">{formatDateTime(d.resolvedTime)}</span>
                 </div>
               )}
@@ -328,7 +369,7 @@ function AlertDetailPanel({ detail, severity }) {
             <div className="alert-detail-card">
               <div className="alert-detail-section-head alert-detail-section-head-mitre">
                 <IconTarget />
-                <span>Techniques MITRE ATT&amp;CK</span>
+                <span>{tr("alerts.mitre")}</span>
               </div>
               <div className="alert-detail-mitre">
                 {mitre.map((t) => (
@@ -345,10 +386,10 @@ function AlertDetailPanel({ detail, severity }) {
           <div className="alert-detail-card">
             <div className="alert-detail-section-head">
               <IconMessage />
-              <span>Commentaires{comments.length > 0 ? ` (${comments.length})` : ""}</span>
+              <span>{tr("alerts.comments")}{comments.length > 0 ? ` (${comments.length})` : ""}</span>
             </div>
             {comments.length === 0 ? (
-              <p className="empty">Aucun commentaire d'analyste.</p>
+              <p className="empty">{tr("alerts.noComment")}</p>
             ) : (
               <div className="alert-detail-comments">
                 {comments.map((c, i) => {
@@ -376,10 +417,10 @@ function AlertDetailPanel({ detail, severity }) {
           <div className="alert-detail-card">
             <div className="alert-detail-section-head alert-detail-section-head-evidence">
               <IconShield />
-              <span>Preuves{evidence.length > 0 ? ` (${evidence.length})` : ""}</span>
+              <span>{tr("alerts.evidence")}{evidence.length > 0 ? ` (${evidence.length})` : ""}</span>
             </div>
             {evidence.length === 0 ? (
-              <p className="empty">Aucune preuve associée à cette alerte.</p>
+              <p className="empty">{tr("alerts.noEvidence")}</p>
             ) : (
               <div className="alert-detail-evidence">
                 {evidence.map((e, i) => {
@@ -444,7 +485,7 @@ function ColumnFilterMenu({ anchorRect, options, selected, formatValue, onToggle
         <input
           type="text"
           className="alert-col-filter-search"
-          placeholder="Rechercher une valeur…"
+          placeholder={tr("alerts.searchValue")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
@@ -452,11 +493,11 @@ function ColumnFilterMenu({ anchorRect, options, selected, formatValue, onToggle
       )}
       <div className="alert-col-filter-actions">
         <button type="button" onClick={onClear} disabled={!selected}>
-          Tout cocher
+          {tr("alerts.checkAll")}
         </button>
       </div>
       <div className="alert-col-filter-list">
-        {visibleOptions.length === 0 && <p className="alert-col-filter-empty">Aucune valeur</p>}
+        {visibleOptions.length === 0 && <p className="alert-col-filter-empty">{tr("alerts.noValue")}</p>}
         {visibleOptions.map((o) => (
           <label className="alert-col-filter-item" key={o.value}>
             <input
@@ -467,7 +508,7 @@ function ColumnFilterMenu({ anchorRect, options, selected, formatValue, onToggle
             <span className="alert-col-filter-item-label">{formatValue(o.value)}</span>
             <span className="alert-col-filter-item-count">{o.count}</span>
             <button type="button" className="alert-col-filter-only" onClick={() => onOnly(o.value)}>
-              seul
+              {tr("alerts.only")}
             </button>
           </label>
         ))}
@@ -695,15 +736,15 @@ export default function WidgetsTestTab() {
   }, [alerts]);
 
   const statusEntries = useMemo(
-    () => buildDonutEntries(byStatus, { colors: ALERT_STATUS_COLORS, labels: ALERT_STATUS_LABEL_FR }),
+    () => buildDonutEntries(byStatus, { colors: ALERT_STATUS_COLORS, labels: ALERT_STATUS_LABEL }),
     [byStatus]
   );
   const severityEntries = useMemo(
-    () => buildDonutEntries(bySeverity, { colors: ALERT_SEVERITY_COLORS, labels: ALERT_SEVERITY_LABEL_FR }),
+    () => buildDonutEntries(bySeverity, { colors: ALERT_SEVERITY_COLORS, labels: ALERT_SEVERITY_LABEL }),
     [bySeverity]
   );
   const classificationEntries = useMemo(
-    () => buildDonutEntries(byClassification, { colors: ALERT_CLASSIFICATION_COLORS, labels: ALERT_CLASSIFICATION_LABEL_FR }),
+    () => buildDonutEntries(byClassification, { colors: ALERT_CLASSIFICATION_COLORS, labels: ALERT_CLASSIFICATION_LABEL }),
     [byClassification]
   );
 
@@ -723,7 +764,7 @@ export default function WidgetsTestTab() {
   const detectionSourceCounts = useMemo(() => {
     const counts = {};
     for (const a of alerts) {
-      const label = a.detectionSource || "Inconnue";
+      const label = a.detectionSource || tr("alerts.unknownSource");
       counts[label] = (counts[label] || 0) + 1;
     }
     return counts;
@@ -775,12 +816,7 @@ export default function WidgetsTestTab() {
         <div className="card">
           <p className="error-note">{error}</p>
           <p className="card-note">
-            Si l'erreur mentionne "Missing application roles" / "Alert.Read.All" : c'est un
-            problème de permission Entra ID déjà identifié sur l'app registration Defender
-            (rôle applicatif Alert.Read.All manquant), pas un bug de ce dashboard — voir la
-            mémoire de projet pour la procédure de correction (Entra ID → App registrations →
-            app Defender → API permissions → ajouter Alert.Read.All → accord admin → redémarrer
-            api_server.py).
+            {tr("alerts.permissionHint")}
           </p>
         </div>
       )}
@@ -794,24 +830,24 @@ export default function WidgetsTestTab() {
               classements ("sur le côté à droite"), qui eux restaient déjà à droite. */}
           <div className="alert-kpi-strip">
             <div className="alert-kpi-card">
-              <div className="alert-kpi-label">Total</div>
+              <div className="alert-kpi-label">{tr("alerts.total")}</div>
               <div className="alert-kpi-value">{loading ? "—" : alerts.length}</div>
-              <div className="alert-kpi-sub">200 dernières, toutes sévérités</div>
+              <div className="alert-kpi-sub">{tr("alerts.last200")}</div>
             </div>
             <div className="alert-kpi-card tone-new">
-              <div className="alert-kpi-label">Nouvelles</div>
+              <div className="alert-kpi-label">{tr("alerts.new")}</div>
               <div className="alert-kpi-value">{loading ? "—" : byStatus.New}</div>
-              <div className="alert-kpi-sub">à trier</div>
+              <div className="alert-kpi-sub">{tr("alerts.toTriage")}</div>
             </div>
             <div className="alert-kpi-card tone-progress">
-              <div className="alert-kpi-label">En cours</div>
+              <div className="alert-kpi-label">{tr("alerts.inProgress")}</div>
               <div className="alert-kpi-value">{loading ? "—" : byStatus.InProgress}</div>
-              <div className="alert-kpi-sub">en investigation</div>
+              <div className="alert-kpi-sub">{tr("alerts.investigating")}</div>
             </div>
             <div className="alert-kpi-card tone-resolved">
-              <div className="alert-kpi-label">Résolues</div>
+              <div className="alert-kpi-label">{tr("alerts.resolved")}</div>
               <div className="alert-kpi-value">{loading ? "—" : byStatus.Resolved}</div>
-              <div className="alert-kpi-sub">clôturées</div>
+              <div className="alert-kpi-sub">{tr("alerts.closed")}</div>
             </div>
           </div>
 
@@ -819,10 +855,10 @@ export default function WidgetsTestTab() {
             <div className="alerts-main">
               <div className="card">
                 <div className="card-head">
-                  <h2>Liste des alertes</h2>
+                  <h2>{tr("alerts.list")}</h2>
                   <span className="card-note">
-                    {visibleAlerts.length} affichée{visibleAlerts.length > 1 ? "s" : ""} sur {alerts.length}
-                    {activeFilterCount > 0 ? ` · ${activeFilterCount} filtre${activeFilterCount > 1 ? "s" : ""} actif${activeFilterCount > 1 ? "s" : ""}` : ""}
+                    {tr("alerts.shownOf", { count: visibleAlerts.length, total: alerts.length })}
+                    {activeFilterCount > 0 ? tr("alerts.activeFilters", { count: activeFilterCount }) : ""}
                   </span>
                 </div>
 
@@ -837,7 +873,7 @@ export default function WidgetsTestTab() {
                     les filtrer désormais. */}
                 <div className="alert-chip-filters">
                   <div className="alert-chip-row">
-                    <span className="alert-chip-row-label">Sévérité</span>
+                    <span className="alert-chip-row-label">{tr("alerts.severity")}</span>
                     {["High", "Medium", "Low", "Informational"].map((v) => {
                       const count = severityChipOptions.find((o) => o.value === v)?.count || 0;
                       const selected = columnFilters.severity || null;
@@ -867,13 +903,13 @@ export default function WidgetsTestTab() {
                           disabled={disabled}
                         >
                           <span className="alert-filter-chip-dot" style={{ background: ALERT_SEVERITY_COLORS[v] }} />
-                          {ALERT_SEVERITY_LABEL_FR[v]} <span className="alert-filter-chip-n">{count}</span>
+                          {ALERT_SEVERITY_LABEL[v]} <span className="alert-filter-chip-n">{count}</span>
                         </button>
                       );
                     })}
                   </div>
                   <div className="alert-chip-row">
-                    <span className="alert-chip-row-label">Statut</span>
+                    <span className="alert-chip-row-label">{tr("alerts.status")}</span>
                     {["New", "InProgress", "Resolved"].map((v) => {
                       const count = statusChipOptions.find((o) => o.value === v)?.count || 0;
                       const selected = columnFilters.status || null;
@@ -888,7 +924,7 @@ export default function WidgetsTestTab() {
                           disabled={disabled}
                         >
                           <span className="alert-filter-chip-dot" style={{ background: ALERT_STATUS_COLORS[v] }} />
-                          {ALERT_STATUS_LABEL_FR[v]} <span className="alert-filter-chip-n">{count}</span>
+                          {ALERT_STATUS_LABEL[v]} <span className="alert-filter-chip-n">{count}</span>
                         </button>
                       );
                     })}
@@ -903,7 +939,7 @@ export default function WidgetsTestTab() {
                     aria-pressed={hideInformational}
                   >
                     <span className="alert-toggle-sw" />
-                    Masquer les informationnelles
+                    {tr("alerts.hideInformational")}
                   </button>
                   <button
                     type="button"
@@ -912,37 +948,34 @@ export default function WidgetsTestTab() {
                     aria-pressed={hideResolved}
                   >
                     <span className="alert-toggle-sw" />
-                    Masquer les résolues
+                    {tr("alerts.hideResolved")}
                   </button>
                   <input
                     type="text"
                     className="filter-input alert-search-input"
-                    placeholder="Filtrer par titre, menace ou device…"
+                    placeholder={tr("alerts.searchPlaceholder")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    aria-label="Filtrer les alertes par titre, menace ou device"
+                    aria-label={tr("alerts.searchAria")}
                   />
                   {activeFilterCount > 0 && (
                     <button type="button" className="alert-reset-filters" onClick={resetAllFilters}>
-                      Réinitialiser les filtres de colonne
+                      {tr("alerts.resetColumnFilters")}
                     </button>
                   )}
                 </div>
 
                 {toggleHidesEverything && (
                   <p className="alert-toggle-fallback-note">
-                    Les bascules "Masquer…" ci-dessus cacheraient la totalité des{" "}
-                    {columnFilteredAlerts.length} alerte{columnFilteredAlerts.length > 1 ? "s" : ""} affichée
-                    {columnFilteredAlerts.length > 1 ? "s" : ""} en ce moment — désactivées pour cette vue plutôt
-                    que de laisser la liste vide, décoche-les si besoin.
+                    {tr("alerts.togglesFallback", { count: columnFilteredAlerts.length })}
                   </p>
                 )}
 
                 {loading ? (
-                  <p className="card-note">Chargement…</p>
+                  <p className="card-note">{tr("common.loading")}</p>
                 ) : visibleAlerts.length === 0 ? (
                   <p className="empty">
-                    {searchQuery.trim() ? "Aucune alerte ne correspond à cette recherche." : "Aucune alerte ne correspond aux filtres actifs."}
+                    {searchQuery.trim() ? tr("alerts.noSearchMatch") : tr("alerts.noFilterMatch")}
                   </p>
                 ) : (
                   <div className="cve-table-wrap alert-table-wrap" ref={tableWrapRef}>
@@ -989,7 +1022,7 @@ export default function WidgetsTestTab() {
                               />
                             )
                           )}
-                          <th>Créée le</th>
+                          <th>{tr("alerts.col.created")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1029,7 +1062,7 @@ export default function WidgetsTestTab() {
                                 </td>
                                 <td className="cve-small">{a.category || "—"}</td>
                                 <td className="cve-small">{a.computerDnsName || "—"}</td>
-                                <td className="cve-small">{a.assignedTo || "Non assigné"}</td>
+                                <td className="cve-small">{a.assignedTo || tr("alerts.unassigned")}</td>
                                 <td className="cve-small">{a.detectionSource || "—"}</td>
                                 <td className="cve-mono cve-small">{formatDateTime(a.alertCreationTime)}</td>
                               </tr>
@@ -1057,7 +1090,7 @@ export default function WidgetsTestTab() {
                 détail MITRE/preuves/commentaires au clic) est le contenu qui a le plus besoin
                 de la largeur libérée. */}
             <aside className="alerts-rail">
-              <p className="alerts-rail-title">Résumé</p>
+              <p className="alerts-rail-title">{tr("alerts.summary")}</p>
               {/* V47 — un grand camembert `conic-gradient` par dimension, une carte chacun,
                   au lieu du trio de petits donuts SVG dans une seule carte "Répartition des
                   alertes" — voir ConicDonut/ConicDonutLegend plus haut pour le pourquoi. Les 3
@@ -1066,17 +1099,17 @@ export default function WidgetsTestTab() {
                   portait sur le STYLE visuel, pas sur la suppression de la classification. */}
               {loading ? (
                 <div className="card">
-                  <p className="card-note">Chargement…</p>
+                  <p className="card-note">{tr("common.loading")}</p>
                 </div>
               ) : alerts.length === 0 ? (
                 <div className="card">
-                  <p className="empty">Aucune alerte remontée.</p>
+                  <p className="empty">{tr("alerts.noAlert")}</p>
                 </div>
               ) : (
                 <>
                   <div className="card">
                     <div className="card-head">
-                      <h2>Par sévérité</h2>
+                      <h2>{tr("alerts.bySeverity")}</h2>
                     </div>
                     <div className="alert-donut-row">
                       <ConicDonut entries={severityEntries.entries} centerText={severityEntries.total} />
@@ -1085,7 +1118,7 @@ export default function WidgetsTestTab() {
                   </div>
                   <div className="card">
                     <div className="card-head">
-                      <h2>Par statut</h2>
+                      <h2>{tr("alerts.byStatus")}</h2>
                     </div>
                     <div className="alert-donut-row">
                       <ConicDonut entries={statusEntries.entries} centerText={statusEntries.total} />
@@ -1094,8 +1127,8 @@ export default function WidgetsTestTab() {
                   </div>
                   <div className="card">
                     <div className="card-head">
-                      <h2>Par classification</h2>
-                      <span className="card-note">après qualification analyste</span>
+                      <h2>{tr("alerts.byClassification")}</h2>
+                      <span className="card-note">{tr("alerts.afterTriage")}</span>
                     </div>
                     <div className="alert-donut-row">
                       <ConicDonut entries={classificationEntries.entries} centerText={classificationEntries.total} />
@@ -1110,25 +1143,25 @@ export default function WidgetsTestTab() {
                   appel réseau supplémentaire (voir threatCounts/detectionSourceCounts). */}
               <div className="card">
                 <div className="card-head">
-                  <h2>Menaces nommées</h2>
+                  <h2>{tr("alerts.namedThreats")}</h2>
                   <span className="card-note">threatName</span>
                 </div>
                 {loading ? (
-                  <p className="card-note">Chargement…</p>
+                  <p className="card-note">{tr("common.loading")}</p>
                 ) : (
-                  <RankList counts={threatCounts} max={6} emptyLabel="Aucune menace nommée sur ce lot d'alertes." />
+                  <RankList counts={threatCounts} max={6} emptyLabel={tr("alerts.noNamedThreat")} />
                 )}
               </div>
 
               <div className="card">
                 <div className="card-head">
-                  <h2>Sources de détection</h2>
+                  <h2>{tr("alerts.detectionSources")}</h2>
                   <span className="card-note">detectionSource</span>
                 </div>
                 {loading ? (
-                  <p className="card-note">Chargement…</p>
+                  <p className="card-note">{tr("common.loading")}</p>
                 ) : (
-                  <RankList counts={detectionSourceCounts} max={6} emptyLabel="Aucune source de détection renseignée." />
+                  <RankList counts={detectionSourceCounts} max={6} emptyLabel={tr("alerts.noDetectionSource")} />
                 )}
               </div>
             </aside>

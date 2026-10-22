@@ -25,30 +25,24 @@ import {
   severityTone,
   toneVar,
 } from "./vanitasShared.jsx";
+import { currentLocale, localizedTable, tr } from "../i18n/core.js";
 
 const ALERTS_MAX = 6;
 
-const ALERT_TYPE_LABEL_FR = {
-  stale: "Poste silencieux",
-  new_critical_vuln: "Nouvelle vuln. critique",
-  new_compliance_failure: "Nouvel échec de conformité",
-  cert_expiring: "Certificat bientôt expiré",
-  // Revue EOL comparative (2026-09-10) — point 4, brancher l'EOL sur l'infra d'alertes diff
-  // déjà existante plutôt que d'en créer une nouvelle.
-  new_eol_finding: "Logiciel/OS bientôt obsolète",
-  // Jalon "mise à jour de l'agent via Vanitas" (2026-09-11) — purement informatif, cette
-  // alerte ne déclenche jamais rien toute seule (cadrage explicite de Nicolas).
-  agent_update_available: "Mise à jour d'agent disponible",
-};
+// new_eol_finding: revue EOL comparative (2026-09-10) — l'EOL branché sur l'infra d'alertes diff
+// existante. agent_update_available: purement informatif (cadrage explicite de Nicolas).
+const ALERT_TYPE_LABEL = localizedTable("vo.alert", [
+  "stale",
+  "new_critical_vuln",
+  "new_compliance_failure",
+  "cert_expiring",
+  "new_eol_finding",
+  "agent_update_available",
+]);
 
 // Même vocabulaire que `SIGNAL_TYPE_LABEL_FR` (VanitasSuspiciousActivityTab.jsx) — dupliqué en
 // petit ici plutôt que d'importer une page dans une autre pour 4 libellés.
-const SUSPICIOUS_SIGNAL_LABEL_FR = {
-  process: "Processus",
-  event_log: "Journal d'événements",
-  network: "Réseau",
-  usb: "Support amovible",
-};
+const SUSPICIOUS_SIGNAL_LABEL = localizedTable("vo.signal", ["process", "event_log", "network", "usb"]);
 
 const WATCHLIST_MAX = 8;
 const SIGNALS_MAX = 8;
@@ -151,8 +145,8 @@ function TrendSparkCard({ label, metric, unit = "", favorable, tone }) {
   }
   const deltaLabel =
     typeof delta7 === "number" && delta7 !== 0
-      ? `${delta7 > 0 ? "▲" : "▼"} ${Math.abs(delta7)}${unit} / 7j`
-      : "stable / 7j";
+      ? tr("vo.deltaWeek", { arrow: delta7 > 0 ? "▲" : "▼", value: Math.abs(delta7), unit: unit ?? "" })
+      : tr("vo.stableWeek");
   return (
     <div className="vanitas-trend-card" style={tone ? { "--tone": tone } : undefined}>
       <div className="vanitas-trend-card-head">
@@ -319,16 +313,17 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
 
       const tone = stale || certTone(days) === "high" ? "high" : "warn";
       const parts = [];
-      if (stale) parts.push(`silencieux depuis ${Math.round(hoursSince / 24)} j`);
-      if (certWarn) parts.push(days < 0 ? "certificat expiré" : `certificat — renouvellement < ${CERT_WARNING_DAYS} j`);
+      if (stale) parts.push(tr("vo.silentFor", { days: Math.round(hoursSince / 24) }));
+      if (certWarn) parts.push(days < 0 ? tr("vo.certExpired") : tr("vo.certRenew", { days: CERT_WARNING_DAYS }));
 
       rows.push({
         id: a.id,
         hostname: a.hostname,
         online: isOnline(a),
         tone,
+        stale,
         reason: parts.join(" · "),
-        metric: stale ? `${Math.round(hoursSince / 24)} J` : `${Math.max(0, Math.round(days))} J`,
+        metric: tr("vo.metricDays", { n: stale ? Math.round(hoursSince / 24) : Math.max(0, Math.round(days)) }),
       });
     }
     return rows.sort((x, y) => (x.tone === y.tone ? 0 : x.tone === "high" ? -1 : 1)).slice(0, WATCHLIST_MAX);
@@ -379,11 +374,11 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
       const tone = e.severity === "high" ? "high" : e.severity === "low" ? "good" : "warn";
       rows.push({
         key: `sus-${e.id}`,
-        category: SUSPICIOUS_SIGNAL_LABEL_FR[e.signal_type] ?? e.signal_type,
+        category: SUSPICIOUS_SIGNAL_LABEL[e.signal_type] ?? e.signal_type,
         host: e.hostname,
         detail: e.summary,
         tone,
-        sevLabel: tone === "high" ? "Élevée" : tone === "warn" ? "Moyenne" : "Faible",
+        sevLabel: tr(tone === "high" ? "vo.sev.high" : tone === "warn" ? "vo.sev.med" : "vo.sev.low"),
         time: e.occurred_at,
         onClick: () => onNavigateVanitas?.("vanitas-suspicious-activity"),
       });
@@ -391,11 +386,11 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
     for (const w of watchlist) {
       rows.push({
         key: `watch-${w.id}`,
-        category: w.reason.includes("silencieux") ? "Silencieux" : "Certificat",
+        category: tr(w.stale ? "vo.cat.silent" : "vo.cat.certificate"),
         host: w.hostname,
         detail: w.reason,
         tone: w.tone === "high" ? "high" : "warn",
-        sevLabel: w.tone === "high" ? "Élevée" : "Moyenne",
+        sevLabel: tr(w.tone === "high" ? "vo.sev.high" : "vo.sev.med"),
         time: null,
         metric: w.metric,
         onClick: () => gotoAgent(w.id),
@@ -408,7 +403,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
         key: `cve-${v.cve_id}`,
         category: "CVE",
         host: v.product_name,
-        detail: `${v.cve_id} — ${v.device_count} poste${v.device_count > 1 ? "s" : ""} exposé${v.device_count > 1 ? "s" : ""}`,
+        detail: tr("vo.cveExposed", { cve: v.cve_id, count: v.device_count }),
         tone,
         sevLabel: severityLabelFr(v.severity),
         time: null,
@@ -422,7 +417,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
         host: f.hostname,
         detail: `${f.name} — ${f.message}`,
         tone: f.is_eol ? "high" : "warn",
-        sevLabel: f.is_eol ? "Élevée" : "Moyenne",
+        sevLabel: tr(f.is_eol ? "vo.sev.high" : "vo.sev.med"),
         time: null,
         onClick: () => onNavigateVanitas?.("vanitas-eol", { query: f.hostname }),
       });
@@ -480,18 +475,16 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
     score = Math.max(0, Math.min(100, Math.round(score)));
 
     const issues = [];
-    if (highUntreated > 0) issues.push(`${highUntreated} suspect${highUntreated > 1 ? "s" : ""} élevé${highUntreated > 1 ? "s" : ""} non traité${highUntreated > 1 ? "s" : ""}`);
-    if (isolatedCount > 0) issues.push(`${isolatedCount} poste${isolatedCount > 1 ? "s" : ""} isolé${isolatedCount > 1 ? "s" : ""}`);
-    if (counts.stale > 0) issues.push(`${counts.stale} poste${counts.stale > 1 ? "s" : ""} silencieux`);
-    if (counts.cert > 0) issues.push(`${counts.cert} certificat${counts.cert > 1 ? "s" : ""} < ${CERT_WARNING_DAYS} j`);
-    if (eolCount > 0) issues.push(`${eolCount} logiciel${eolCount > 1 ? "s" : ""} EOL`);
+    if (highUntreated > 0) issues.push(tr("vo.issue.highUntreated", { count: highUntreated }));
+    if (isolatedCount > 0) issues.push(tr("vo.issue.isolated", { count: isolatedCount }));
+    if (counts.stale > 0) issues.push(tr("vo.issue.stale", { count: counts.stale }));
+    if (counts.cert > 0) issues.push(tr("vo.issue.cert", { count: counts.cert, days: CERT_WARNING_DAYS }));
+    if (eolCount > 0) issues.push(tr("vo.issue.eol", { count: eolCount }));
 
     const tone = score >= 85 ? "good" : score >= 60 ? "warn" : "high";
-    const word = score >= 85 ? "Sous contrôle" : score >= 60 ? "Attention requise" : "Risque élevé";
+    const word = tr(`vo.word.${tone}`);
     const sub =
-      issues.length === 0
-        ? "Aucun signal d'alerte sur le parc actuellement."
-        : `${issues.length} signal${issues.length > 1 ? "s" : ""} : ${issues.join(", ")}.`;
+      issues.length === 0 ? tr("vo.noSignal") : tr("vo.signalsSummary", { count: issues.length, list: issues.join(", ") });
     return { score, tone, word, sub };
   }, [highUntreated, isolatedCount, counts, eolCount, complianceRate]);
 
@@ -527,7 +520,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
   if (loading) {
     return (
       <div className="vanitas-hud vanitas-ov">
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("vo.loading")}</p>
       </div>
     );
   }
@@ -560,7 +553,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
             </svg>
             <div className="score">
               <b>{posture.score}</b>
-              <small>Posture</small>
+              <small>{tr("vo.posture")}</small>
             </div>
           </div>
           <div className="vanitas-ov-posture-txt">
@@ -577,9 +570,9 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
             tabIndex={0}
             onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}
           >
-            <div className="label"><span className="label-text">Suspects élevés</span><span className="tag">NON TRAITÉS</span></div>
+            <div className="label"><span className="label-text">{tr("vo.highSuspects")}</span><span className="tag">{tr("vo.untriaged")}</span></div>
             <div className="value">{highUntreated}</div>
-            <div className="kpi-sub">à investiguer en priorité</div>
+            <div className="kpi-sub">{tr("vo.investigateFirst")}</div>
           </div>
           <div
             className="vanitas-hud-kpi"
@@ -588,9 +581,9 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
             tabIndex={0}
             onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}
           >
-            <div className="label"><span className="label-text">Sous isolement</span><span className="tag">CONFINEMENT</span></div>
+            <div className="label"><span className="label-text">{tr("vo.isolated")}</span><span className="tag">{tr("vo.containment")}</span></div>
             <div className="value">{isolatedCount}</div>
-            <div className="kpi-sub">poste(s) coupé(s) du réseau</div>
+            <div className="kpi-sub">{tr("vo.cutOff")}</div>
           </div>
           <div
             className="vanitas-hud-kpi"
@@ -599,9 +592,9 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
             tabIndex={0}
             onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "offline" })}
           >
-            <div className="label"><span className="label-text">Silencieux</span><span className="tag">&gt; {STALE_HOURS}H</span></div>
+            <div className="label"><span className="label-text">{tr("vo.silent")}</span><span className="tag">&gt; {STALE_HOURS}H</span></div>
             <div className="value">{counts.stale}</div>
-            <div className="kpi-sub">sans contact récent</div>
+            <div className="kpi-sub">{tr("vo.noRecentContact")}</div>
           </div>
         </div>
       </div>
@@ -619,10 +612,10 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
           onClick={() => onNavigateVanitas?.("vanitas-devices")}
         >
           <div className="label">
-            <span className="label-text">Postes</span><span className="tag">TOTAL</span><span className="tag-hover">→ Postes</span>
+            <span className="label-text">{tr("vo.endpoints")}</span><span className="tag">{tr("vo.total")}</span><span className="tag-hover">{tr("vo.toEndpoints")}</span>
           </div>
           <div className="value">{counts.total}</div>
-          <div className="kpi-sub">{counts.online} en ligne</div>
+          <div className="kpi-sub">{tr("vo.online", { count: counts.online })}</div>
         </div>
         <div
           className="vanitas-hud-kpi"
@@ -632,7 +625,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
           onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}
         >
           <div className="label">
-            <span className="label-text">Activités suspectes</span><span className="tag">NON TRAITÉS</span><span className="tag-hover">→ Activités</span>
+            <span className="label-text">{tr("vo.suspicious")}</span><span className="tag">{tr("vo.untriaged")}</span><span className="tag-hover">{tr("vo.toActivity")}</span>
           </div>
           <div className="value">
             {/* `by_status`/`by_severity` sont des objets creux (clé absente = zéro, pas de zéros
@@ -643,8 +636,8 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
           </div>
           <div className="kpi-sub">
             {(suspiciousSummary.state.data?.by_severity?.high ?? 0) > 0
-              ? `${suspiciousSummary.state.data.by_severity.high} élevée(s)`
-              : "aucune sévérité élevée"}
+              ? tr("vo.highCount", { count: suspiciousSummary.state.data.by_severity.high })
+              : tr("vo.noHigh")}
           </div>
         </div>
         <div
@@ -655,12 +648,12 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
           onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "offline" })}
         >
           <div className="label">
-            <span className="label-text">Silencieux</span>
+            <span className="label-text">{tr("vo.silent")}</span>
             <span className="tag">{alertStaleCount === null ? "…" : `< ${alerts.state.staleThresholdHours}H`}</span>
-            <span className="tag-hover">→ Postes</span>
+            <span className="tag-hover">{tr("vo.toEndpoints")}</span>
           </div>
           <div className="value">{alertStaleCount ?? "—"}</div>
-          <div className="kpi-sub">seuil d'alerte</div>
+          <div className="kpi-sub">{tr("vo.alertThreshold")}</div>
         </div>
         <div
           className="vanitas-hud-kpi"
@@ -670,10 +663,10 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
           onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "cert" })}
         >
           <div className="label">
-            <span className="label-text">Certificat</span><span className="tag">&lt; {CERT_WARNING_DAYS}J</span><span className="tag-hover">→ Postes</span>
+            <span className="label-text">{tr("vo.certificate")}</span><span className="tag">{tr("vo.certTag", { days: CERT_WARNING_DAYS })}</span><span className="tag-hover">{tr("vo.toEndpoints")}</span>
           </div>
           <div className="value">{counts.cert}</div>
-          <div className="kpi-sub">à renouveler bientôt</div>
+          <div className="kpi-sub">{tr("vo.renewSoon")}</div>
         </div>
         <div
           className="vanitas-hud-kpi"
@@ -683,10 +676,10 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
           onClick={() => onNavigateVanitas?.("vanitas-eol")}
         >
           <div className="label">
-            <span className="label-text">Logiciels EOL</span><span className="tag">PARC</span><span className="tag-hover">→ Obsolètes</span>
+            <span className="label-text">{tr("vo.eolSoftware")}</span><span className="tag">{tr("vo.fleet")}</span><span className="tag-hover">{tr("vo.toEol")}</span>
           </div>
           <div className="value">{eolCount}</div>
-          <div className="kpi-sub">déjà ou bientôt obsolètes</div>
+          <div className="kpi-sub">{tr("vo.eolSub")}</div>
         </div>
         <div
           className="vanitas-hud-kpi"
@@ -696,24 +689,24 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
           onClick={() => onNavigateVanitas?.("vanitas-compliance")}
         >
           <div className="label">
-            <span className="label-text">Conformité</span><span className="tag">TAUX</span><span className="tag-hover">→ Conformité</span>
+            <span className="label-text">{tr("vo.compliance")}</span><span className="tag">{tr("vo.rate")}</span><span className="tag-hover">{tr("vo.toCompliance")}</span>
           </div>
           <div className="value">{complianceRate === null ? "—" : `${complianceRate}%`}</div>
-          <div className="kpi-sub">évaluations conformes</div>
+          <div className="kpi-sub">{tr("vo.compliantEvals")}</div>
         </div>
       </div>
 
       {hasTrend && (
         <div className="vanitas-hud-card vanitas-trend-band">
           <div className="vanitas-hud-card-head">
-            <h2>Tendances</h2>
-            <span className="vanitas-hud-card-note">évolution quotidienne · 30 derniers jours</span>
+            <h2>{tr("vo.trends")}</h2>
+            <span className="vanitas-hud-card-note">{tr("vo.trendsNote")}</span>
           </div>
           <div className="vanitas-trend-grid">
-            <TrendSparkCard label="Conformité" metric={trend.complianceRate} unit="%" favorable="up" tone="var(--hud-good)" />
-            <TrendSparkCard label="Activités suspectes (nouvelles)" metric={trend.suspiciousNew} favorable="down" tone="var(--hud-high)" />
-            <TrendSparkCard label="Logiciels EOL" metric={trend.eolOccurrences} favorable="down" tone="var(--hud-warn)" />
-            <TrendSparkCard label="Postes en ligne" metric={trend.onlineAgents} favorable="up" tone="var(--hud-accent)" />
+            <TrendSparkCard label={tr("vo.compliance")} metric={trend.complianceRate} unit="%" favorable="up" tone="var(--hud-good)" />
+            <TrendSparkCard label={tr("vo.trend.suspiciousNew")} metric={trend.suspiciousNew} favorable="down" tone="var(--hud-high)" />
+            <TrendSparkCard label={tr("vo.eolSoftware")} metric={trend.eolOccurrences} favorable="down" tone="var(--hud-warn)" />
+            <TrendSparkCard label={tr("vo.trend.online")} metric={trend.onlineAgents} favorable="up" tone="var(--hud-accent)" />
           </div>
         </div>
       )}
@@ -722,9 +715,9 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
         <div className="vanitas-hud-main">
           <div className="vanitas-hud-card">
             <div className="vanitas-hud-card-head">
-              <h2>Activité — commandes</h2>
+              <h2>{tr("vo.activityCommands")}</h2>
               <span className="vanitas-hud-card-note">
-                {activityTotal} sur les {RECENT_DAYS} derniers jours
+                {tr("vo.activityCount", { count: activityTotal, days: RECENT_DAYS })}
               </span>
             </div>
             <div className="vanitas-ov-chart-body">
@@ -760,7 +753,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
               </svg>
               <div className="vanitas-ov-chart-axis">
                 {activitySeries.map((b, i) => (
-                  <span key={i}>{b.date.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "").slice(0, 3).toUpperCase()}</span>
+                  <span key={i}>{b.date.toLocaleDateString(currentLocale(), { weekday: "short" }).replace(".", "").slice(0, 3).toUpperCase()}</span>
                 ))}
               </div>
             </div>
@@ -774,13 +767,13 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
               maquette : "deux badges qui se battent"). */}
           <div className="vanitas-hud-card">
             <div className="vanitas-hud-card-head">
-              <h2>Signaux à traiter</h2>
+              <h2>{tr("vo.signalsTitle")}</h2>
               <span className="vanitas-hud-card-note">
-                {signals.length} signal{signals.length > 1 ? "s" : ""} · triés par urgence
+                {tr("vo.signalsNote", { count: signals.length })}
               </span>
             </div>
             {signals.length === 0 ? (
-              <p className="vanitas-hud-empty-note">Aucun signal à traiter actuellement.</p>
+              <p className="vanitas-hud-empty-note">{tr("vo.noSignalToHandle")}</p>
             ) : (
               <div>
                 {signals.map((s) => (
@@ -809,13 +802,13 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
 
           <div className="vanitas-hud-card">
             <div className="vanitas-hud-card-head">
-              <h2>Activité récente</h2>
+              <h2>{tr("vo.recentActivity")}</h2>
               <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-commands")}>
-                flux fleet-wide · voir le Journal →
+                {tr("vo.seeLog")}
               </button>
             </div>
             {recentCommands.length === 0 ? (
-              <p className="vanitas-hud-empty-note">Aucune commande sur les {RECENT_DAYS} derniers jours.</p>
+              <p className="vanitas-hud-empty-note">{tr("vo.noCommand", { days: RECENT_DAYS })}</p>
             ) : (
               <div>
                 {recentCommands.slice(0, FEED_MAX).map((c) => (
@@ -834,7 +827,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
                         c.status === "pending" || c.status === "running" ? "pending" : c.success ? "ok" : "bad"
                       }`}
                     >
-                      {c.status === "pending" || c.status === "running" ? "En cours" : c.success ? "Ok" : "Échec"}
+                      {tr(c.status === "pending" || c.status === "running" ? "vo.inProgress" : c.success ? "vo.ok" : "vo.failed")}
                     </span>
                     <span className="vanitas-hud-chev">›</span>
                   </div>
@@ -845,14 +838,14 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
         </div>
 
         <aside className="vanitas-hud-rail">
-          <div className="vanitas-hud-rail-title">Signaux</div>
+          <div className="vanitas-hud-rail-title">{tr("vo.signals")}</div>
 
           {/* Cartes-signaux façon rail "Signaux" de la Vue d'ensemble Pandore (2026-09-17) :
               répartitions/agrégats fleet-wide déjà chargés, aucun nouvel appel. */}
           <div className="vanitas-hud-card vanitas-ov-rail-card">
             <div className="vanitas-ov-rail-section">
               <div className="vanitas-ov-rail-head">
-                <h3>Posture de patch</h3>
+                <h3>{tr("vo.patchPosture")}</h3>
                 <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-patch")}>→</button>
               </div>
               <div className="vanitas-hud-donut-wrap">
@@ -867,26 +860,32 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
                       : "rgba(255,255,255,.08)",
                   }}
                 >
-                  <div className="vanitas-hud-donut-center"><b>{patchCounts.total}</b><span>postes</span></div>
+                  <div className="vanitas-hud-donut-center"><b>{patchCounts.total}</b><span>{tr("vo.endpointsWord")}</span></div>
                 </div>
                 <div className="vanitas-hud-donut-legend">
-                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "var(--hud-good)" }} />À jour<span className="n">{patchCounts.ok}</span></div>
-                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "var(--hud-warn)" }} />En attente<span className="n">{patchCounts.pending}</span></div>
-                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "rgba(255,255,255,.25)" }} />Hors politique<span className="n">{patchCounts.off}</span></div>
+                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "var(--hud-good)" }} />
+                    {tr("vo.upToDate")}
+                    <span className="n">{patchCounts.ok}</span></div>
+                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "var(--hud-warn)" }} />
+                    {tr("vo.pending")}
+                    <span className="n">{patchCounts.pending}</span></div>
+                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "rgba(255,255,255,.25)" }} />
+                    {tr("vo.offPolicy")}
+                    <span className="n">{patchCounts.off}</span></div>
                 </div>
               </div>
             </div>
 
             <div className="vanitas-ov-rail-section">
               <div className="vanitas-ov-rail-head">
-                <h3>Par criticité</h3>
+                <h3>{tr("vo.byCriticality")}</h3>
                 <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}>→</button>
               </div>
               <div className="vanitas-hud-stat-bars">
                 {[
-                  { k: "high", label: "Élevée", tone: "var(--hud-high)", n: sevCounts.high },
-                  { k: "med", label: "Moyenne", tone: "var(--hud-warn)", n: sevCounts.med },
-                  { k: "low", label: "Faible", tone: "var(--hud-good)", n: sevCounts.low },
+                  { k: "high", label: tr("vo.sev.high"), tone: "var(--hud-high)", n: sevCounts.high },
+                  { k: "med", label: tr("vo.sev.med"), tone: "var(--hud-warn)", n: sevCounts.med },
+                  { k: "low", label: tr("vo.sev.low"), tone: "var(--hud-good)", n: sevCounts.low },
                 ].map((r) => {
                   const max = Math.max(1, sevCounts.high, sevCounts.med, sevCounts.low);
                   return (
@@ -902,11 +901,11 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
 
             <div className="vanitas-ov-rail-section">
               <div className="vanitas-ov-rail-head">
-                <h3>Top vulnérabilités</h3>
+                <h3>{tr("vo.topVulns")}</h3>
                 <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-vulnerabilities")}>→</button>
               </div>
               {(topVulns.state.data ?? []).length === 0 ? (
-                <p className="vanitas-hud-empty-note">Aucune CVE détectée sur le parc.</p>
+                <p className="vanitas-hud-empty-note">{tr("vo.noCve")}</p>
               ) : (
                 <div className="vanitas-hud-stat-bars">
                   {(() => {
@@ -940,13 +939,13 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
           <div className="vanitas-hud-card vanitas-ov-rail-card">
             <div className="vanitas-ov-rail-section">
               <div className="vanitas-ov-rail-head">
-                <h3>Groupes</h3>
+                <h3>{tr("vo.groups")}</h3>
                 <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-groups")}>
                   →
                 </button>
               </div>
               {groupRows.length === 0 ? (
-                <p className="vanitas-hud-empty-note">Aucun groupe créé pour l'instant — clique pour en créer un.</p>
+                <p className="vanitas-hud-empty-note">{tr("vo.noGroup")}</p>
               ) : (
                 <div>
                   {groupRows.map((g) => (
@@ -958,7 +957,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
                       <span className="vanitas-hud-group-dot" />
                       <span className="vanitas-hud-group-name">{g.name}</span>
                       <span className="vanitas-hud-group-n">
-                        {g.device_count} poste{g.device_count > 1 ? "s" : ""}
+                        {tr("vo.groupCount", { count: g.device_count })}
                       </span>
                     </div>
                   ))}
@@ -973,12 +972,12 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
                 section disparaître silencieusement, un état vide explicite vaut mieux que rien. */}
             <div className="vanitas-ov-rail-section">
               <div className="vanitas-ov-rail-head">
-                <h3>Alertes récentes</h3>
+                <h3>{tr("vo.recentAlerts")}</h3>
               </div>
               {alerts.state.status === "loading" ? (
-                <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+                <p className="vanitas-hud-empty-note">{tr("vo.loading")}</p>
               ) : (alerts.state.recent ?? []).length === 0 ? (
-                <p className="vanitas-hud-empty-note">Aucune alerte récente.</p>
+                <p className="vanitas-hud-empty-note">{tr("vo.noRecentAlert")}</p>
               ) : (
                 <div>
                   {alerts.state.recent.map((a, i) => (
@@ -991,7 +990,7 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
                     >
                       <span className="vanitas-hud-feed-time">{fmtRelative(a.at)}</span>
                       <span className="vanitas-hud-feed-host">{a.hostname}</span>
-                      <span className="vanitas-hud-feed-cmd">{ALERT_TYPE_LABEL_FR[a.type] ?? a.type}</span>
+                      <span className="vanitas-hud-feed-cmd">{ALERT_TYPE_LABEL[a.type] ?? a.type}</span>
                       <span className="vanitas-hud-chev">›</span>
                     </div>
                   ))}

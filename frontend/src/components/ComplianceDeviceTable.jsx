@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { OS_COLORS, OS_DEFAULT_COLOR, POLICY_STATUS_COLORS, policyStatusLabel } from "../theme.js";
+import { OS_COLORS, OS_DEFAULT_COLOR, POLICY_STATUS_COLORS, categoryLabel, policyStatusLabel } from "../theme.js";
 import { computeSettingsState, DeviceSettingsPanel } from "./ComplianceOsGrid.jsx";
+import { currentLocale, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Table de postes en échec, filtrable par OS puis par politique — remplace la grille de
@@ -17,7 +19,7 @@ function formatDate(iso) {
   if (!iso) return "?";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "?";
-  return d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(currentLocale(), { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 /** Une ligne du tableau : ne déclenche `onVisible` (fetch du détail par réglage) qu'à son
@@ -56,11 +58,11 @@ function DeviceTableRow({ entry, isOpen, cached, onToggle, onVisible }) {
   const color = POLICY_STATUS_COLORS[displayState] || POLICY_STATUS_COLORS.unknown;
   const osColor = OS_COLORS[os] || OS_DEFAULT_COLOR;
   const infoTitle = diverges
-    ? `Agrégat Graph par politique : ${d.status}. Point recalculé depuis les réglages, qui font foi.`
+    ? tr("compliance.aggregateDiverges", { status: d.status })
     : cached?.loading
-    ? "Recalcul en cours à partir des réglages…"
+    ? tr("compliance.recalculating")
     : cached?.error
-    ? `Détail par réglage indisponible : ${cached.error}`
+    ? tr("compliance.settingsUnavailable", { error: cached.error })
     : null;
 
   return (
@@ -118,10 +120,28 @@ function DeviceTableRow({ entry, isOpen, cached, onToggle, onVisible }) {
   );
 }
 
+// `key` is the internal category; the label is read in the current language.
 const STATUS_OPTIONS = [
-  { key: "all", label: "Tous" },
-  { key: "Non conforme", label: "Non conforme", color: "#ea5c5c" },
-  { key: "Erreur", label: "Erreur", color: "#e08052" },
+  {
+    key: "all",
+    get label() {
+      return tr("common.all");
+    },
+  },
+  {
+    key: "Non conforme",
+    get label() {
+      return categoryLabel("Non conforme");
+    },
+    color: "#ea5c5c",
+  },
+  {
+    key: "Erreur",
+    get label() {
+      return categoryLabel("Erreur");
+    },
+    color: "#e08052",
+  },
 ];
 
 export default function ComplianceDeviceTable({
@@ -208,15 +228,15 @@ export default function ComplianceDeviceTable({
       ? null
       : filterPolicyId
       ? `${filterOs} — ${activeOsGroup?.policies.find((p) => p.id === filterPolicyId)?.displayName || ""}`
-      : `${filterOs} — toutes politiques`;
+      : tr("compliance.allPolicies", { os: filterOs });
 
   return (
     <section className="compliance-table-section" id="compliance-table-section">
       <div className="card-head">
-        <h2>Postes en échec — table complète</h2>
+        <h2>{tr("compliance.failingTable")}</h2>
       </div>
       <p className="card-note" style={{ marginTop: 8 }}>
-        {filtered.length} poste{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""}, défilement continu — cliquer une ligne affiche le détail par réglage.
+        {tr("compliance.tableNote", { count: filtered.length })}
       </p>
 
       <div className="compliance-table-toolbar">
@@ -228,7 +248,7 @@ export default function ComplianceDeviceTable({
           <input
             className="filter-input compliance-search-input"
             type="text"
-            placeholder="Poste ou utilisateur…"
+            placeholder={tr("compliance.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -248,7 +268,7 @@ export default function ComplianceDeviceTable({
         </div>
         <div className="chip-group">
           <button type="button" className={`filter-chip${filterOs === "all" ? " active" : ""}`} onClick={() => pickOs("all")}>
-            Tous OS
+            {tr("compliance.allOs")}
           </button>
           {osOrder.map((os) => (
             <button
@@ -269,10 +289,10 @@ export default function ComplianceDeviceTable({
           <div className="os-policy-panel-head">
             <span className="lbl">
               <span className="dot" style={{ background: OS_COLORS[panelOpenOs] || OS_DEFAULT_COLOR }} />
-              Politiques — {panelOpenOs}
+              {tr("compliance.policiesFor", { os: panelOpenOs })}
             </span>
             <button type="button" className="os-policy-panel-close" onClick={() => setPanelOpenOs(null)}>
-              Fermer ✕
+              {tr("common.close")}
             </button>
           </div>
           <div className="os-policy-list">
@@ -281,13 +301,12 @@ export default function ComplianceDeviceTable({
               className={`os-policy-item all-item${filterPolicyId === null ? " active" : ""}`}
               onClick={() => pickPolicy(panelOpenOs, null)}
             >
-              <span className="os-policy-item-name">Toutes les politiques {panelOpenOs}</span>
+              <span className="os-policy-item-name">{tr("compliance.allPoliciesFor", { os: panelOpenOs })}</span>
               <span className="os-policy-item-count">{activeOsTotal}</span>
             </button>
             {activePolicies.length === 0 && (
               <p className="os-policy-empty">
-                Aucune politique en échec sur {panelOpenOs} actuellement — aucun poste {panelOpenOs} managé sur ce
-                tenant, ou parc entièrement conforme.
+                {tr("compliance.noFailingOnOs", { os: panelOpenOs })}
               </p>
             )}
             {activePolicies.map((p) => (
@@ -307,7 +326,7 @@ export default function ComplianceDeviceTable({
 
       {filterLabel && (
         <p className="active-filter-note visible">
-          Filtré sur <strong>{filterLabel}</strong>
+          {trRich("compliance.filteredOn", { label: <strong>{filterLabel}</strong> })}
           <button
             type="button"
             onClick={() => {
@@ -315,26 +334,26 @@ export default function ComplianceDeviceTable({
               setPanelOpenOs(null);
             }}
           >
-            Réinitialiser
+            {tr("common.reset")}
           </button>
         </p>
       )}
 
       {filtered.length === 0 ? (
         <p className="empty" style={{ marginTop: 14 }}>
-          Aucun poste ne correspond à ce filtre.
+          {tr("compliance.noMatch")}
         </p>
       ) : (
         <div className="device-table-wrap">
           <table className="device-table">
             <thead>
               <tr>
-                <th>Poste</th>
-                <th>Utilisateur</th>
-                <th>OS</th>
-                <th>Politique</th>
-                <th>État</th>
-                <th>Dernière évaluation</th>
+                <th>{tr("compliance.col.device")}</th>
+                <th>{tr("compliance.col.user")}</th>
+                <th>{tr("compliance.col.os")}</th>
+                <th>{tr("compliance.col.policy")}</th>
+                <th>{tr("compliance.col.state")}</th>
+                <th>{tr("compliance.col.lastEvaluation")}</th>
               </tr>
             </thead>
             <tbody>

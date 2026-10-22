@@ -1,3 +1,4 @@
+import { tr } from "../i18n/core.js";
 /**
  * "Top devices à risque" (Vue d'ensemble v2, 2026-08-10) — classement construit côté
  * client par selectors.js::computeTopRiskDevices à partir de /api/defender/machines
@@ -19,7 +20,7 @@ export default function RiskDevicesList({ devices, onSelectDevice }) {
   const rows = devices || [];
 
   if (rows.length === 0) {
-    return <p className="empty">Aucun device signalé à risque pour l'instant.</p>;
+    return <p className="empty">{tr("overview.noRiskDevice")}</p>;
   }
 
   return (
@@ -33,8 +34,8 @@ export default function RiskDevicesList({ devices, onSelectDevice }) {
           <>
             <span className="risk-rank">{String(i + 1).padStart(2, "0")}</span>
             <span className="risk-name">
-              {name ?? "Device inconnu"}
-              <span className="sub">{d.osPlatform ?? "OS inconnu"}</span>
+              {name ?? tr("common.unknownDevice")}
+              <span className="sub">{d.osPlatform ?? tr("common.unknownOs")}</span>
             </span>
             <span className={`badge ${badgeClass}`}>{level}</span>
             <span className="alert-count">

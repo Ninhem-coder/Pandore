@@ -4,6 +4,8 @@ import { isErrorPayload } from "../hooks/useDashboardData.js";
 import CopyButton from "./CopyButton.jsx";
 import { IconPicker } from "./IconPicker.jsx";
 import { IconDownload, IconPackage, IconUpload } from "./icons.jsx";
+import { currentLocale, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /** Toutes les routes `/api/intune/packaging/*` (sauf le téléchargement) répondent en HTTP
  * 200 même en cas d'erreur métier — `handle_tool_errors` (backend/common/http_client.py)
@@ -16,7 +18,7 @@ import { IconDownload, IconPackage, IconUpload } from "./icons.jsx";
 async function unwrap(promise) {
   const payload = await promise;
   if (isErrorPayload(payload)) {
-    throw new Error(payload.message || "Erreur inconnue.");
+    throw new Error(payload.message || tr("wiz.unknownError"));
   }
   return payload;
 }
@@ -148,35 +150,87 @@ function IconRestartForce() {
 // dupliqués ailleurs dans ce projet, ces tableaux embarquent 7 glyphes SVG dessinés à la main
 // (~90 lignes) — les dupliquer une 2e fois aurait été un vrai risque de dérive visuelle entre
 // le wizard et l'écran de modification, pas juste une question de lignes économisées.
+// Labels and hints are getters, read in the current interface language.
 export const INSTALL_MODES = [
   {
     key: "interactive",
-    label: "Affichage interactif",
-    hint: "L'utilisateur peut différer jusqu'à 3 fois.",
+    get label() {
+      return tr("wiz.mode.interactive");
+    },
+    get hint() {
+      return tr("wiz.mode.interactiveHint");
+    },
     Icon: IconModeInteractive,
   },
   {
     key: "displayed",
-    label: "Affichage",
-    hint: "Notification visible, sans interaction possible.",
+    get label() {
+      return tr("wiz.mode.displayed");
+    },
+    get hint() {
+      return tr("wiz.mode.displayedHint");
+    },
     Icon: IconModeDisplayed,
   },
-  { key: "silent", label: "Silencieux", hint: "Aucune notification.", Icon: IconModeSilent },
+  {
+    key: "silent",
+    get label() {
+      return tr("wiz.mode.silent");
+    },
+    get hint() {
+      return tr("wiz.mode.silentHint");
+    },
+    Icon: IconModeSilent,
+  },
 ];
 
 // Un seul comportement de redémarrage à la fois (voir _RESTART_BEHAVIOR_OPTIONS côté backend,
 // intune/packaging.py) — présenté en radio, pas en cases indépendantes, pour ne pas pouvoir
 // générer une commande incohérente (/norestart ET /forcerestart en même temps).
 export const RESTART_BEHAVIORS = [
-  { key: "", label: "Comportement par défaut de l'installeur", Icon: IconRestartDefault },
-  { key: "norestart", label: "Ne jamais redémarrer", Icon: IconRestartNever },
-  { key: "promptrestart", label: "Demander avant de redémarrer", Icon: IconRestartPrompt },
-  { key: "forcerestart", label: "Forcer le redémarrage", Icon: IconRestartForce },
+  {
+    key: "",
+    get label() {
+      return tr("wiz.restart.default");
+    },
+    Icon: IconRestartDefault,
+  },
+  {
+    key: "norestart",
+    get label() {
+      return tr("wiz.restart.norestart");
+    },
+    Icon: IconRestartNever,
+  },
+  {
+    key: "promptrestart",
+    get label() {
+      return tr("wiz.restart.promptrestart");
+    },
+    Icon: IconRestartPrompt,
+  },
+  {
+    key: "forcerestart",
+    get label() {
+      return tr("wiz.restart.forcerestart");
+    },
+    Icon: IconRestartForce,
+  },
 ];
 
 export const DETECTION_MODES = [
-  { key: "greaterOrEqual", label: "Version installée ≥ version cible" },
-  { key: "equals", label: "Version installée = version cible" },
+  {
+    key: "greaterOrEqual",
+    get label() {
+      return tr("wiz.detection.greaterOrEqual");
+    },
+  },
+  {
+    key: "equals",
+    get label() {
+      return tr("wiz.detection.equals");
+    },
+  },
 ];
 
 // Étape "Configuration" scindée en 3 (2026-08-26, retour de Nicolas : "rendre la
@@ -193,9 +247,10 @@ export const DETECTION_MODES = [
 // (`step`, dans `DeployAppWizard`) — les numéros d'étape restent fixes/sémantiques (2 =
 // InstallModeStep, 3 = OptionsStep, peu importe si affichés) pour ne pas avoir à renuméroter
 // tout le reste du composant selon le type de source.
-const STEP_LABELS_MSI = ["Source", "Mode d'installation", "Options", "Détection", "Résultat"];
+// Translation keys of the step labels.
+const STEP_LABELS_MSI = ["wiz.step.source", "wiz.step.installMode", "wiz.step.options", "wiz.step.detection", "wiz.step.result"];
 const STEP_NUMBERS_MSI = [1, 2, 3, 4, 5];
-const STEP_LABELS_POWERSHELL = ["Source", "Détection", "Résultat"];
+const STEP_LABELS_POWERSHELL = ["wiz.step.source", "wiz.step.detection", "wiz.step.result"];
 const STEP_NUMBERS_POWERSHELL = [1, 4, 5];
 
 function sourceTypeFromFileName(fileName) {
@@ -207,13 +262,13 @@ function StepIndicator({ step, sourceType }) {
   const labels = sourceType === "powershell" ? STEP_LABELS_POWERSHELL : STEP_LABELS_MSI;
   const numbers = sourceType === "powershell" ? STEP_NUMBERS_POWERSHELL : STEP_NUMBERS_MSI;
   return (
-    <div className="wizard-steps" role="list" aria-label="Étapes de l'assistant">
+    <div className="wizard-steps" role="list" aria-label={tr("wiz.stepsAria")}>
       {labels.map((label, i) => {
         const n = numbers[i];
         return (
           <div key={label} className={`wizard-step${step === n ? " active" : ""}${step > n ? " done" : ""}`} role="listitem">
             <span className="wizard-step-index">{step > n ? "✓" : i + 1}</span>
-            <span className="wizard-step-label">{label}</span>
+            <span className="wizard-step-label">{tr(label)}</span>
           </div>
         );
       })}
@@ -223,14 +278,14 @@ function StepIndicator({ step, sourceType }) {
 
 function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return "—";
-  const units = ["o", "Ko", "Mo", "Go"];
+  const units = tr("wiz.units").split(",");
   let value = bytes;
   let i = 0;
   while (value >= 1024 && i < units.length - 1) {
     value /= 1024;
     i += 1;
   }
-  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  return `${value.toLocaleString(currentLocale(), { maximumFractionDigits: i === 0 ? 0 : 1, minimumFractionDigits: i === 0 ? 0 : 1 })} ${units[i]}`;
 }
 
 /** Date de publication d'une release GitHub, affichée à la place de la taille de fichier dans
@@ -240,7 +295,7 @@ function formatReleaseDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 /** Extrait `{owner, repo}` d'une entrée libre — un lien GitHub complet (avec ou sans
@@ -297,7 +352,7 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
       setSource(info);
       return info;
     } catch (err) {
-      setError(err.message || "Échec du dépôt du fichier.");
+      setError(err.message || tr("wiz.uploadFailed"));
       return null;
     } finally {
       setBusy(false);
@@ -329,7 +384,7 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
     e?.preventDefault();
     const parsed = parseGithubRepoInput(repoInput);
     if (!parsed) {
-      setError("Entrée invalide — attendu un lien GitHub (https://github.com/organisation/depot) ou « organisation/depot ».");
+      setError(tr("wiz.invalidRepo"));
       return;
     }
     setBusy(true);
@@ -342,7 +397,7 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
       setRepo(parsed);
       setReleases(data.releases || []);
     } catch (err) {
-      setError(err.message || "Échec de la recherche GitHub.");
+      setError(err.message || tr("wiz.githubSearchFailed"));
     } finally {
       setBusy(false);
     }
@@ -356,7 +411,7 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
       const data = await unwrap(api.packaging.githubLookup(id, repo.owner, repo.repo, rel.tagName));
       setSelectedRelease(data);
     } catch (err) {
-      setError(err.message || "Échec de la récupération de cette release.");
+      setError(err.message || tr("wiz.releaseFailed"));
     } finally {
       setBusy(false);
     }
@@ -369,7 +424,7 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
       const info = await unwrap(api.packaging.githubFetch(jobId, asset.downloadUrl, asset.name, repo?.owner, repo?.repo));
       setSource(info);
     } catch (err) {
-      setError(err.message || "Échec du téléchargement de l'asset.");
+      setError(err.message || tr("wiz.assetFailed"));
     } finally {
       setBusy(false);
     }
@@ -377,21 +432,21 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
 
   return (
     <div className="wizard-step-body">
-      <div className="wizard-source-toggle" role="group" aria-label="Origine de la source">
+      <div className="wizard-source-toggle" role="group" aria-label={tr("wiz.sourceOriginAria")}>
         <button type="button" className={`wizard-toggle-btn${mode === "upload" ? " active" : ""}`} onClick={() => setMode("upload")}>
-          Déposer un fichier
+          {tr("wiz.uploadFile")}
         </button>
         <button type="button" className={`wizard-toggle-btn${mode === "github" ? " active" : ""}`} onClick={() => setMode("github")}>
-          Depuis GitHub Releases
+          {tr("wiz.fromGithub")}
         </button>
       </div>
 
       {mode === "upload" && (
         <div className="wizard-source-panel">
-          <p className="card-note">Installeur MSI ou script PowerShell (.ps1) de l'application à packager.</p>
+          <p className="card-note">{tr("wiz.uploadNote")}</p>
           <button type="button" className="wizard-upload-drop" onClick={() => fileInputRef.current?.click()} disabled={busy}>
             <IconUpload />
-            <span>Choisir un fichier .msi ou .ps1…</span>
+            <span>{tr("apps.chooseFile")}</span>
           </button>
           <input ref={fileInputRef} type="file" accept=".msi,.ps1" hidden onChange={handleFileChange} />
         </div>
@@ -400,19 +455,18 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
       {mode === "github" && (
         <div className="wizard-source-panel">
           <p className="card-note">
-            Lien du dépôt (ex. https://github.com/ip7z/7zip) ou raccourci « organisation/dépôt » (ex. ip7z/7zip) —
-            liste toutes les releases publiées.
+            {tr("wiz.githubNote")}
           </p>
           <form className="wizard-github-form" onSubmit={handleGithubSearch}>
             <input
               type="text"
               className="filter-input"
-              placeholder="https://github.com/organisation/depot ou organisation/depot"
+              placeholder={tr("wiz.githubPlaceholder")}
               value={repoInput}
               onChange={(e) => setRepoInput(e.target.value)}
             />
             <button type="submit" className="wizard-secondary-btn" disabled={busy || !repoInput.trim()}>
-              Rechercher
+              {tr("wiz.search")}
             </button>
           </form>
 
@@ -422,8 +476,8 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
               deux écrans successifs plutôt qu'un seul. */}
           {releases && !selectedRelease && (
             <div className="wizard-github-assets">
-              <p className="filter-chip-group-label">{releases.length} release{releases.length > 1 ? "s" : ""} — choisis une version</p>
-              {releases.length === 0 && <p className="empty">Aucune release publiée sur ce dépôt.</p>}
+              <p className="filter-chip-group-label">{tr("wiz.releases", { count: releases.length })}</p>
+              {releases.length === 0 && <p className="empty">{tr("wiz.noRelease")}</p>}
               {releases.map((rel) => (
                 <button
                   type="button"
@@ -443,13 +497,13 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
             <div className="wizard-github-assets">
               <div className="wizard-result-row">
                 <p className="filter-chip-group-label">
-                  {selectedRelease.tagName || "release"} — choisis l'asset à packager
+                  {tr("wiz.pickAsset", { tag: selectedRelease.tagName || "release" })}
                 </p>
                 <button type="button" className="wizard-copy-btn" onClick={() => setSelectedRelease(null)}>
-                  ‹ Toutes les versions
+                  {tr("wiz.allVersions")}
                 </button>
               </div>
-              {selectedRelease.assets.length === 0 && <p className="empty">Aucun asset publié sur cette release.</p>}
+              {selectedRelease.assets.length === 0 && <p className="empty">{tr("wiz.noAsset")}</p>}
               {selectedRelease.assets.map((asset) => (
                 <button
                   type="button"
@@ -467,22 +521,22 @@ function SourceStep({ jobId, ensureJob, source, setSource, onNext, initialFile }
         </div>
       )}
 
-      {busy && <p className="card-note">Traitement en cours…</p>}
+      {busy && <p className="card-note">{tr("wiz.processing")}</p>}
       {error && <p className="error-note">{error}</p>}
 
       {source && (
         <div className="wizard-source-confirmed">
-          <p className="filter-chip-group-label">Source déposée</p>
+          <p className="filter-chip-group-label">{tr("wiz.sourceUploaded")}</p>
           <p className="cve-mono cve-small">{source.fileName} · {formatBytes(source.sizeBytes)}</p>
-          <p className="cve-mono cve-small wizard-sha" title="SHA256 — à comparer visuellement avec la source d'origine si besoin">
-            SHA256 : {source.sha256}
+          <p className="cve-mono cve-small wizard-sha" title={tr("wiz.shaTitle")}>
+            {tr("wiz.sha", { sha: source.sha256 })}
           </p>
         </div>
       )}
 
       <div className="wizard-actions">
         <button type="button" className="wizard-primary-btn" disabled={!source} onClick={() => onNext(source)}>
-          Suivant
+          {tr("wiz.next")}
         </button>
       </div>
     </div>
@@ -502,8 +556,8 @@ function InstallModeStep({ installMode, setInstallMode, onNext, onBack }) {
   return (
     <div className="wizard-step-body">
       <div className="wizard-field-group">
-        <p className="filter-chip-group-label">Mode d'installation</p>
-        <div className="wizard-mode-grid" role="radiogroup" aria-label="Mode d'installation">
+        <p className="filter-chip-group-label">{tr("wiz.step.installMode")}</p>
+        <div className="wizard-mode-grid" role="radiogroup" aria-label={tr("wiz.step.installMode")}>
           {INSTALL_MODES.map((m) => (
             <label key={m.key} className="wizard-mode-card">
               <input type="radio" name="installMode" checked={installMode === m.key} onChange={() => setInstallMode(m.key)} />
@@ -519,10 +573,10 @@ function InstallModeStep({ installMode, setInstallMode, onNext, onBack }) {
 
       <div className="wizard-actions">
         <button type="button" className="wizard-secondary-btn" onClick={onBack}>
-          Retour
+          {tr("wiz.back")}
         </button>
         <button type="button" className="wizard-primary-btn" onClick={onNext}>
-          Suivant
+          {tr("wiz.next")}
         </button>
       </div>
     </div>
@@ -537,11 +591,11 @@ function OptionsStep({ restartBehavior, setRestartBehavior, logVerbose, setLogVe
   return (
     <div className="wizard-step-body">
       <div className="wizard-field-group">
-        <p className="filter-chip-group-label">Options complémentaires</p>
+        <p className="filter-chip-group-label">{tr("wiz.extraOptions")}</p>
         <div
           className="wizard-mode-grid wizard-mode-grid-compact"
           role="radiogroup"
-          aria-label="Comportement de redémarrage"
+          aria-label={tr("wiz.restartAria")}
         >
           {RESTART_BEHAVIORS.map((r) => (
             <label key={r.key || "default"} className="wizard-mode-card">
@@ -555,16 +609,16 @@ function OptionsStep({ restartBehavior, setRestartBehavior, logVerbose, setLogVe
         </div>
         <label className="wizard-checkbox-row">
           <input type="checkbox" checked={logVerbose} onChange={(e) => setLogVerbose(e.target.checked)} />
-          <span>Journalisation détaillée (/l*v)</span>
+          <span>{tr("wiz.verboseLog")}</span>
         </label>
       </div>
 
       <div className="wizard-actions">
         <button type="button" className="wizard-secondary-btn" onClick={onBack}>
-          Retour
+          {tr("wiz.back")}
         </button>
         <button type="button" className="wizard-primary-btn" onClick={onNext}>
-          Suivant
+          {tr("wiz.next")}
         </button>
       </div>
     </div>
@@ -613,7 +667,7 @@ function DetectionStep({
       );
       onPackaged(result);
     } catch (err) {
-      setError(err.message || "Échec du packaging.");
+      setError(err.message || tr("wiz.packagingFailed"));
     } finally {
       setBusy(false);
     }
@@ -624,19 +678,19 @@ function DetectionStep({
   return (
     <div className="wizard-step-body">
       <div className="wizard-field-group">
-        <p className="filter-chip-group-label">Règle de détection</p>
+        <p className="filter-chip-group-label">{tr("wiz.detectionRule")}</p>
         <div className="wizard-detection-fields">
           <input
             type="text"
             className="filter-input"
-            placeholder="Nom de l'application (DisplayName)"
+            placeholder={tr("wiz.appNameDisplay")}
             value={applicationName}
             onChange={(e) => setApplicationName(e.target.value)}
           />
           <input
             type="text"
             className="filter-input"
-            placeholder="Version cible (ex. 24.09.0)"
+            placeholder={tr("wiz.targetVersion")}
             value={version}
             onChange={(e) => setVersion(e.target.value)}
           />
@@ -656,10 +710,9 @@ function DetectionStep({
           explicite tranchée via AskUserQuestion avant l'implémentation. */}
       {sourceType === "powershell" && (
         <div className="wizard-field-group">
-          <p className="filter-chip-group-label">Commande de désinstallation</p>
+          <p className="filter-chip-group-label">{tr("apps.uninstallCommand")}</p>
           <p className="card-note">
-            Aucune génération automatique possible pour un script — à saisir à la main (ex. commande d'appel de ton
-            propre script de désinstallation).
+            {tr("wiz.manualUninstall")}
           </p>
           <input
             type="text"
@@ -675,10 +728,10 @@ function DetectionStep({
 
       <div className="wizard-actions">
         <button type="button" className="wizard-secondary-btn" onClick={onBack} disabled={busy}>
-          Retour
+          {tr("wiz.back")}
         </button>
         <button type="button" className="wizard-primary-btn" onClick={handleSubmit} disabled={!canSubmit}>
-          {busy ? "Packaging en cours…" : "Lancer le packaging"}
+          {busy ? tr("wiz.packaging") : tr("wiz.startPackaging")}
         </button>
       </div>
     </div>
@@ -725,7 +778,7 @@ function ResultStep({ jobId, result, onClose, onSavedToLibrary }) {
       setSaved(true);
       onSavedToLibrary(entry);
     } catch (err) {
-      setSaveError(err.message || "Échec de l'ajout à la bibliothèque.");
+      setSaveError(err.message || tr("wiz.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -734,15 +787,14 @@ function ResultStep({ jobId, result, onClose, onSavedToLibrary }) {
   return (
     <div className="wizard-step-body">
       <p className="card-note">
-        <code className="cve-mono">{result.intunewinFileName}</code> généré. Vérifie/ajuste ci-dessous avant de le coller dans
-        Intune.
+        {trRich("wiz.generated", { file: <code className="cve-mono">{result.intunewinFileName}</code> })}
       </p>
 
       <div className="wizard-result-grid">
         <div className="wizard-result-col">
           <div className="wizard-field-group">
             <div className="wizard-result-row">
-              <p className="filter-chip-group-label">Commande d'installation</p>
+              <p className="filter-chip-group-label">{tr("apps.installCommand")}</p>
               <CopyButton text={result.installCommand} />
             </div>
             <pre className="wizard-code-block">{result.installCommand}</pre>
@@ -750,14 +802,14 @@ function ResultStep({ jobId, result, onClose, onSavedToLibrary }) {
 
           <div className="wizard-field-group">
             <div className="wizard-result-row">
-              <p className="filter-chip-group-label">Commande de désinstallation</p>
+              <p className="filter-chip-group-label">{tr("apps.uninstallCommand")}</p>
               <CopyButton text={result.uninstallCommand} />
             </div>
             <pre className="wizard-code-block">{result.uninstallCommand}</pre>
           </div>
 
           <div className="wizard-field-group">
-            <p className="filter-chip-group-label">Configuration requise</p>
+            <p className="filter-chip-group-label">{tr("apps.requirements")}</p>
             <div className="wizard-requirements">
               {result.requirements?.operatingSystem && (
                 <span className="wizard-requirement-badge">{result.requirements.operatingSystem}</span>
@@ -772,7 +824,7 @@ function ResultStep({ jobId, result, onClose, onSavedToLibrary }) {
         <div className="wizard-result-col">
           <div className="wizard-field-group">
             <div className="wizard-result-row">
-              <p className="filter-chip-group-label">Script de détection</p>
+              <p className="filter-chip-group-label">{tr("apps.detectionScript")}</p>
               <CopyButton text={result.detectionScript} />
             </div>
             <pre className="wizard-code-block wizard-code-block-tall">{result.detectionScript}</pre>
@@ -781,30 +833,30 @@ function ResultStep({ jobId, result, onClose, onSavedToLibrary }) {
       </div>
 
       <div className="wizard-field-group">
-        <p className="filter-chip-group-label">Ajouter à la bibliothèque</p>
+        <p className="filter-chip-group-label">{tr("apps.addToLibrary")}</p>
         {saved ? (
-          <p className="card-note">Ajoutée à la bibliothèque — retrouvable dans Bibliothèque d'application.</p>
+          <p className="card-note">{tr("wiz.savedToLibrary")}</p>
         ) : (
           <>
             <div className="wizard-github-form">
               <input
                 type="text"
                 className="filter-input"
-                placeholder="Nom de l'application"
+                placeholder={tr("apps.nameAria")}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                aria-label="Nom de l'application pour la bibliothèque"
+                aria-label={tr("wiz.libraryNameAria")}
               />
               <input
                 type="text"
                 className="filter-input"
-                placeholder="Éditeur (optionnel)"
+                placeholder={tr("wiz.publisherOptional")}
                 value={publisher}
                 onChange={(e) => setPublisher(e.target.value)}
-                aria-label="Éditeur pour la bibliothèque"
+                aria-label={tr("wiz.publisherAria")}
               />
               <button type="button" className="wizard-secondary-btn" onClick={handleSave} disabled={saving || !displayName.trim()}>
-                {saving ? "Ajout…" : "Ajouter"}
+                {saving ? tr("apps.adding") : tr("wiz.add")}
               </button>
             </div>
             <IconPicker
@@ -821,11 +873,11 @@ function ResultStep({ jobId, result, onClose, onSavedToLibrary }) {
 
       <div className="wizard-actions">
         <button type="button" className="wizard-secondary-btn" onClick={onClose}>
-          Fermer
+          {tr("wiz.close")}
         </button>
         <a className="wizard-primary-btn wizard-download-link" href={api.packaging.downloadUrl(jobId)} download>
           <IconDownload />
-          Télécharger le package
+          {tr("apps.downloadPackage")}
         </a>
       </div>
     </div>
@@ -915,17 +967,17 @@ export default function DeployAppWizard({ onClose, onSavedToLibrary = () => {}, 
         ref={shellRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Déployer une application"
+        aria-label={tr("apps.deploy")}
       >
         <div className="wizard-header">
           <span className="wizard-header-icon">
             <IconPackage />
           </span>
           <div className="wizard-header-text">
-            <h2>Déployer une application</h2>
-            <p className="card-note">Prépare un package Win32 pour Intune — ne publie rien automatiquement.</p>
+            <h2>{tr("apps.deploy")}</h2>
+            <p className="card-note">{tr("wiz.subtitle")}</p>
           </div>
-          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer l'assistant">
+          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("wiz.closeAria")}>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>

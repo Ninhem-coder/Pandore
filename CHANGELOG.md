@@ -8,6 +8,14 @@ changes are listed under *Unreleased* until the first public version.
 
 ### Added
 
+- **Interface language (French / English)**: a globe button in the sidebar rail opens a language
+  menu; the choice is remembered per browser. The application shell and every Pandore page
+  (dashboard, devices, compliance, Secure Score, alerts, vulnerabilities, CVE watch,
+  applications), every Vanitas page (overview, endpoints and their detail page, groups,
+  compliance, vulnerabilities, end-of-life software, applications and deployments, Windows
+  updates, activity log, enrollment, profiles, suspicious activity) and the in-app Vanitas
+  documentation are translated, as are the Excel exports; dates and numbers follow the
+  language's format. Messages coming from the backend and the demo data are still French.
 - **Demo mode** (`npm run demo`): the dashboard runs entirely in the browser with a generated,
   fictional and deterministic dataset — no backend, tenant or secret. A "Mode démo" badge marks
   every page; writes are refused. `npm run build:demo` produces a static demo build. The README
@@ -40,6 +48,8 @@ changes are listed under *Unreleased* until the first public version.
 
 ### Fixed
 
+- Demo mode: command ids were only unique per endpoint, so the fleet-wide command lists
+  (Vanitas overview) rendered rows with duplicate React keys.
 - The Vanitas server could not start on a fresh database: a migration created the
   `agent_packages` table a second time.
 - The Vanitas status in the sidebar stayed on "…" forever when the server was unreachable.

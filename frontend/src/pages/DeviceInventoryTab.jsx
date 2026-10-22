@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDeviceInventory } from "../hooks/useDashboardData.js";
-import { COMPLIANCE_COLORS, COMPLIANCE_LABEL_FR, EXPOSURE_LEVEL_COLORS, EXPOSURE_LEVEL_LABEL_FR } from "../theme.js";
+import { COMPLIANCE_COLORS, COMPLIANCE_LABEL, EXPOSURE_LEVEL_COLORS, EXPOSURE_LEVEL_LABEL } from "../theme.js";
+import { currentLocale, tr } from "../i18n/core.js";
 
 /**
  * Onglet "Appareil" > "Inventaire" (2026-09-02, maquette validée par Nicolas — "il me faut ton
@@ -76,9 +77,9 @@ function fmtRelative(value) {
   if (Number.isNaN(then)) return null;
   const diffMs = Date.now() - then;
   const diffH = diffMs / 3_600_000;
-  if (diffH < 1) return "il y a quelques minutes";
-  if (diffH < 24) return `il y a ${Math.round(diffH)} h`;
-  return `il y a ${Math.round(diffH / 24)} j`;
+  if (diffH < 1) return tr("rel.minutes");
+  if (diffH < 24) return tr("rel.hours", { n: Math.round(diffH) });
+  return tr("rel.days", { n: Math.round(diffH / 24) });
 }
 
 /** Le plus récent des deux horodatages disponibles ("dernière connexion" tous systèmes
@@ -97,21 +98,21 @@ function isStale(row) {
 }
 
 function CompliancePill({ state, hasIntune }) {
-  if (!hasIntune) return <span className="device-inv-pill neutral">Non renseigné</span>;
+  if (!hasIntune) return <span className="device-inv-pill neutral">{tr("inv.notSet")}</span>;
   const color = COMPLIANCE_COLORS[state] || COMPLIANCE_COLORS.unknown;
   return (
     <span className="device-inv-pill" style={{ color, background: `${color}22` }}>
-      {COMPLIANCE_LABEL_FR[state] || state || "Inconnu"}
+      {COMPLIANCE_LABEL[state] || state || tr("common.unknown")}
     </span>
   );
 }
 
 function ExposurePill({ level, hasDefender }) {
-  if (!hasDefender) return <span className="device-inv-pill neutral">Non renseigné</span>;
+  if (!hasDefender) return <span className="device-inv-pill neutral">{tr("inv.notSet")}</span>;
   const color = EXPOSURE_LEVEL_COLORS[level] || EXPOSURE_LEVEL_COLORS.Unknown;
   return (
     <span className="device-inv-pill" style={{ color, background: `${color}22` }}>
-      {EXPOSURE_LEVEL_LABEL_FR[level] || level || "Inconnue"}
+      {EXPOSURE_LEVEL_LABEL[level] || level || tr("inv.unknownF")}
     </span>
   );
 }
@@ -119,21 +120,28 @@ function ExposurePill({ level, hasDefender }) {
 function HealthPill({ status, hasDefender }) {
   if (!hasDefender) return <span className="device-inv-pill neutral">—</span>;
   const tone = status === "Active" ? "ok" : status ? "bad" : "neutral";
-  return <span className={`device-inv-pill ${tone}`}>{status || "Inconnu"}</span>;
+  return <span className={`device-inv-pill ${tone}`}>{status || tr("common.unknown")}</span>;
 }
 
+// "Tous"/"Autre" are internal OS bucket values (see osBucket); `osFilterLabel` translates them.
 const OS_FILTERS = ["Tous", "Windows", "iOS/iPadOS", "Android", "macOS", "Linux", "Autre"];
+function osFilterLabel(os) {
+  if (os === "Tous") return tr("common.all");
+  if (os === "Autre") return tr("inv.osOther");
+  return os;
+}
+// [key, translation key]
 const COMPLIANCE_FILTERS = [
-  ["all", "Toutes"],
-  ["compliant", "Conforme"],
-  ["noncompliant", "Non conforme"],
-  ["na", "Non renseigné"],
+  ["all", "inv.allF"],
+  ["compliant", "compliance.state.compliant"],
+  ["noncompliant", "compliance.state.noncompliant"],
+  ["na", "inv.notSet"],
 ];
 const EXPOSURE_FILTERS = [
-  ["all", "Toutes"],
-  ["High", "Élevée"],
-  ["Medium", "Moyenne"],
-  ["Low", "Faible"],
+  ["all", "inv.allF"],
+  ["High", "exposure.High"],
+  ["Medium", "exposure.Medium"],
+  ["Low", "exposure.Low"],
 ];
 
 export default function DeviceInventoryTab({ onNavigate }) {
@@ -192,7 +200,7 @@ export default function DeviceInventoryTab({ onNavigate }) {
   if (inventory.state.status === "loading") {
     return (
       <div className="card">
-        <p className="card-note">Chargement de l'inventaire (Intune + Defender)…</p>
+        <p className="card-note">{tr("inv.loading")}</p>
       </div>
     );
   }
@@ -206,7 +214,7 @@ export default function DeviceInventoryTab({ onNavigate }) {
   if (!stats) {
     return (
       <div className="card">
-        <p className="empty">Aucun appareil trouvé, ni dans Intune ni dans Defender.</p>
+        <p className="empty">{tr("inv.empty")}</p>
       </div>
     );
   }
@@ -215,24 +223,24 @@ export default function DeviceInventoryTab({ onNavigate }) {
     <div className="device-inv-layout">
       <div className="device-inv-kpi-strip">
         <div className="device-inv-kpi">
-          <span className="lbl">Appareils au total</span>
-          <span className="val">{stats.total.toLocaleString("fr-FR")}</span>
+          <span className="lbl">{tr("inv.kpi.total")}</span>
+          <span className="val">{stats.total.toLocaleString(currentLocale())}</span>
           <span className="note">Intune ∪ Defender</span>
         </div>
         <div className="device-inv-kpi accent-amber">
-          <span className="lbl">Non conformes</span>
-          <span className="val">{stats.nonCompliant.toLocaleString("fr-FR")}</span>
-          <span className="note">Intune, toutes politiques</span>
+          <span className="lbl">{tr("inv.kpi.nonCompliant")}</span>
+          <span className="val">{stats.nonCompliant.toLocaleString(currentLocale())}</span>
+          <span className="note">{tr("inv.kpi.allPolicies")}</span>
         </div>
         <div className="device-inv-kpi accent-star">
-          <span className="lbl">Exposition élevée</span>
-          <span className="val">{stats.highExposure.toLocaleString("fr-FR")}</span>
+          <span className="lbl">{tr("inv.kpi.highExposure")}</span>
+          <span className="val">{stats.highExposure.toLocaleString(currentLocale())}</span>
           <span className="note">Defender</span>
         </div>
         <div className="device-inv-kpi accent-low">
-          <span className="lbl">Silencieux &gt; {STALE_DAYS}j</span>
-          <span className="val">{stats.stale.toLocaleString("fr-FR")}</span>
-          <span className="note">aucun check-in récent</span>
+          <span className="lbl">{tr("inv.kpi.silent", { days: STALE_DAYS })}</span>
+          <span className="val">{stats.stale.toLocaleString(currentLocale())}</span>
+          <span className="note">{tr("inv.kpi.noCheckin")}</span>
         </div>
       </div>
 
@@ -245,7 +253,7 @@ export default function DeviceInventoryTab({ onNavigate }) {
           <input
             className="filter-input device-inv-search-input"
             type="text"
-            placeholder="Rechercher un appareil ou un utilisateur…"
+            placeholder={tr("inv.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -261,37 +269,37 @@ export default function DeviceInventoryTab({ onNavigate }) {
                   className={`filter-chip${osFilter === os ? " active" : ""}`}
                   onClick={() => setOsFilter(os)}
                 >
-                  {os} <span style={{ opacity: 0.6 }}>{osCounts[os] || 0}</span>
+                  {osFilterLabel(os)} <span style={{ opacity: 0.6 }}>{osCounts[os] || 0}</span>
                 </button>
               ))}
             </div>
           </div>
           <div className="device-inv-filter-row">
-            <span className="device-inv-filter-label">Conformité</span>
+            <span className="device-inv-filter-label">{tr("inv.compliance")}</span>
             <div className="chip-group">
-              {COMPLIANCE_FILTERS.map(([key, label]) => (
+              {COMPLIANCE_FILTERS.map(([key, labelKey]) => (
                 <button
                   key={key}
                   type="button"
                   className={`filter-chip${complianceFilter === key ? " active" : ""}`}
                   onClick={() => setComplianceFilter(key)}
                 >
-                  {label}
+                  {tr(labelKey)}
                 </button>
               ))}
             </div>
           </div>
           <div className="device-inv-filter-row">
-            <span className="device-inv-filter-label">Exposition</span>
+            <span className="device-inv-filter-label">{tr("inv.exposure")}</span>
             <div className="chip-group">
-              {EXPOSURE_FILTERS.map(([key, label]) => (
+              {EXPOSURE_FILTERS.map(([key, labelKey]) => (
                 <button
                   key={key}
                   type="button"
                   className={`filter-chip${exposureFilter === key ? " active" : ""}`}
                   onClick={() => setExposureFilter(key)}
                 >
-                  {label}
+                  {tr(labelKey)}
                 </button>
               ))}
             </div>
@@ -301,22 +309,22 @@ export default function DeviceInventoryTab({ onNavigate }) {
 
       <div className="device-inv-table-card">
         <div className="card-head">
-          <h2>Appareils</h2>
+          <h2>{tr("inv.devices")}</h2>
           <span className="card-note">
-            {sorted.length}/{stats.total} affichés · triés par dernière connexion
+            {tr("inv.shown", { shown: sorted.length, total: stats.total })}
           </span>
         </div>
         <div className="device-inv-table-wrap">
           <table className="device-inv-table">
             <thead>
               <tr>
-                <th>Appareil</th>
-                <th>Utilisateur</th>
-                <th>Conformité (Intune)</th>
-                <th>Exposition (Defender)</th>
-                <th>Santé capteur</th>
-                <th>Dernière connexion</th>
-                <th>Sources</th>
+                <th>{tr("inv.col.device")}</th>
+                <th>{tr("inv.col.user")}</th>
+                <th>{tr("inv.col.compliance")}</th>
+                <th>{tr("inv.col.exposure")}</th>
+                <th>{tr("inv.col.health")}</th>
+                <th>{tr("inv.col.lastSeen")}</th>
+                <th>{tr("inv.col.sources")}</th>
                 <th aria-hidden="true"></th>
               </tr>
             </thead>
@@ -324,7 +332,7 @@ export default function DeviceInventoryTab({ onNavigate }) {
               {sorted.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="empty">
-                    Aucun appareil pour ce filtre.
+                    {tr("inv.noDeviceForFilter")}
                   </td>
                 </tr>
               ) : (
@@ -340,11 +348,11 @@ export default function DeviceInventoryTab({ onNavigate }) {
                           </span>
                           <div>
                             <div className="device-inv-name">{d.name}</div>
-                            <div className="device-inv-os-label">{d.operating_system || "OS inconnu"}</div>
+                            <div className="device-inv-os-label">{d.operating_system || tr("common.unknownOs")}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="device-inv-user-cell">{d.user || <span className="device-inv-none">Non assigné</span>}</td>
+                      <td className="device-inv-user-cell">{d.user || <span className="device-inv-none">{tr("inv.unassigned")}</span>}</td>
                       <td>
                         <CompliancePill state={d.compliance_state} hasIntune={d.has_intune} />
                       </td>
@@ -364,7 +372,7 @@ export default function DeviceInventoryTab({ onNavigate }) {
                         </div>
                       </td>
                       <td>
-                        <span className="device-inv-goto">Voir la fiche 360° ›</span>
+                        <span className="device-inv-goto">{tr("inv.open360")}</span>
                       </td>
                     </tr>
                   );

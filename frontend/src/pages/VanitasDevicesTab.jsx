@@ -26,6 +26,7 @@ import {
   summarizeGroupRules,
   toneVar,
 } from "./vanitasShared.jsx";
+import { tr } from "../i18n/core.js";
 
 function sortVal(a, key) {
   if (key === "hostname") return a.hostname ?? "";
@@ -111,7 +112,7 @@ export default function VanitasDevicesTab({ vanitasNav }) {
       await exportPostesToExcel(agents.state.data ?? [], groupById, latestCommandByAgent, isOnline);
       setExportState({ status: "idle", error: null });
     } catch (err) {
-      setExportState({ status: "idle", error: err.message || "Échec de l'export Excel." });
+      setExportState({ status: "idle", error: err.message || tr("v.exportFailed") });
     }
   }
 
@@ -272,7 +273,8 @@ export default function VanitasDevicesTab({ vanitasNav }) {
       <div className="vanitas-hud-strip">
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
           <div className="label">
-            Postes<span className="tag">TOTAL</span>
+            {tr("vd.endpoints")}
+            <span className="tag">{tr("vd.total")}</span>
           </div>
           <div className="value">{counts.total}</div>
           <div className="bar">
@@ -281,7 +283,8 @@ export default function VanitasDevicesTab({ vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-good)" }}>
           <div className="label">
-            En ligne<span className="tag">LIVE</span>
+            {tr("vd.online")}
+            <span className="tag">LIVE</span>
           </div>
           <div className="value">{counts.online}</div>
           <div className="bar">
@@ -290,7 +293,8 @@ export default function VanitasDevicesTab({ vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-warn)" }}>
           <div className="label">
-            Certificat<span className="tag">&lt; 30J</span>
+            {tr("vd.certificate")}
+            <span className="tag">{tr("vd.certTag")}</span>
           </div>
           <div className="value">{counts.cert}</div>
           <div className="bar">
@@ -299,7 +303,8 @@ export default function VanitasDevicesTab({ vanitasNav }) {
         </div>
         <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
           <div className="label">
-            Silencieux<span className="tag">&gt; 7J</span>
+            {tr("vd.silent")}
+            <span className="tag">{tr("vd.silentTag")}</span>
           </div>
           <div className="value">{counts.stale}</div>
           <div className="bar">
@@ -321,32 +326,36 @@ export default function VanitasDevicesTab({ vanitasNav }) {
         </div>
         <div className="vanitas-hud-chips">
           <button type="button" className={`vanitas-hud-chip${filter === "all" ? " active" : ""}`} onClick={() => setFilter("all")}>
-            <span className="led" />TOUS <span className="n">{counts.total}</span>
+            <span className="led" />
+            {tr("vd.chip.all")} <span className="n">{counts.total}</span>
           </button>
           <button type="button" className={`vanitas-hud-chip${filter === "online" ? " active" : ""}`} onClick={() => setFilter("online")}>
-            <span className="led" />EN LIGNE <span className="n">{counts.online}</span>
+            <span className="led" />
+            {tr("vd.chip.online")} <span className="n">{counts.online}</span>
           </button>
           <button
             type="button"
             className={`vanitas-hud-chip tone-high${filter === "offline" ? " active" : ""}`}
             onClick={() => setFilter("offline")}
           >
-            <span className="led" />SILENCIEUX <span className="n">{counts.offline}</span>
+            <span className="led" />
+            {tr("vd.chip.silent")} <span className="n">{counts.offline}</span>
           </button>
           <button type="button" className={`vanitas-hud-chip tone-high${filter === "cert" ? " active" : ""}`} onClick={() => setFilter("cert")}>
-            <span className="led" />CERT. &lt; 30J <span className="n">{counts.cert}</span>
+            <span className="led" />
+            {tr("vd.chip.cert")} <span className="n">{counts.cert}</span>
           </button>
         </div>
       </div>
 
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
-          <h2>{rows.length === counts.total ? `${counts.total} POSTES` : `${rows.length} / ${counts.total} POSTES`}</h2>
+          <h2>{rows.length === counts.total ? tr("vd.countAll", { count: counts.total }) : tr("vd.countOf", { shown: rows.length, count: counts.total })}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span className="vanitas-hud-card-note">CLIC LIGNE → FICHE POSTE</span>
+            <span className="vanitas-hud-card-note">{tr("vd.clickRow")}</span>
             <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
               <IconDownload />
-              {exportState.status === "exporting" ? "Export…" : "Exporter Excel"}
+              {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
             </button>
           </div>
         </div>
@@ -356,19 +365,19 @@ export default function VanitasDevicesTab({ vanitasNav }) {
             <thead>
               <tr>
                 <th className={`sortable${sortKey === "hostname" ? " sorted" : ""}`} onClick={() => handleSort("hostname")}>
-                  Poste <span className="arrow">{sortKey === "hostname" && sortDir === -1 ? "▴" : "▾"}</span>
+                  {tr("vd.col.endpoint")} <span className="arrow">{sortKey === "hostname" && sortDir === -1 ? "▴" : "▾"}</span>
                 </th>
                 <th className={`sortable${sortKey === "lastSeen" ? " sorted" : ""}`} onClick={() => handleSort("lastSeen")}>
-                  Statut <span className="arrow">{sortKey === "lastSeen" && sortDir === -1 ? "▴" : "▾"}</span>
+                  {tr("vd.col.status")} <span className="arrow">{sortKey === "lastSeen" && sortDir === -1 ? "▴" : "▾"}</span>
                 </th>
                 <th className={`sortable${sortKey === "certDays" ? " sorted" : ""}`} onClick={() => handleSort("certDays")}>
-                  Certificat <span className="arrow">{sortKey === "certDays" && sortDir === -1 ? "▴" : "▾"}</span>
+                  {tr("vd.col.certificate")} <span className="arrow">{sortKey === "certDays" && sortDir === -1 ? "▴" : "▾"}</span>
                 </th>
                 <th className={`sortable${sortKey === "apps" ? " sorted" : ""}`} onClick={() => handleSort("apps")}>
-                  Applications <span className="arrow">{sortKey === "apps" && sortDir === -1 ? "▴" : "▾"}</span>
+                  {tr("vd.col.apps")} <span className="arrow">{sortKey === "apps" && sortDir === -1 ? "▴" : "▾"}</span>
                 </th>
-                <th>Groupe</th>
-                <th>Dernière commande</th>
+                <th>{tr("vd.col.group")}</th>
+                <th>{tr("vd.col.lastCommand")}</th>
                 <th></th>
                 <th></th>
               </tr>
@@ -376,12 +385,12 @@ export default function VanitasDevicesTab({ vanitasNav }) {
             <tbody>
               {agents.state.status === "loading" ? (
                 <tr className="vanitas-hud-empty">
-                  <td colSpan={8}>CHARGEMENT…</td>
+                  <td colSpan={8}>{tr("v.loading")}</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr className="vanitas-hud-empty">
                   <td colSpan={8}>
-                    {counts.total === 0 ? "AUCUN AGENT ENRÔLÉ POUR L'INSTANT" : "0 RÉSULTAT — AUCUN POSTE NE CORRESPOND"}
+                    {counts.total === 0 ? tr("vd.noAgent") : tr("vd.noMatch")}
                   </td>
                 </tr>
               ) : (
@@ -391,24 +400,24 @@ export default function VanitasDevicesTab({ vanitasNav }) {
                   const tone = toneVar(certTone(days));
                   const cmd = latestCommandByAgent.get(a.id);
                   return (
-                    <tr key={a.id} tabIndex={0} role="button" aria-label={`Ouvrir la fiche de ${a.hostname}`} onClick={() => selectAgent(a.id)}>
+                    <tr key={a.id} tabIndex={0} role="button" aria-label={tr("vd.openAria", { host: a.hostname })} onClick={() => selectAgent(a.id)}>
                       <td className="vanitas-hud-host">
                         <span className="name">{a.hostname}</span>
                         <span className="id">
-                          {a.id.slice(0, 12)}… · agent {a.agent_version ? `v${a.agent_version}` : "version inconnue"}
+                          {a.id.slice(0, 12)}… · {tr("vd.agentVersion", { version: a.agent_version ? `v${a.agent_version}` : tr("vd.unknownVersion") })}
                         </span>
                       </td>
                       <td>
                         <div className="vanitas-hud-status">
                           <span className={`vanitas-hud-pulse ${online ? "on" : "off"}`} />
-                          <span className={`lbl${online ? "" : " off"}`}>{online ? "EN LIGNE" : "SILENCIEUX"}</span>
+                          <span className={`lbl${online ? "" : " off"}`}>{tr(online ? "vd.chip.online" : "vd.chip.silent")}</span>
                           <span className="meta">{fmtRelative(a.last_seen)}</span>
                         </div>
                       </td>
                       <td className="vanitas-hud-cert">
                         <CertSegBar days={days} />
                         <span className="vanitas-hud-cert-days" style={{ color: tone }}>
-                          {days === null ? "—" : `${Math.max(0, Math.round(days))} J RESTANTS`}
+                          {days === null ? "—" : tr("vd.daysLeft", { n: Math.max(0, Math.round(days)) })}
                         </span>
                       </td>
                       <td>
@@ -424,7 +433,7 @@ export default function VanitasDevicesTab({ vanitasNav }) {
                               <span
                                 key={gid}
                                 className={`vanitas-hud-group-chip${isDynamic ? " dynamic" : ""}`}
-                                title={isDynamic ? `Membre automatique (règle : ${summarizeGroupRules(g.rules)})` : g.name}
+                                title={isDynamic ? tr("vd.dynamicMember", { rule: summarizeGroupRules(g.rules) }) : g.name}
                               >
                                 {g.name}
                                 {!isDynamic && (
@@ -441,7 +450,7 @@ export default function VanitasDevicesTab({ vanitasNav }) {
                               value=""
                               onChange={(e) => handleAddToGroup(a.id, e.target.value)}
                             >
-                              <option value="">+ groupe</option>
+                              <option value="">{tr("vd.addGroup")}</option>
                               {staticGroups
                                 .filter((g) => !(a.group_ids ?? []).includes(g.id))
                                 .map((g) => (
@@ -463,22 +472,22 @@ export default function VanitasDevicesTab({ vanitasNav }) {
                                   cmd.status === "pending" || cmd.status === "running" ? "pending" : cmd.success ? "ok" : "bad"
                                 }`}
                               >
-                                {cmd.status === "pending" || cmd.status === "running" ? "EN COURS" : cmd.success ? "OK" : "ÉCHEC"}
+                                {tr(cmd.status === "pending" || cmd.status === "running" ? "vd.cmd.inProgress" : cmd.success ? "vd.cmd.ok" : "vd.cmd.failed")}
                               </span>
                               <span>{fmtRelative(cmd.created_at)}</span>
                             </div>
                           </>
                         ) : (
-                          <span className="vanitas-hud-cmd-none">— AUCUNE COMMANDE</span>
+                          <span className="vanitas-hud-cmd-none">{tr("vd.noCommand")}</span>
                         )}
                       </td>
                       <td className="vanitas-hud-actions" onClick={(e) => e.stopPropagation()}>
                         <ConfirmButton
-                          label="RETIRER"
-                          confirmLabel="CONFIRMER"
+                          label={tr("vd.remove")}
+                          confirmLabel={tr("vd.confirm")}
                           className="vanitas-hud-purge-btn"
                           onConfirm={() => handleRemove(a.id)}
-                          title="Retire ce poste de l'inventaire — pensé pour un poste déjà décommissionné/désinstallé, pas un substitut à la désinstallation."
+                          title={tr("vd.removeTitle")}
                         />
                       </td>
                       <td>

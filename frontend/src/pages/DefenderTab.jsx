@@ -4,6 +4,7 @@ import Donut from "../components/Donut.jsx";
 import RecommendationsList from "../components/RecommendationsList.jsx";
 import DeviceList from "../components/DeviceList.jsx";
 import { IconShield, IconGauge, IconAlertTriangle } from "../components/icons.jsx";
+import { tr } from "../i18n/core.js";
 
 /** Onglet "Defender" — focus sur le parc MDE : onboarding, OS, recommandations, non-onboardées. */
 export default function DefenderTab({ data }) {
@@ -17,15 +18,15 @@ export default function DefenderTab({ data }) {
       <div className="strip">
         <SummaryCard
           icon={<IconShield />}
-          title="Machines Defender"
+          title={tr("defender.machines")}
           value={defenderError ? "—" : data.defenderSummary?.totalMachines ?? "—"}
-          hint={defenderError ? defenderError.message : "Onboardées + détectées"}
+          hint={defenderError ? defenderError.message : tr("defender.onboardedDetected")}
         />
         <SummaryCard
           icon={<IconGauge />}
           title="Exposure score"
           value={exposureError ? "—" : exposureScoreValue?.toFixed(1) ?? "—"}
-          hint="/100 — voir Vue d'ensemble pour le détail"
+          hint={tr("defender.scoreHint")}
           // exposureScoreValue absent (fetch échoué mais pas un payload {error:true}, cf.
           // useDashboardData.js) : afficher "good" (vert) dans ce cas laisserait croire le parc
           // sain alors que la donnée est simplement manquante — même garde-fou que IntuneTab.jsx
@@ -34,7 +35,7 @@ export default function DefenderTab({ data }) {
         />
         <SummaryCard
           icon={<IconAlertTriangle />}
-          title="Non onboardées"
+          title={tr("defender.notOnboarded")}
           value={defenderError ? "—" : nonOnboardedCount}
           hint="CanBeOnboarded / InsufficientInfo"
           tone={defenderError ? undefined : nonOnboardedCount > 0 ? "danger" : "good"}
@@ -45,30 +46,30 @@ export default function DefenderTab({ data }) {
         {defenderError ? (
           <div className="card">
             <div className="card-head">
-              <h2>Répartition onboarding</h2>
+              <h2>{tr("defender.onboarding")}</h2>
             </div>
             <p className="error-note">{defenderError.message}</p>
           </div>
         ) : (
-          <Donut title="Répartition onboarding (Defender)" data={data.defenderSummary?.byOnboardingStatus} />
+          <Donut title={tr("defender.onboardingDonut")} data={data.defenderSummary?.byOnboardingStatus} />
         )}
 
         {defenderError ? (
           <div className="card">
             <div className="card-head">
-              <h2>Répartition OS</h2>
+              <h2>{tr("defender.os")}</h2>
             </div>
             <p className="error-note">{defenderError.message}</p>
           </div>
         ) : (
-          <Donut title="Répartition OS (Defender)" data={data.defenderSummary?.byOSPlatform} />
+          <Donut title={tr("defender.osDonut")} data={data.defenderSummary?.byOSPlatform} />
         )}
       </div>
 
       <div className="card">
         <div className="card-head">
-          <h2>Top recommandations impactant le score</h2>
-          <span className="card-note">exposureImpact décroissant</span>
+          <h2>{tr("defender.topRecommendations")}</h2>
+          <span className="card-note">{tr("overview.topRecommendationsNote")}</span>
         </div>
         {exposureError && !data.recommendations.length ? (
           <p className="error-note">{exposureError.message}</p>
@@ -79,13 +80,13 @@ export default function DefenderTab({ data }) {
 
       <div className="card">
         <div className="card-head">
-          <h2>Machines non onboardées</h2>
+          <h2>{tr("defender.notOnboardedMachines")}</h2>
           <span className="card-note">CanBeOnboarded / InsufficientInfo</span>
         </div>
         {defenderError ? (
           <p className="error-note">{defenderError.message}</p>
         ) : (
-          <DeviceList devices={data.nonOnboarded} emptyLabel="Toutes les machines détectées sont onboardées." />
+          <DeviceList devices={data.nonOnboarded} emptyLabel={tr("defender.allOnboarded")} />
         )}
       </div>
     </>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
 import { CVE_SEVERITY_COLORS } from "../theme.js";
 import { IconBookmark } from "../components/icons.jsx";
+import { currentLocale, tr } from "../i18n/core.js";
 
 /**
  * Onglet "Suivi CVE" (sous-catégorie Defender > Vulnérabilité, 2026-08-10) : liste de CVE
@@ -52,17 +53,17 @@ import { IconBookmark } from "../components/icons.jsx";
  */
 
 function formatDateTime(iso) {
-  if (!iso) return "jamais";
+  if (!iso) return tr("cveWatch.never");
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function SeverityBadge({ severity }) {
   const color = CVE_SEVERITY_COLORS[severity] || CVE_SEVERITY_COLORS.Unknown;
   return (
     <span className="cve-badge" style={{ borderColor: `${color}66`, color }}>
-      {severity || "Inconnu"}
+      {severity || tr("common.unknown")}
     </span>
   );
 }
@@ -73,7 +74,7 @@ function SeverityBadge({ severity }) {
  * (qui reste, elle, inchangée — cette page ne touche jamais aux classes d'une autre, voir
  * l'en-tête du fichier). `tone` ("disk"/"registry") colore le liseré gauche de chaque puce. */
 function PathList({ paths, tone }) {
-  if (!paths || paths.length === 0) return <span className="cve-small">Aucun chemin retrouvé</span>;
+  if (!paths || paths.length === 0) return <span className="cve-small">{tr("cveWatch.noPath")}</span>;
   return (
     <div className="cve-watch-path-list">
       {paths.map((p, i) => (
@@ -105,11 +106,11 @@ function CveWatchDeviceRow({ device, index, open, onToggle }) {
         <div className="reco-main">
           <span className="reco-name">{device.hostname}</span>
           <span className="reco-meta">
-            {device.rbac_group || "Groupe RBAC inconnu"}
-            {evidenceCount > 0 ? ` · ${evidenceCount} chemin${evidenceCount > 1 ? "s" : ""} d'évidence` : ""}
+            {device.rbac_group || tr("cveWatch.unknownRbac")}
+            {evidenceCount > 0 ? tr("cveWatch.evidencePaths", { count: evidenceCount }) : ""}
           </span>
         </div>
-        <span className="badge high">Exposé</span>
+        <span className="badge high">{tr("cveWatch.exposed")}</span>
       </button>
       <div className="cve-watch-body">
         <div className="cve-watch-body-inner">
@@ -117,14 +118,14 @@ function CveWatchDeviceRow({ device, index, open, onToggle }) {
             <div className="cve-watch-evidence-col">
               <span className="cve-watch-evidence-label cve-watch-evidence-label-disk">
                 <span className="cve-watch-evidence-dot" />
-                Chemin(s) disque
+                {tr("vuln.col.diskPaths")}
               </span>
               <PathList paths={device.disk_paths} tone="disk" />
             </div>
             <div className="cve-watch-evidence-col">
               <span className="cve-watch-evidence-label cve-watch-evidence-label-registry">
                 <span className="cve-watch-evidence-dot" />
-                Chemin(s) registre
+                {tr("vuln.col.registryPaths")}
               </span>
               <PathList paths={device.registry_paths} tone="registry" />
             </div>
@@ -147,7 +148,7 @@ function CveWatchDeviceList({ devices }) {
   const [openHosts, setOpenHosts] = useState(() => new Set());
 
   if (!devices || devices.length === 0) {
-    return <p className="empty">Aucun device exposé lors de la dernière vérification.</p>;
+    return <p className="empty">{tr("cveWatch.noExposed")}</p>;
   }
 
   function toggle(hostname) {
@@ -180,7 +181,7 @@ function CveWatchCard({ entry, onRemove, onRefresh, refreshing }) {
       <div className="card-head">
         <h2 className="cve-mono">{entry.cve_code}</h2>
         <span className="card-note">
-          {affectedCount} device{affectedCount > 1 ? "s" : ""} exposé{affectedCount > 1 ? "s" : ""} · vérifié le{" "}
+          {tr("cveWatch.exposedChecked", { count: affectedCount })}
           {formatDateTime(entry.last_checked)}
         </span>
         <div className="cve-watch-actions">
@@ -190,13 +191,13 @@ function CveWatchCard({ entry, onRemove, onRefresh, refreshing }) {
             onClick={() => onRefresh(entry.cve_code)}
             disabled={refreshing}
           >
-            {refreshing ? "Vérification…" : "Vérifier maintenant"}
+            {refreshing ? tr("anssi.checking") : tr("cveWatch.checkNow")}
           </button>
           <button
             type="button"
             className="cve-watch-remove"
             onClick={() => onRemove(entry.cve_code)}
-            aria-label={`Ne plus suivre ${entry.cve_code}`}
+            aria-label={tr("cveWatch.unwatchAria", { cve: entry.cve_code })}
             // Désactivé pendant un rafraîchissement en cours (revue de code du 2026-08-20) :
             // sans ça, un clic sur "Vérifier maintenant" suivi d'un clic rapide sur "Ne plus
             // suivre" avant la fin du refresh faisait courir les deux requêtes en parallèle —
@@ -204,19 +205,19 @@ function CveWatchCard({ entry, onRemove, onRefresh, refreshing }) {
             // pouvait réapparaître au prochain `load()`.
             disabled={refreshing}
           >
-            Ne plus suivre
+            {tr("cveWatch.unwatch")}
           </button>
         </div>
       </div>
 
       {entry.last_error && (
-        <p className="error-note cve-watch-error">Dernière vérification en échec : {entry.last_error}</p>
+        <p className="error-note cve-watch-error">{tr("cveWatch.lastCheckFailed", { error: entry.last_error })}</p>
       )}
 
       {result && (
         <div className="vuln-meta-row">
           <div className="vuln-meta-item">
-            <span className="vuln-meta-label">Sévérité</span>
+            <span className="vuln-meta-label">{tr("vuln.severity")}</span>
             <SeverityBadge severity={result.severity} />
           </div>
           <div className="vuln-meta-item">
@@ -224,12 +225,12 @@ function CveWatchCard({ entry, onRemove, onRefresh, refreshing }) {
             <span className="cve-mono">{typeof result.cvss_score === "number" ? result.cvss_score.toFixed(1) : "—"}</span>
           </div>
           <div className="vuln-meta-item">
-            <span className="vuln-meta-label">Exploit</span>
+            <span className="vuln-meta-label">{tr("cveWatch.exploit")}</span>
             <span>{result.exploitability_level || "—"}</span>
           </div>
           <div className="vuln-meta-item">
-            <span className="vuln-meta-label">Correctif dispo.</span>
-            <span>{result.security_update_available ? "Oui" : "Non connu"}</span>
+            <span className="vuln-meta-label">{tr("vuln.patchAvailable")}</span>
+            <span>{result.security_update_available ? tr("common.yes") : tr("vuln.notKnown")}</span>
           </div>
         </div>
       )}
@@ -305,8 +306,8 @@ export default function CveWatchTab() {
     <>
       <div className="card">
         <div className="card-head">
-          <h2>Ajouter une CVE à suivre</h2>
-          <span className="card-note">re-vérifiée automatiquement, environ toutes les heures</span>
+          <h2>{tr("cveWatch.addTitle")}</h2>
+          <span className="card-note">{tr("cveWatch.autoRecheck")}</span>
         </div>
         <form className="vuln-search-form" onSubmit={handleAdd}>
           <input
@@ -315,21 +316,21 @@ export default function CveWatchTab() {
             placeholder="CVE-2024-3400…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            aria-label="Ajouter une CVE à suivre"
+            aria-label={tr("cveWatch.addTitle")}
           />
           <button type="submit" className="vuln-search-button" disabled={adding}>
-            {adding ? "Ajout…" : "Ajouter au suivi"}
+            {adding ? tr("cveWatch.adding") : tr("cveWatch.add")}
           </button>
         </form>
         {addError && <p className="error-note">{addError}</p>}
         <p className="card-note vuln-search-hint">
-          La première vérification se lance immédiatement après l'ajout ; les suivantes sont automatiques.
+          {tr("cveWatch.firstCheckHint")}
         </p>
       </div>
 
       {state.status === "loading" && (
         <div className="card">
-          <p className="card-note">Chargement des CVE suivies…</p>
+          <p className="card-note">{tr("cveWatch.loading")}</p>
         </div>
       )}
 
@@ -343,7 +344,7 @@ export default function CveWatchTab() {
         <div className="card">
           <div className="vuln-idle-note">
             <IconBookmark />
-            <p>Aucune CVE suivie pour l'instant — ajoute-en une ci-dessus pour la garder à l'œil.</p>
+            <p>{tr("cveWatch.empty")}</p>
           </div>
         </div>
       )}

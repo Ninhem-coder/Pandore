@@ -3,6 +3,7 @@ import { api } from "./api.js";
 import { AuthProvider } from "./AuthContext.jsx";
 import { clearAllCache } from "./cache.js";
 import LoginForm from "./LoginForm.jsx";
+import { tr } from "./i18n/core.js";
 
 /**
  * Gate d'authentification (2026-09-07, demande de Nicolas — multi-comptes, admin/lecture
@@ -59,7 +60,7 @@ export default function AuthGate({ children }) {
   }
 
   if (state.status === "loading") {
-    return <div className="auth-boot">Chargement…</div>;
+    return <div className="auth-boot">{tr("common.loading")}</div>;
   }
 
   if (state.status === "anonymous") {

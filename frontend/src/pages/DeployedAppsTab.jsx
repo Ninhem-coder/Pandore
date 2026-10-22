@@ -8,8 +8,9 @@ import {
 } from "../hooks/useDashboardData.js";
 import SummaryCard from "../components/SummaryCard.jsx";
 import { IconPackage, IconLayers, IconGauge, IconAlertTriangle, IconDownload, IconExpand } from "../components/icons.jsx";
-import { GENERIC_PALETTE, COMPLIANCE_LABEL_FR } from "../theme.js";
+import { GENERIC_PALETTE, COMPLIANCE_LABEL } from "../theme.js";
 import { exportAppInstallStatusToExcel } from "../export.js";
+import { currentLocale, localizedTable, tr } from "../i18n/core.js";
 
 /**
  * Onglet "Application Intune" > "Application déployée" (2026-08-25, demande de Nicolas) —
@@ -58,7 +59,7 @@ function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function formatDateTime(iso) {
@@ -70,7 +71,7 @@ function formatDateTime(iso) {
   // détectée (2026-09-02) : affichait "01/01/1 00:09" au lieu de "jamais".
   if (Number.isNaN(d.getTime())) return iso;
   if (d.getFullYear() < 1970) return "jamais";
-  return d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 /** Hash déterministe (djb2-like) d'une chaîne vers un entier positif — utilisé pour choisir
@@ -152,28 +153,19 @@ function intuneAppUrl(appId) {
 // OS ... sans avoir à faire un tableau différent pour chaque OS") — même famille de clés que
 // `platform` calculé côté backend (intune/apps.py::_platform_from_odata_type). "all" n'est
 // pas une vraie plateforme, juste la pastille "Tous".
-const OS_FILTERS = [
-  { key: "all", label: "Tous" },
-  { key: "windows", label: "Windows" },
-  { key: "ios", label: "iOS/iPadOS" },
-  { key: "android", label: "Android" },
-  { key: "macos", label: "macOS" },
-  { key: "web", label: "Web / Autre" },
-];
-const OS_BADGE_LABEL = { windows: "Windows", ios: "iOS/iPadOS", android: "Android", macos: "macOS", web: "Web / Autre" };
+// `key` doubles as the translation suffix (dep.os.<key>).
+const OS_FILTERS = [{ key: "all" }, { key: "windows" }, { key: "ios" }, { key: "android" }, { key: "macos" }, { key: "web" }];
+const OS_BADGE_KEYS = ["windows", "ios", "android", "macos", "web"];
 
 function osBadgeLabel(platform) {
-  return OS_BADGE_LABEL[platform] || "Autre";
+  return tr(`dep.os.${OS_BADGE_KEYS.includes(platform) ? platform : "other"}`);
 }
 
 // Filtre "source" (2026-09-02, fusion discovered apps) — même mécanisme de pastilles que
 // OS_FILTERS ci-dessus, dimension différente donc classes CSS dédiées (`.source-chip`/
 // `.source-filter`, pas une réutilisation de `.os-chip`).
-const SOURCE_FILTERS = [
-  { key: "all", label: "Toutes" },
-  { key: "deployed", label: "Déployées (Intune)" },
-  { key: "discovered", label: "Détectées seulement" },
-];
+// `key` doubles as the translation suffix (dep.source.<key>).
+const SOURCE_FILTERS = [{ key: "all" }, { key: "deployed" }, { key: "discovered" }];
 
 // Rendu paginé (2026-09-02) — la liste fusionnée peut dépasser 7000 entrées (discovered apps
 // dédupliquées), poser autant de cartes dans le DOM d'un coup ralentirait le navigateur pour
@@ -186,24 +178,23 @@ const REVEAL_STEP = 150;
 // Toute valeur absente de cette table s'affiche telle quelle plutôt qu'une traduction
 // inventée — utile tant que la correspondance exacte des codes numériques renvoyés par le
 // nouvel endpoint n'est pas confirmée sur le tenant de production.
-const INSTALL_STATE_LABEL_FR = {
-  installed: "Installée",
-  failed: "Échec",
-  notInstalled: "Non installée",
-  uninstallFailed: "Échec de désinstallation",
-  pendingInstall: "En attente",
-  unknown: "Inconnu",
-  notApplicable: "Non applicable",
-  // Device fusionné depuis "Versions détectées sur le parc" (voir `DeviceStatusExplorer`,
-  // `unifyVersions`, 2026-09-02) — détecté sur le disque pour la version choisie, mais absent
-  // du rapport d'installation Intune (jamais assigné à cette app, ou assignation trop récente
-  // pour être remontée) : ni "installée" ni "échec", un 3e état honnête plutôt qu'un mensonge.
-  detectedOnly: "Détecté (hors suivi Intune)",
-};
+// `detectedOnly`: device merged from "Versions détectées sur le parc" (see `DeviceStatusExplorer`,
+// `unifyVersions`, 2026-09-02) — detected on disk for the chosen version but absent from the
+// Intune install report: neither "installed" nor "failed", an honest third state.
+const INSTALL_STATE_LABEL = localizedTable("dep.state", [
+  "installed",
+  "failed",
+  "notInstalled",
+  "uninstallFailed",
+  "pendingInstall",
+  "unknown",
+  "notApplicable",
+  "detectedOnly",
+]);
 
 function installStateLabel(state) {
-  if (!state) return "Inconnu";
-  return INSTALL_STATE_LABEL_FR[state] || state;
+  if (!state) return tr("dep.state.unknown");
+  return INSTALL_STATE_LABEL[state] || state;
 }
 
 /** Compte les devices par valeur d'un champ donné (état d'installation, département...) — calculé
@@ -248,7 +239,7 @@ function FilterChipBar({ ariaLabel, groupLabel, variant, devices, field, fallbac
       {groupLabel && <span className="filter-chip-group-label">{groupLabel}</span>}
       <div className="state-filter" role="group" aria-label={ariaLabel}>
         <button type="button" className={`${chipClass}${active === "all" ? " active" : ""}`} onClick={() => onChange("all")}>
-          Tous <span className="chip-count">{devices.length}</span>
+          {tr("dep.allChip")} <span className="chip-count">{devices.length}</span>
         </button>
         {counts.map(([value, count]) => (
           <button
@@ -267,20 +258,20 @@ function FilterChipBar({ ariaLabel, groupLabel, variant, devices, field, fallbac
 
 function AppInstallTable({ devices, emptyMessage }) {
   if (!devices || devices.length === 0) {
-    return <p className="empty">{emptyMessage || "Aucun device retrouvé pour cette application."}</p>;
+    return <p className="empty">{emptyMessage || tr("dep.noDevice")}</p>;
   }
   return (
     <div className="cve-table-wrap deployed-detail-table-wrap">
       <table className="cve-device-table">
         <thead>
           <tr>
-            <th>Device</th>
-            <th>Utilisateur</th>
-            <th>Département</th>
-            <th>Version installée</th>
-            <th>État d'installation</th>
-            <th>OS</th>
-            <th>Dernière synchro</th>
+            <th>{tr("dep.col.device")}</th>
+            <th>{tr("dep.col.user")}</th>
+            <th>{tr("dep.col.department")}</th>
+            <th>{tr("dep.col.installedVersion")}</th>
+            <th>{tr("dep.col.installState")}</th>
+            <th>{tr("dep.col.os")}</th>
+            <th>{tr("dep.col.lastSync")}</th>
           </tr>
         </thead>
         <tbody>
@@ -328,19 +319,19 @@ function InstallRateBar({ counts }) {
         {installed > 0 && (
           <span className="install-legend-item">
             <span className="install-legend-dot installed" />
-            {installed} installée{installed > 1 ? "s" : ""}
+            {tr("dep.installed", { count: installed })}
           </span>
         )}
         {failed > 0 && (
           <span className="install-legend-item">
             <span className="install-legend-dot failed" />
-            {failed} échec{failed > 1 ? "s" : ""}
+            {tr("dep.failed", { count: failed })}
           </span>
         )}
         {pending > 0 && (
           <span className="install-legend-item">
             <span className="install-legend-dot pending" />
-            {pending} en attente
+            {tr("dep.pending", { count: pending })}
           </span>
         )}
       </div>
@@ -385,17 +376,16 @@ function DeployedAppRow({ app, selected, onSelect, installCounts }) {
         <AppIcon app={app} />
         <div className="app-card-main">
           <div className="app-card-name-row">
-            <span className="app-card-name">{app.displayName || "Application inconnue"}</span>
+            <span className="app-card-name">{app.displayName || tr("dep.unknownApp")}</span>
             <span className="os-badge">{osBadgeLabel(app.platform)}</span>
             {isDiscoveredOnly ? (
-              <span className="discovered-badge discovered-only">Détectée seulement</span>
+              <span className="discovered-badge discovered-only">{tr("dep.detectedOnly")}</span>
             ) : (
               <>
                 {app.displayVersion && <span className="version-badge">v{app.displayVersion}</span>}
                 {app.discovered && (
-                  <span className="discovered-badge" title="Nombre de versions distinctes détectées sur le parc pour ce logiciel">
-                    {app.discovered.versionCount} version{app.discovered.versionCount > 1 ? "s" : ""} détectée
-                    {app.discovered.versionCount > 1 ? "s" : ""}
+                  <span className="discovered-badge" title={tr("dep.versionsTitle")}>
+                    {tr("dep.versionsDetected", { count: app.discovered.versionCount })}
                   </span>
                 )}
                 <a
@@ -403,7 +393,7 @@ function DeployedAppRow({ app, selected, onSelect, installCounts }) {
                   href={intuneAppUrl(app.id)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title="Ouvrir cette application dans Intune (lien à confirmer en conditions réelles)"
+                  title={tr("dep.openIntuneTitle")}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <WindowsGlyph />
@@ -414,13 +404,13 @@ function DeployedAppRow({ app, selected, onSelect, installCounts }) {
           </div>
           <span className="app-card-meta">
             {isDiscoveredOnly
-              ? `Détectée sur le parc · pas d'application Intune correspondante`
-              : `${app.publisher || "Éditeur inconnu"} · modifiée le ${formatDate(app.lastModifiedDateTime)}`}
+              ? tr("dep.detectedNoIntune")
+              : tr("dep.publisherModified", { publisher: app.publisher || tr("dep.unknownPublisher"), date: formatDate(app.lastModifiedDateTime) })}
           </span>
         </div>
         <div className="app-card-devices">
           <span className="n">{deviceTotal === null ? "—" : deviceTotal}</span>
-          devices
+          {tr("dep.devicesWord")}
         </div>
       </div>
 
@@ -457,7 +447,7 @@ function DiscoveredVersionDeviceList({ devices }) {
   }, [devices, query, stateFilter, starFilter]);
 
   if (!devices || devices.length === 0) {
-    return <p className="empty">Aucun appareil retrouvé pour cette version.</p>;
+    return <p className="empty">{tr("dep.noDeviceForVersion")}</p>;
   }
 
   return (
@@ -466,43 +456,43 @@ function DiscoveredVersionDeviceList({ devices }) {
         <input
           type="text"
           className="filter-input"
-          placeholder="Filtrer par device ou utilisateur…"
+          placeholder={tr("dep.filterDevices")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="Filtrer les appareils de cette version"
+          aria-label={tr("dep.filterVersionDevicesAria")}
         />
         <FilterChipBar
-          ariaLabel="Filtrer par état de conformité"
-          groupLabel="État"
+          ariaLabel={tr("dep.filterComplianceAria")}
+          groupLabel={tr("dep.stateLabel")}
           variant="state"
           devices={devices}
           field="complianceState"
           fallback="unknown"
           active={stateFilter}
           onChange={setStateFilter}
-          labelFor={(value) => (value === "unknown" ? "Inconnu" : COMPLIANCE_LABEL_FR[value] || value)}
+          labelFor={(value) => (value === "unknown" ? tr("dep.state.unknown") : COMPLIANCE_LABEL[value] || value)}
         />
         <FilterChipBar
-          ariaLabel="Filtrer par département"
-          groupLabel="Département"
+          ariaLabel={tr("dep.filterDepartmentAria")}
+          groupLabel={tr("dep.departmentLabel")}
           variant="star"
           devices={devices}
           field="department"
           fallback="unknown"
           active={starFilter}
           onChange={setStarFilter}
-          labelFor={(value) => (value === "unknown" ? "Non renseignée" : value)}
+          labelFor={(value) => (value === "unknown" ? tr("department.none") : value)}
         />
       </div>
       <table className="cve-device-table">
         <thead>
           <tr>
-            <th>Device</th>
-            <th>Utilisateur</th>
-            <th>Département</th>
-            <th>OS</th>
-            <th>Conformité</th>
-            <th>Dernière synchro</th>
+            <th>{tr("dep.col.device")}</th>
+            <th>{tr("dep.col.user")}</th>
+            <th>{tr("dep.col.department")}</th>
+            <th>{tr("dep.col.os")}</th>
+            <th>{tr("dep.col.compliance")}</th>
+            <th>{tr("dep.col.lastSync")}</th>
           </tr>
         </thead>
         <tbody>
@@ -514,13 +504,13 @@ function DiscoveredVersionDeviceList({ devices }) {
               <td className="cve-small">
                 {d.operatingSystem || "—"} {d.osVersion || ""}
               </td>
-              <td className="cve-small">{COMPLIANCE_LABEL_FR[d.complianceState] || d.complianceState || "—"}</td>
+              <td className="cve-small">{COMPLIANCE_LABEL[d.complianceState] || d.complianceState || "—"}</td>
               <td className="cve-mono cve-small">{formatDateTime(d.lastSyncDateTime)}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      {filtered.length === 0 && <p className="empty">Aucun appareil ne correspond à ce filtre.</p>}
+      {filtered.length === 0 && <p className="empty">{tr("dep.noDeviceForFilter")}</p>}
     </>
   );
 }
@@ -554,8 +544,8 @@ function DiscoveredVersionsTable({ versions }) {
       <table className="cve-device-table">
         <thead>
           <tr>
-            <th>Version</th>
-            <th>Appareils</th>
+            <th>{tr("dep.col.version")}</th>
+            <th>{tr("dep.col.devices")}</th>
           </tr>
         </thead>
         <tbody>
@@ -578,7 +568,7 @@ function DiscoveredVersionsTable({ versions }) {
                 {isOpen && (
                   <tr>
                     <td colSpan={2} className="discovered-version-detail-cell">
-                      {devState?.loading && <p className="card-note">Chargement des appareils…</p>}
+                      {devState?.loading && <p className="card-note">{tr("dep.loadingDevices")}</p>}
                       {devState?.error && <p className="error-note">{devState.error}</p>}
                       {!devState?.loading && !devState?.error && (
                         <DiscoveredVersionDeviceList key={v.version} devices={devState?.data?.devices || []} />
@@ -607,26 +597,27 @@ function DiscoveredDetailPanel({ app, onClose }) {
         <AppIcon app={app} />
         <div className="deployed-detail-title">
           <div className="app-card-name-row">
-            <span className="app-card-name">{app.displayName || "Application inconnue"}</span>
+            <span className="app-card-name">{app.displayName || tr("dep.unknownApp")}</span>
             <span className="os-badge">{osBadgeLabel(app.platform)}</span>
-            <span className="discovered-badge discovered-only">Détectée seulement</span>
+            <span className="discovered-badge discovered-only">{tr("dep.detectedOnly")}</span>
           </div>
           <span className="app-card-meta">
-            {app.discovered?.totalDeviceCount ?? 0} appareil{(app.discovered?.totalDeviceCount ?? 0) > 1 ? "s" : ""} · {versions.length} version
-            {versions.length > 1 ? "s" : ""} distincte{versions.length > 1 ? "s" : ""}
+            {tr("dep.discoveredMeta", {
+              devices: tr("dep.devicesCount", { count: app.discovered?.totalDeviceCount ?? 0 }),
+              versions: tr("dep.distinctVersions", { count: versions.length }),
+            })}
           </span>
         </div>
-        <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer le détail">
+        <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("dep.closeDetail")}>
           <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </button>
       </div>
       <p className="card-note deployed-discovered-note">
-        Aucune application Intune ne correspond à ce logiciel — pas de statut d'installation, seulement l'inventaire détecté sur le
-        disque des appareils.
+        {tr("dep.discoveredNote")}
       </p>
-      <span className="filter-chip-group-label">Versions détectées</span>
+      <span className="filter-chip-group-label">{tr("dep.versionsDetectedLabel")}</span>
       <DiscoveredVersionsTable versions={versions} />
     </div>
   );
@@ -652,7 +643,7 @@ function useExportExcel(app, devices) {
       // export.js), comme l'export CVE de VulnerabilitiesTab.jsx : un échec ici n'est jamais
       // un problème réseau, plutôt un environnement qui bloque les téléchargements déclenchés
       // par script — affiché tel quel plutôt que silencieusement ignoré.
-      setState({ status: "idle", error: err?.message || "Échec de l'export Excel." });
+      setState({ status: "idle", error: err?.message || tr("dep.exportFailed") });
     }
   }
 
@@ -760,7 +751,7 @@ function DeviceStatusExplorer({ app, statusState, installCounts, unifyVersions =
     <>
       <InstallRateBar counts={installCounts} />
 
-      {statusState?.loading && <p className="card-note">Chargement de l'état d'installation…</p>}
+      {statusState?.loading && <p className="card-note">{tr("dep.loadingInstallState")}</p>}
       {statusState?.error && <p className="error-note">{statusState.error}</p>}
 
       {!statusState?.loading && !statusState?.error && (
@@ -770,21 +761,21 @@ function DeviceStatusExplorer({ app, statusState, installCounts, unifyVersions =
               <input
                 type="text"
                 className="filter-input"
-                placeholder="Filtrer par device ou utilisateur…"
+                placeholder={tr("dep.filterDevices")}
                 value={deviceFilter}
                 onChange={(e) => setDeviceFilter(e.target.value)}
-                aria-label="Filtrer les devices de cette application"
+                aria-label={tr("dep.filterAppDevicesAria")}
               />
               {unifyVersions && versionOptions.length > 0 && (
                 <div className="filter-chip-group">
-                  <span className="filter-chip-group-label">Version</span>
-                  <div className="state-filter" role="group" aria-label="Filtrer par version">
+                  <span className="filter-chip-group-label">{tr("dep.versionLabel")}</span>
+                  <div className="state-filter" role="group" aria-label={tr("dep.filterVersionAria")}>
                     <button
                       type="button"
                       className={`version-chip${versionFilter === "all" ? " active" : ""}`}
                       onClick={() => setVersionFilter("all")}
                     >
-                      Toutes <span className="chip-count">{devices.length}</span>
+                      {tr("dep.allVersions")} <span className="chip-count">{devices.length}</span>
                     </button>
                     {versionOptions.map((o) => (
                       <button
@@ -800,8 +791,8 @@ function DeviceStatusExplorer({ app, statusState, installCounts, unifyVersions =
                 </div>
               )}
               <FilterChipBar
-                ariaLabel="Filtrer par état d'installation"
-                groupLabel="État d'installation"
+                ariaLabel={tr("dep.filterInstallStateAria")}
+                groupLabel={tr("dep.col.installState")}
                 variant="state"
                 devices={scopedDevices}
                 field="installState"
@@ -811,27 +802,27 @@ function DeviceStatusExplorer({ app, statusState, installCounts, unifyVersions =
                 labelFor={installStateLabel}
               />
               <FilterChipBar
-                ariaLabel="Filtrer par département"
-                groupLabel="Département"
+                ariaLabel={tr("dep.filterDepartmentAria")}
+                groupLabel={tr("dep.departmentLabel")}
                 variant="star"
                 devices={scopedDevices}
                 field="department"
                 fallback="unknown"
                 active={starFilter}
                 onChange={setStarFilter}
-                labelFor={(value) => (value === "unknown" ? "Non renseignée" : value)}
+                labelFor={(value) => (value === "unknown" ? tr("department.none") : value)}
               />
             </div>
           )}
           {unifyVersions && versionFilter !== "all" && versionIdsKey && versionDevicesState?.loading && (
-            <p className="card-note">Chargement des appareils détectés pour cette version…</p>
+            <p className="card-note">{tr("dep.loadingVersionDevices")}</p>
           )}
           {unifyVersions && versionFilter !== "all" && versionIdsKey && versionDevicesState?.error && (
             <p className="error-note">{versionDevicesState.error}</p>
           )}
           <AppInstallTable
             devices={filteredDevices}
-            emptyMessage={scopedDevices.length > 0 ? "Aucun device ne correspond à ce filtre." : undefined}
+            emptyMessage={scopedDevices.length > 0 ? tr("dep.noDeviceMatch") : undefined}
           />
         </>
       )}
@@ -839,12 +830,10 @@ function DeviceStatusExplorer({ app, statusState, installCounts, unifyVersions =
       {!unifyVersions && app.discovered && (
         <>
           <span className="filter-chip-group-label deployed-discovered-section-label">
-            Versions détectées sur le parc ({app.discovered.versionCount})
+            {tr("dep.fleetVersions", { count: app.discovered.versionCount })}
           </span>
           <p className="card-note">
-            Rapprochement approximatif par nom (« {app.discovered.matchedName} ») — {app.discovered.totalDeviceCount} appareil
-            {app.discovered.totalDeviceCount > 1 ? "s" : ""} au total, toutes versions confondues, pas forcément la même population
-            que le statut d'installation ci-dessus.
+            {tr("dep.matchNote", { name: app.discovered.matchedName, count: app.discovered.totalDeviceCount })}
           </p>
           <DiscoveredVersionsTable versions={app.discovered.versions} />
         </>
@@ -878,20 +867,20 @@ function AppDetailPanel({ app, statusState, installCounts, onExpand, onClose }) 
         <AppIcon app={app} />
         <div className="deployed-detail-title">
           <div className="app-card-name-row">
-            <span className="app-card-name">{app.displayName || "Application inconnue"}</span>
+            <span className="app-card-name">{app.displayName || tr("dep.unknownApp")}</span>
             <span className="os-badge">{osBadgeLabel(app.platform)}</span>
             {app.displayVersion && <span className="version-badge">v{app.displayVersion}</span>}
           </div>
           <span className="app-card-meta">
-            {app.publisher || "Éditeur inconnu"} · modifiée le {formatDate(app.lastModifiedDateTime)}
+            {tr("dep.publisherModified", { publisher: app.publisher || tr("dep.unknownPublisher"), date: formatDate(app.lastModifiedDateTime) })}
           </span>
         </div>
         <button
           type="button"
           className="deployed-expand-button"
           onClick={onExpand}
-          aria-label={`Agrandir le détail de ${app.displayName || "cette application"}`}
-          title="Agrandir"
+          aria-label={tr("dep.expandAria", { name: app.displayName || tr("dep.thisApp") })}
+          title={tr("dep.expand")}
         >
           <IconExpand />
         </button>
@@ -901,13 +890,13 @@ function AppDetailPanel({ app, statusState, installCounts, onExpand, onClose }) 
             className="deployed-export-button"
             onClick={handleExport}
             disabled={exportStatus === "exporting"}
-            aria-label={`Exporter le détail d'installation de ${app.displayName || "cette application"} en Excel`}
+            aria-label={tr("dep.exportAria", { name: app.displayName || tr("dep.thisApp") })}
           >
             <IconDownload />
-            {exportStatus === "exporting" ? "Export…" : "Exporter Excel"}
+            {exportStatus === "exporting" ? tr("vuln.exporting") : tr("vuln.exportExcel")}
           </button>
         )}
-        <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer le détail">
+        <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("dep.closeDetail")}>
           <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
@@ -928,11 +917,11 @@ function AssignmentGroupCard({ tone, title, groups }) {
       <div className="assign-card-head">
         <span className="assign-card-title">{title}</span>
         <span className="assign-card-count">
-          {groups.length} groupe{groups.length > 1 ? "s" : ""}
+          {tr("dep.groups", { count: groups.length })}
         </span>
       </div>
       {groups.length === 0 ? (
-        <p className="assign-empty">Aucun groupe.</p>
+        <p className="assign-empty">{tr("dep.noGroup")}</p>
       ) : (
         <div className="assign-group-list">
           {groups.map((name) => (
@@ -955,14 +944,14 @@ function AssignmentGroupCard({ tone, title, groups }) {
 function AssignmentsSection({ state }) {
   return (
     <>
-      <span className="filter-chip-group-label assign-section-label">Assignations Intune</span>
-      {state?.loading && <p className="card-note">Chargement des groupes d'assignation…</p>}
+      <span className="filter-chip-group-label assign-section-label">{tr("dep.assignments")}</span>
+      {state?.loading && <p className="card-note">{tr("dep.loadingAssignments")}</p>}
       {state?.error && <p className="error-note">{state.error}</p>}
       {!state?.loading && !state?.error && state?.data && (
         <div className="assign-grid">
-          <AssignmentGroupCard tone="required" title="Requises" groups={state.data.required || []} />
-          <AssignmentGroupCard tone="available" title="Disponibles" groups={state.data.available || []} />
-          <AssignmentGroupCard tone="excluded" title="Exclues" groups={state.data.excluded || []} />
+          <AssignmentGroupCard tone="required" title={tr("dep.required")} groups={state.data.required || []} />
+          <AssignmentGroupCard tone="available" title={tr("dep.available")} groups={state.data.available || []} />
+          <AssignmentGroupCard tone="excluded" title={tr("dep.excluded")} groups={state.data.excluded || []} />
         </div>
       )}
     </>
@@ -1004,18 +993,18 @@ function AppDetailModal({ app, statusState, installCounts, assignmentsState, onC
         ref={shellRef}
         role="dialog"
         aria-modal="true"
-        aria-label={app.displayName || "Détail de l'application"}
+        aria-label={app.displayName || tr("dep.appDetail")}
       >
         <div className="wizard-header">
           <AppIcon app={app} />
           <div className="wizard-header-text">
             <div className="app-card-name-row">
-              <h2>{app.displayName || "Application inconnue"}</h2>
+              <h2>{app.displayName || tr("dep.unknownApp")}</h2>
               <span className="os-badge">{osBadgeLabel(app.platform)}</span>
               {app.displayVersion && <span className="version-badge">v{app.displayVersion}</span>}
             </div>
             <span className="app-card-meta">
-              {app.publisher || "Éditeur inconnu"} · modifiée le {formatDate(app.lastModifiedDateTime)}
+              {tr("dep.publisherModified", { publisher: app.publisher || tr("dep.unknownPublisher"), date: formatDate(app.lastModifiedDateTime) })}
             </span>
           </div>
           <a
@@ -1023,10 +1012,10 @@ function AppDetailModal({ app, statusState, installCounts, assignmentsState, onC
             href={intuneAppUrl(app.id)}
             target="_blank"
             rel="noopener noreferrer"
-            title="Ouvrir cette application dans Intune (lien à confirmer en conditions réelles)"
+            title={tr("dep.openIntuneTitle")}
           >
             <WindowsGlyph />
-            Ouvrir dans Intune
+            {tr("dep.openInIntune")}
           </a>
           {devices.length > 0 && (
             <button
@@ -1034,13 +1023,13 @@ function AppDetailModal({ app, statusState, installCounts, assignmentsState, onC
               className="deployed-export-button"
               onClick={handleExport}
               disabled={exportStatus === "exporting"}
-              aria-label={`Exporter le détail d'installation de ${app.displayName || "cette application"} en Excel`}
+              aria-label={tr("dep.exportAria", { name: app.displayName || tr("dep.thisApp") })}
             >
               <IconDownload />
-              {exportStatus === "exporting" ? "Export…" : "Exporter Excel"}
+              {exportStatus === "exporting" ? tr("vuln.exporting") : tr("vuln.exportExcel")}
             </button>
           )}
-          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer">
+          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("common.closeAria")}>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
@@ -1049,7 +1038,7 @@ function AppDetailModal({ app, statusState, installCounts, assignmentsState, onC
         <div className="wizard-step-body">
           {exportError && <p className="error-note deployed-export-error">{exportError}</p>}
           <AssignmentsSection state={assignmentsState} />
-          <span className="filter-chip-group-label">État d'installation par device</span>
+          <span className="filter-chip-group-label">{tr("dep.installStateByDevice")}</span>
           <DeviceStatusExplorer app={app} statusState={statusState} installCounts={installCounts} unifyVersions />
         </div>
       </div>
@@ -1171,7 +1160,7 @@ export default function DeployedAppsTab() {
   const installRateLabel =
     summaryState.loading || !summary || summary.installRate === null
       ? "—"
-      : `${summary.installRate.toFixed(1).replace(".", ",")}%`;
+      : `${summary.installRate.toLocaleString(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
   const installRateTone =
     !summary || summary.installRate === null
       ? "default"
@@ -1187,7 +1176,7 @@ export default function DeployedAppsTab() {
     return (
       <div className="card">
         <div className="card-head">
-          <h2>Application déployée</h2>
+          <h2>{tr("dep.title")}</h2>
         </div>
         <p className="error-note">{deployed.error}</p>
       </div>
@@ -1199,41 +1188,41 @@ export default function DeployedAppsTab() {
       <div className="strip">
         <SummaryCard
           icon={<IconPackage />}
-          title="Applications déployées"
+          title={tr("dep.kpi.deployed")}
           value={deployed.loading ? "—" : deployedOnlyCount}
           hint="deviceAppManagement/mobileApps"
         />
         <SummaryCard
           icon={<IconLayers />}
-          title="Éditeurs distincts"
+          title={tr("dep.kpi.publishers")}
           value={deployed.loading ? "—" : publisherCount}
         />
         <SummaryCard
           icon={<IconGauge />}
-          title="Taux d'installation moyen"
+          title={tr("dep.kpi.installRate")}
           value={installRateLabel}
-          hint={summaryState.error ? "Indisponible" : "installés / assignés, tout le parc"}
+          hint={summaryState.error ? tr("dep.unavailable") : tr("dep.kpi.installRateHint")}
           tone={installRateTone}
         />
         <SummaryCard
           icon={<IconAlertTriangle />}
-          title="Échecs d'installation"
+          title={tr("dep.kpi.failures")}
           value={failedTotalLabel}
-          hint={summaryState.error ? "Indisponible" : "devices, toutes apps confondues"}
+          hint={summaryState.error ? tr("dep.unavailable") : tr("dep.kpi.failuresHint")}
           tone={failedTotalTone}
         />
         <SummaryCard
           icon={<IconLayers />}
-          title="Logiciels détectés sur le parc"
+          title={tr("dep.kpi.discovered")}
           value={deployed.loading ? "—" : distinctDiscoveredCount}
-          hint="regroupés par nom, toutes versions confondues"
+          hint={tr("dep.kpi.discoveredHint")}
         />
       </div>
 
       <div className="deployed-layout">
         <div className="deployed-main">
           <div className="card-head">
-            <h2>Application déployée</h2>
+            <h2>{tr("dep.title")}</h2>
             <span className="card-note">list_apps · deviceAppManagement/mobileApps</span>
           </div>
 
@@ -1241,12 +1230,12 @@ export default function DeployedAppsTab() {
             <input
               type="text"
               className="filter-input"
-              placeholder="Filtrer par nom d'application ou éditeur…"
+              placeholder={tr("dep.filterApps")}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              aria-label="Filtrer les applications déployées"
+              aria-label={tr("dep.filterAppsAria")}
             />
-            <div className="os-filter" role="group" aria-label="Filtrer par système d'exploitation">
+            <div className="os-filter" role="group" aria-label={tr("dep.filterOsAria")}>
               <span className="os-filter-label">OS</span>
               {OS_FILTERS.map((f) => (
                 <button
@@ -1255,12 +1244,12 @@ export default function DeployedAppsTab() {
                   className={`os-chip${osFilter === f.key ? " active" : ""}`}
                   onClick={() => setOsFilter(f.key)}
                 >
-                  {f.label} <span className="chip-count">{osCounts[f.key] ?? 0}</span>
+                  {tr(`dep.os.${f.key}`)} <span className="chip-count">{osCounts[f.key] ?? 0}</span>
                 </button>
               ))}
             </div>
-            <div className="source-filter" role="group" aria-label="Filtrer par source">
-              <span className="os-filter-label">Source</span>
+            <div className="source-filter" role="group" aria-label={tr("dep.filterSourceAria")}>
+              <span className="os-filter-label">{tr("dep.sourceLabel")}</span>
               {SOURCE_FILTERS.map((f) => (
                 <button
                   key={f.key}
@@ -1268,19 +1257,19 @@ export default function DeployedAppsTab() {
                   className={`source-chip${sourceFilter === f.key ? " active" : ""}`}
                   onClick={() => setSourceFilter(f.key)}
                 >
-                  {f.label} <span className="chip-count">{sourceCounts[f.key] ?? 0}</span>
+                  {tr(`dep.source.${f.key}`)} <span className="chip-count">{sourceCounts[f.key] ?? 0}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {deployed.loading && <p className="card-note">Chargement des applications déployées…</p>}
+          {deployed.loading && <p className="card-note">{tr("dep.loadingApps")}</p>}
 
           {!deployed.loading && filtered.length === 0 && (
             <p className="empty">
               {deployed.apps.length === 0
-                ? "Aucune application déployée via Intune."
-                : "Aucune application ne correspond à ce filtre."}
+                ? tr("dep.noApps")
+                : tr("dep.noAppMatch")}
             </p>
           )}
 
@@ -1299,7 +1288,7 @@ export default function DeployedAppsTab() {
               </div>
               {remaining > 0 && (
                 <button type="button" className="deployed-show-more-btn" onClick={() => setVisibleCount((c) => c + REVEAL_STEP)}>
-                  Afficher {Math.min(REVEAL_STEP, remaining)} de plus (sur {remaining} restantes)
+                  {tr("dep.showMore", { step: Math.min(REVEAL_STEP, remaining), remaining })}
                 </button>
               )}
             </>
@@ -1323,7 +1312,7 @@ export default function DeployedAppsTab() {
           ) : (
             <div className="deployed-detail-empty">
               <IconPackage />
-              <p>Sélectionnez une application pour afficher son détail d'installation par device.</p>
+              <p>{tr("dep.selectApp")}</p>
             </div>
           )}
         </aside>

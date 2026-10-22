@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useVanitasInstallers } from "../hooks/useDashboardData.js";
 import { fmtBytes, fmtDateTime } from "./vanitasShared.jsx";
+import { tr } from "../i18n/core.js";
 
 /**
  * "Vanitas" > Catalogue d'application (2026-09-09, retour de Nicolas — "je pensais faire en
@@ -49,7 +50,7 @@ export default function VanitasAppCatalogTab() {
           <span className="prompt">&gt;</span>
           <input
             type="text"
-            placeholder="Rechercher une application (nom, version, fichier)..."
+            placeholder={tr("vcat.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
@@ -60,29 +61,27 @@ export default function VanitasAppCatalogTab() {
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
           <h2>
-            {filtered.length} / {installers.state.data.length} application
-            {installers.state.data.length > 1 ? "s" : ""}
+            {tr("vcat.count", { filtered: filtered.length, count: installers.state.data.length })}
           </h2>
-          <span className="vanitas-hud-card-note">GÉRER DEPUIS « APPLICATION » (ADMINISTRATION)</span>
+          <span className="vanitas-hud-card-note">{tr("vcat.manage")}</span>
         </div>
         {installers.state.status === "loading" ? (
-          <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+          <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
         ) : installers.state.data.length === 0 ? (
           <p className="vanitas-hud-empty-note">
-            Aucune application publiée pour l'instant — ajoutes-en une depuis « Application »
-            (Administration).
+            {tr("vcat.empty")}
           </p>
         ) : filtered.length === 0 ? (
-          <p className="vanitas-hud-empty-note">0 résultat pour ce filtre.</p>
+          <p className="vanitas-hud-empty-note">{tr("vcat.noResult")}</p>
         ) : (
           <div className="vanitas-hud-table-wrap">
             <table className="vanitas-hud-table">
               <thead>
                 <tr>
-                  <th>Nom</th>
-                  <th>Fichier</th>
-                  <th>Taille</th>
-                  <th>Publiée le</th>
+                  <th>{tr("vcat.col.name")}</th>
+                  <th>{tr("vcat.col.file")}</th>
+                  <th>{tr("vcat.col.size")}</th>
+                  <th>{tr("vcat.col.published")}</th>
                 </tr>
               </thead>
               <tbody>

@@ -4,17 +4,19 @@ import CopyButton from "../components/CopyButton.jsx";
 import { IconLaptop, IconLayers, IconShield, IconUpload } from "../components/icons.jsx";
 import { useVanitasActivityLog } from "../hooks/useDashboardData.js";
 import { COMMAND_LABELS, fmtDateTime } from "./vanitasShared.jsx";
+import { currentLocale, localizedTable, tr } from "../i18n/core.js";
 
 // Même motif EXACT que `HISTORY_RANGES`/`HistoryRangePicker` de OverviewTab.jsx (déjà dupliqué
 // une première fois par l'ex-"Commandes", voir historique de ce fichier) — "90 j" correspond à
 // la totalité de l'historique CONSERVÉ côté serveur (rétention 90 jours, `audit_events` inclus
 // depuis ce jalon, voir `routes/maintenance.py` côté Vanitas), pas besoin d'une option "Tout".
-const RANGES = [
-  { key: "7", label: "7 j", days: 7 },
-  { key: "14", label: "14 j", days: 14 },
-  { key: "30", label: "30 j", days: 30 },
-  { key: "90", label: "90 j", days: 90 },
-];
+const RANGES = [7, 14, 30, 90].map((days) => ({
+  key: String(days),
+  get label() {
+    return tr("val.range.days", { count: days });
+  },
+  days,
+}));
 
 // Plage personnalisée (2026-09-09, demande de Nicolas — "je voudrai même qu'on puisse choisir
 // une plage de date") — 5e option à côté des 4 boutons jour, PAS un remplacement : les deux
@@ -28,73 +30,42 @@ const CUSTOM_RANGE_KEY = "custom";
 // dans tout le dashboard, pas une nouvelle iconographie propre à cette page. Couleurs = tokens
 // --hud-* existants, jamais inventées (recherche faite avant de concevoir cette page : GitHub/
 // Datadog/Linear réservent la couleur à la catégorie, jamais au texte).
+// Labels: val.cat.<key> (getter added below).
 const CATEGORY_META = {
-  poste: { label: "Poste", color: "var(--hud-accent)", dim: "var(--hud-accent-dim)", Icon: IconLaptop },
-  application: { label: "Application", color: "var(--hud-warn)", dim: "var(--hud-warn-soft)", Icon: IconUpload },
-  conformite: { label: "Conformité", color: "var(--hud-accent2)", dim: "var(--hud-accent2-dim)", Icon: IconShield },
-  groupe: { label: "Groupe", color: "var(--hud-good)", dim: "var(--hud-good-soft)", Icon: IconLayers },
+  poste: { color: "var(--hud-accent)", dim: "var(--hud-accent-dim)", Icon: IconLaptop },
+  application: { color: "var(--hud-warn)", dim: "var(--hud-warn-soft)", Icon: IconUpload },
+  conformite: { color: "var(--hud-accent2)", dim: "var(--hud-accent2-dim)", Icon: IconShield },
+  groupe: { color: "var(--hud-good)", dim: "var(--hud-good-soft)", Icon: IconLayers },
 };
+for (const [key, meta] of Object.entries(CATEGORY_META)) {
+  Object.defineProperty(meta, "label", { get: () => tr(`val.cat.${key}`), enumerable: true });
+}
 const CATEGORY_ORDER = ["poste", "application", "conformite", "groupe"];
 
 // Verbe affiché pour une entrée "audit" (mutation admin sur un catalogue) — clé
 // `${category}:${action}`, voir `endpoint-agent/server/app/routes/*.py` pour la liste exacte
 // des couples déjà écrits. Une entrée "commande" (source === "command") a son propre verbe
-// fixe ("a lancé"), voir le rendu de la phrase plus bas.
-const AUDIT_VERBS = {
-  "groupe:created": "a créé le groupe",
-  "groupe:updated": "a modifié le groupe",
-  "groupe:deleted": "a supprimé le groupe",
-  "groupe:agent_added": "a ajouté un poste au groupe",
-  "groupe:agent_removed": "a retiré un poste du groupe",
-  "application:created": "a ajouté l'installeur",
-  "application:updated": "a modifié l'installeur",
-  "application:deleted": "a supprimé l'installeur",
-  "application:pushed": "a poussé l'installeur",
-  "conformite:created": "a créé la règle",
-  "conformite:updated": "a modifié la règle",
-  "conformite:deleted": "a supprimé la règle",
-  "conformite:enabled": "a activé la règle",
-  "conformite:disabled": "a désactivé la règle",
-  "poste:removed": "a retiré le poste",
-  // "Ajouter un poste" (2026-09-11) — target_label porte déjà le fragment du token
-  // (`Token d'enrôlement (…xxxxxxxx)`), voir routes/enrollment_tokens.py.
-  "poste:enrollment_token_created": "a généré un",
-};
+// fixe ("a lancé"), voir le rendu de la phrase plus bas. Libellés : val.verb.<category>.<action>
+// (verbe de la phrase) et val.title.<category>.<action> (titre du popup de détail) — repli sur
+// `action` brut si un couple manquait.
+function auditText(kind, entry) {
+  const key = `val.${kind}.${entry.category}.${entry.action}`;
+  const text = tr(key);
+  return text === key ? entry.action : text;
+}
 
 // Titre du popup de détail (2026-09-09, demande de Nicolas — "on est d'accord qu'on a tout
-// mis ?") : forme nominale de AUDIT_VERBS ci-dessus, un couple par action possible — même
-// exhaustivité, pas de repli générique au-delà de `action` brut si un couple manquait.
-const AUDIT_TITLES = {
-  "groupe:created": "Groupe créé",
-  "groupe:updated": "Groupe modifié",
-  "groupe:deleted": "Groupe supprimé",
-  "groupe:agent_added": "Poste ajouté au groupe",
-  "groupe:agent_removed": "Poste retiré du groupe",
-  "application:created": "Installeur ajouté",
-  "application:updated": "Installeur modifié",
-  "application:deleted": "Installeur supprimé",
-  "application:pushed": "Installeur poussé",
-  "conformite:created": "Règle créée",
-  "conformite:updated": "Règle modifiée",
-  "conformite:deleted": "Règle supprimée",
-  "conformite:enabled": "Règle activée",
-  "conformite:disabled": "Règle désactivée",
-  "poste:removed": "Poste retiré",
-  "poste:enrollment_token_created": "Token d'enrôlement généré",
-};
-
+// mis ?") : forme nominale du verbe ci-dessus (val.title.*), un couple par action possible.
 function entryTitle(entry) {
   if (entry.source === "command") return COMMAND_LABELS[entry.action] ?? entry.action;
-  return AUDIT_TITLES[`${entry.category}:${entry.action}`] ?? entry.action;
+  return auditText("title", entry);
 }
 
 // `parameters` (2026-09-09) : JSON déjà décodé côté serveur (routes/activity.py::
 // _command_parameters) — seul `install_application` en porte un aujourd'hui, d'où des
 // libellés spécifiques plutôt qu'une table générique par type de commande.
 const PARAM_LABELS = {
-  installer_id: "Installeur (id)",
-  original_filename: "Fichier",
-  install_command: "Commande",
+  ...localizedTable("val.param", ["installer_id", "original_filename", "install_command"]),
   sha256: "SHA-256",
 };
 
@@ -106,7 +77,7 @@ function fmtDuration(startIso, endIso) {
 }
 
 function fmtShortDate(iso) {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(currentLocale(), { day: "2-digit", month: "short" });
 }
 
 function toIsoDate(d) {
@@ -121,7 +92,7 @@ function toIsoDate(d) {
 function TypeFilterDropdown({ selected, counts, onToggle, onToggleAll, isOpen, onRequestToggle, rootRef }) {
   const allSelected = selected.size === CATEGORY_ORDER.length;
   const chosen = CATEGORY_ORDER.filter((k) => selected.has(k));
-  const label = allSelected ? "Type" : chosen.length === 1 ? CATEGORY_META[chosen[0]].label : `Type · ${chosen.length}`;
+  const label = allSelected ? tr("val.type") : chosen.length === 1 ? CATEGORY_META[chosen[0]].label : tr("val.typeN", { count: chosen.length });
 
   return (
     <div className="vanitas-filter-dropdown" ref={rootRef}>
@@ -169,7 +140,7 @@ function TypeFilterDropdown({ selected, counts, onToggle, onToggleAll, isOpen, o
           <div className="vanitas-type-divider" />
           <div className="vanitas-type-footer">
             <button type="button" onClick={onToggleAll}>
-              {allSelected ? "Rien sélectionner" : "Tout sélectionner"}
+              {allSelected ? tr("val.selectNone") : tr("val.selectAll")}
             </button>
           </div>
         </div>
@@ -178,11 +149,10 @@ function TypeFilterDropdown({ selected, counts, onToggle, onToggleAll, isOpen, o
   );
 }
 
-const MONTHS_FR = [
-  "janvier", "février", "mars", "avril", "mai", "juin",
-  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-];
-const WEEKDAYS_FR = ["L", "M", "M", "J", "V", "S", "D"];
+// Mois via Intl (langue courante) ; initiales des jours (lundi en tête) via val.weekdays.
+function monthName(date) {
+  return date.toLocaleDateString(currentLocale(), { month: "long" });
+}
 
 function sameDay(a, b) {
   return Boolean(a) && Boolean(b) && a.toDateString() === b.toDateString();
@@ -216,10 +186,10 @@ function CalendarMonth({ monthDate, today, oldestAllowed, rangeStart, rangeEnd, 
   return (
     <div className="vanitas-cal-month">
       <div className="vanitas-cal-month-title">
-        {MONTHS_FR[monthDate.getMonth()]} {monthDate.getFullYear()}
+        {monthName(monthDate)} {monthDate.getFullYear()}
       </div>
       <div className="vanitas-cal-grid">
-        {WEEKDAYS_FR.map((w, i) => (
+        {tr("val.weekdays").split(",").map((w, i) => (
           <div className="vanitas-cal-weekday" key={i}>
             {w}
           </div>
@@ -314,7 +284,7 @@ function PeriodFilterDropdown({ rangeKey, customFrom, customTo, onApplyPreset, o
   const label =
     rangeKey === CUSTOM_RANGE_KEY && customFrom && customTo
       ? `${fmtShortDate(customFrom)} → ${fmtShortDate(customTo)}`
-      : RANGES.find((r) => r.key === rangeKey)?.label ?? "90 j";
+      : RANGES.find((r) => r.key === rangeKey)?.label ?? tr("val.range.days", { count: 90 });
 
   return (
     <div className="vanitas-filter-dropdown" ref={rootRef}>
@@ -348,7 +318,7 @@ function PeriodFilterDropdown({ rangeKey, customFrom, customTo, onApplyPreset, o
                 <button
                   type="button"
                   className="vanitas-cal-nav-btn"
-                  aria-label="Mois précédent"
+                  aria-label={tr("val.prevMonth")}
                   onClick={() => setViewLeft(new Date(viewLeft.getFullYear(), viewLeft.getMonth() - 1, 1))}
                 >
                   <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -372,7 +342,7 @@ function PeriodFilterDropdown({ rangeKey, customFrom, customTo, onApplyPreset, o
                 <button
                   type="button"
                   className="vanitas-cal-nav-btn"
-                  aria-label="Mois suivant"
+                  aria-label={tr("val.nextMonth")}
                   onClick={() => setViewLeft(new Date(viewLeft.getFullYear(), viewLeft.getMonth() + 1, 1))}
                 >
                   <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -396,27 +366,27 @@ function PeriodFilterDropdown({ rangeKey, customFrom, customTo, onApplyPreset, o
             <span className="vanitas-cal-range-readout">
               {rangeStart && rangeEnd ? (
                 <>
-                  <b>{rangeStart.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</b> →{" "}
-                  <b>{rangeEnd.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</b>
+                  <b>{rangeStart.toLocaleDateString(currentLocale(), { day: "2-digit", month: "short" })}</b> →{" "}
+                  <b>{rangeEnd.toLocaleDateString(currentLocale(), { day: "2-digit", month: "short" })}</b>
                 </>
               ) : rangeStart ? (
                 <>
-                  <b>{rangeStart.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</b> → choisis une date de fin
+                  <b>{rangeStart.toLocaleDateString(currentLocale(), { day: "2-digit", month: "short" })}</b> → {tr("val.pickEnd")}
                 </>
               ) : (
-                "Ou choisis une plage précise ci-dessus"
+                tr("val.pickRange")
               )}
             </span>
             <div className="vanitas-cal-actions">
               <button type="button" className="vanitas-cal-btn ghost" onClick={onClose}>
-                Annuler
+                {tr("val.cancel")}
               </button>
               <button type="button" className="vanitas-cal-btn primary" disabled={!rangeStart || !rangeEnd} onClick={handleApply}>
-                Appliquer
+                {tr("val.apply")}
               </button>
             </div>
           </div>
-          <div className="vanitas-retention-hint">Grisées : hors des 90 derniers jours (purge automatique côté serveur)</div>
+          <div className="vanitas-retention-hint">{tr("val.retention")}</div>
         </div>
       )}
     </div>
@@ -430,9 +400,9 @@ function fmtDay(date) {
   startOfYesterday.setDate(startOfYesterday.getDate() - 1);
   const d = new Date(date);
   const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  if (startOfDay.getTime() === startOfToday.getTime()) return "Aujourd'hui";
-  if (startOfDay.getTime() === startOfYesterday.getTime()) return "Hier";
-  return startOfDay.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+  if (startOfDay.getTime() === startOfToday.getTime()) return tr("val.today");
+  if (startOfDay.getTime() === startOfYesterday.getTime()) return tr("val.yesterday");
+  return startOfDay.toLocaleDateString(currentLocale(), { day: "2-digit", month: "long", year: "numeric" });
 }
 
 // Étiquette de la colonne méta (2026-09-09, retour de Nicolas — "pour les trucs qui datent
@@ -443,26 +413,28 @@ function fmtDay(date) {
 // Vanitas pour "dernier contact" — pas concernée par cette demande, propre à cette colonne).
 function activityMetaLabel(value) {
   const then = new Date(value).getTime();
-  if (Number.isNaN(then)) return "jamais";
+  if (Number.isNaN(then)) return tr("val.never");
   const diffH = (Date.now() - then) / 3_600_000;
-  if (diffH < 1) return "à l'instant";
-  if (diffH < 24) return `il y a ${Math.round(diffH)} h`;
+  if (diffH < 1) return tr("val.justNow");
+  if (diffH < 24) return tr("val.hoursAgo", { count: Math.round(diffH) });
   const d = new Date(value);
-  return `${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+  return tr("val.dateAt", {
+    date: d.toLocaleDateString(currentLocale(), { day: "2-digit", month: "2-digit" }),
+    time: d.toLocaleTimeString(currentLocale(), { hour: "2-digit", minute: "2-digit" }),
+  });
 }
 
 function sentenceParts(entry) {
   if (entry.source === "command") {
-    return { verb: "a lancé", target: `${COMMAND_LABELS[entry.action] ?? entry.action} sur ${entry.target_label}` };
+    return { verb: tr("val.ran"), target: tr("val.cmdOn", { command: COMMAND_LABELS[entry.action] ?? entry.action, target: entry.target_label }) };
   }
-  const verb = AUDIT_VERBS[`${entry.category}:${entry.action}`] ?? entry.action;
-  return { verb, target: `« ${entry.target_label} »` };
+  return { verb: auditText("verb", entry), target: tr("val.quoted", { label: entry.target_label }) };
 }
 
 function ActivityRow({ entry, onOpen }) {
   const meta = CATEGORY_META[entry.category] ?? CATEGORY_META.poste;
   const { verb, target } = sentenceParts(entry);
-  const outcomeLabel = entry.outcome === "ok" ? "Succès" : entry.outcome === "fail" ? "Échec" : "En attente";
+  const outcomeLabel = tr(entry.outcome === "ok" || entry.outcome === "fail" ? `val.outcome.${entry.outcome}` : "val.outcome.pending");
 
   return (
     <div
@@ -478,7 +450,7 @@ function ActivityRow({ entry, onOpen }) {
       </span>
       <div className="vanitas-activity-body">
         <div className="vanitas-activity-sentence">
-          <span className="actor">{entry.actor || "Inconnu"}</span> {verb} <span className="target">{target}</span>
+          <span className="actor">{entry.actor || tr("val.unknown")}</span> {verb} <span className="target">{target}</span>
         </div>
         {entry.detail && (
           <div className="vanitas-activity-detail">
@@ -503,7 +475,7 @@ function ActivityRow({ entry, onOpen }) {
 // ce dashboard — voir DeployAppWizard.jsx/EditAppTab.jsx/AppCatalogTab.jsx) plutôt que partagé.
 function renderTerminalDetail(text) {
   return text.split("\n").map((line, i) => {
-    const cls = line.startsWith("[stderr]") ? " stderr" : /^Code de sortie/.test(line) ? " exit" : "";
+    const cls = line.startsWith("[stderr]") ? " stderr" : /^(Code de sortie|Exit code)/.test(line) ? " exit" : "";
     return (
       <div key={i} className={`activity-detail-term-line${cls}`}>
         {line}
@@ -552,7 +524,7 @@ function ActivityDetailModal({ entry, onClose }) {
   const meta = CATEGORY_META[entry.category] ?? CATEGORY_META.poste;
   const { verb, target } = sentenceParts(entry);
   const title = entryTitle(entry);
-  const outcomeLabel = entry.outcome === "ok" ? "Succès" : entry.outcome === "fail" ? "Échec" : "En attente";
+  const outcomeLabel = tr(entry.outcome === "ok" || entry.outcome === "fail" ? `val.outcome.${entry.outcome}` : "val.outcome.pending");
   const paramEntries = entry.parameters ? Object.entries(entry.parameters) : [];
 
   return createPortal(
@@ -565,7 +537,7 @@ function ActivityDetailModal({ entry, onClose }) {
         aria-modal="true"
         aria-label={title}
       >
-        <button type="button" className="activity-detail-close" onClick={onClose} aria-label="Fermer">
+        <button type="button" className="activity-detail-close" onClick={onClose} aria-label={tr("val.close")}>
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
@@ -577,7 +549,7 @@ function ActivityDetailModal({ entry, onClose }) {
           </div>
           <h2 className="activity-detail-title">{title}</h2>
           <p className="activity-detail-subtitle">
-            <b>{entry.actor || "Inconnu"}</b> {verb} <span className="target">{target}</span>
+            <b>{entry.actor || tr("val.unknown")}</b> {verb} <span className="target">{target}</span>
           </p>
           {entry.outcome && (
             <span className={`activity-detail-outcome-pill ${entry.outcome}`}>
@@ -590,37 +562,37 @@ function ActivityDetailModal({ entry, onClose }) {
 
           <div className="activity-detail-info-list">
             <div className="activity-detail-info-row">
-              <span className="label">Identifiant</span>
+              <span className="label">{tr("val.info.id")}</span>
               <span className="value mono">{entry.id}</span>
             </div>
             <div className="activity-detail-info-row">
-              <span className="label">Source</span>
-              <span className="value">{entry.source === "command" ? "Commande poste" : "Journal d'audit"}</span>
+              <span className="label">{tr("val.info.source")}</span>
+              <span className="value">{tr(entry.source === "command" ? "val.source.command" : "val.source.audit")}</span>
             </div>
             <div className="activity-detail-info-row">
-              <span className="label">Catégorie</span>
+              <span className="label">{tr("val.info.category")}</span>
               <span className="value accent">{meta.label}</span>
             </div>
             <div className="activity-detail-info-row">
-              <span className="label">Créée le</span>
+              <span className="label">{tr("val.info.created")}</span>
               <span className="value mono">{fmtDateTime(entry.created_at)}</span>
             </div>
             {entry.completed_at ? (
               <>
                 <div className="activity-detail-info-row">
-                  <span className="label">Terminée le</span>
+                  <span className="label">{tr("val.info.completed")}</span>
                   <span className="value mono">{fmtDateTime(entry.completed_at)}</span>
                 </div>
                 <div className="activity-detail-info-row">
-                  <span className="label">Durée</span>
+                  <span className="label">{tr("val.info.duration")}</span>
                   <span className="value mono">{fmtDuration(entry.created_at, entry.completed_at)}</span>
                 </div>
               </>
             ) : (
               entry.source === "command" && (
                 <div className="activity-detail-info-row">
-                  <span className="label">Durée</span>
-                  <span className="value mono">en cours…</span>
+                  <span className="label">{tr("val.info.duration")}</span>
+                  <span className="value mono">{tr("val.running")}</span>
                 </div>
               )
             )}
@@ -631,7 +603,7 @@ function ActivityDetailModal({ entry, onClose }) {
           {paramEntries.length > 0 && (
             <>
               <div className="activity-detail-section-row">
-                <span className="label">Paramètres de la commande</span>
+                <span className="label">{tr("val.params")}</span>
               </div>
               <div className="activity-detail-params">
                 {paramEntries.map(([k, v]) => (
@@ -647,14 +619,14 @@ function ActivityDetailModal({ entry, onClose }) {
             </>
           )}
           <div className="activity-detail-section-row">
-            <span className="label">Détail complet</span>
+            <span className="label">{tr("val.fullDetail")}</span>
             {entry.detail && <CopyButton className="activity-detail-copy-btn" text={entry.detail} />}
           </div>
           <div className="activity-detail-body">
             {entry.detail ? (
               <div className="activity-detail-terminal">{renderTerminalDetail(entry.detail)}</div>
             ) : (
-              <div className="activity-detail-empty">Aucun détail supplémentaire enregistré pour cette entrée.</div>
+              <div className="activity-detail-empty">{tr("val.noDetail")}</div>
             )}
           </div>
         </div>
@@ -789,7 +761,7 @@ export default function VanitasActivityLogTab() {
           <span className="prompt">&gt;</span>
           <input
             type="text"
-            placeholder="Rechercher (auteur, action, cible, détail)..."
+            placeholder={tr("val.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
@@ -822,16 +794,14 @@ export default function VanitasActivityLogTab() {
       </div>
 
       <p className="vanitas-activity-note">
-        {sorted.length} / {inRange.length} entrée{inRange.length > 1 ? "s" : ""} — au-delà de 90
-        jours, le journal est purgé automatiquement côté serveur (sessions terminal non
-        concernées, conservées indéfiniment).
+        {tr("val.note", { shown: sorted.length, count: inRange.length })}
       </p>
 
       {log.state.status === "loading" ? (
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       ) : sorted.length === 0 ? (
         <p className="vanitas-hud-empty-note">
-          {entries.length === 0 ? "Aucune activité enregistrée pour l'instant." : "0 résultat — aucune entrée ne correspond à ce filtre."}
+          {entries.length === 0 ? tr("val.empty") : tr("val.noResult")}
         </p>
       ) : (
         sorted.map((entry) => {

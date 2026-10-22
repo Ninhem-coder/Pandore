@@ -1,4 +1,5 @@
 import { formatRelativeDays } from "../theme.js";
+import { tr } from "../i18n/core.js";
 
 /**
  * "Nouveaux devices (7 jours)" (Vue d'ensemble v2, 2026-08-10) — machines dont `firstSeen`
@@ -13,7 +14,7 @@ export default function NewDevicesList({ devices, onSelectDevice }) {
   const rows = devices || [];
 
   if (rows.length === 0) {
-    return <p className="empty">Aucun nouveau device détecté sur la période.</p>;
+    return <p className="empty">{tr("overview.noNewDevice")}</p>;
   }
 
   return (
@@ -24,12 +25,12 @@ export default function NewDevicesList({ devices, onSelectDevice }) {
         const rowContent = (
           <>
             <span className="new-name">
-              {name ?? "Device inconnu"}
+              {name ?? tr("common.unknownDevice")}
               <span className="sub">
-                {d.osPlatform ?? "OS inconnu"} · {d.onboardingStatus ?? "statut inconnu"}
+                {d.osPlatform ?? tr("common.unknownOs")} · {d.onboardingStatus ?? tr("overview.unknownStatus")}
               </span>
             </span>
-            <span className={`age-pill${age === "aujourd'hui" ? " today" : ""}`}>{age}</span>
+            <span className={`age-pill${age === tr("relative.today") ? " today" : ""}`}>{age}</span>
           </>
         );
         const key = d.id ?? name ?? i;

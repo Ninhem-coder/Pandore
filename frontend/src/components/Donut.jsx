@@ -2,6 +2,7 @@ import { useState } from "react";
 import { buildDonutEntries } from "../selectors.js";
 import DonutSvg from "./DonutSvg.jsx";
 import DonutLegend from "./DonutLegend.jsx";
+import { tr } from "../i18n/core.js";
 
 /**
  * Carte camembert complète (titre badge + donut + légende) — assemble DonutSvg et
@@ -77,7 +78,7 @@ export default function Donut({
         {headerExtra}
       </div>
       {entries.length === 0 ? (
-        <p className="empty">Aucune donnée</p>
+        <p className="empty">{tr("common.noData")}</p>
       ) : (
         <div className={compact ? "donut-card" : "compliance-layout"}>
           <DonutSvg

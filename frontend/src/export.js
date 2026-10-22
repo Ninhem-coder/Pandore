@@ -10,19 +10,26 @@ import {
   buildVanitasDeployedAppsExportData,
   buildPatchStatusExportData,
 } from "./selectors.js";
+import { localizedTable, tr } from "./i18n/core.js";
 
-// Libellés FR des états d'installation pour les EN-TÊTES de colonnes de la feuille "Vue
+// Libellés des états d'installation pour les EN-TÊTES de colonnes de la feuille "Vue
 // d'ensemble" (voir exportAppInstallStatusToExcel ci-dessous) — copie volontairement réduite
-// de INSTALL_STATE_LABEL_FR (DeployedAppsTab.jsx, table de référence pour l'affichage à
+// de INSTALL_STATE_LABEL (DeployedAppsTab.jsx, table de référence pour l'affichage à
 // l'écran) : ce fichier ne dépend d'aucun composant page (voir le commentaire d'en-tête plus
 // haut sur exportCveToExcel), donc pas d'import croisé pour 5 libellés fixes.
-const INSTALL_STATE_COLUMN_LABEL_FR = {
-  installed: "Installées",
-  failed: "Échecs",
-  pendingInstall: "En attente",
-  notInstalled: "Non installées",
-  notApplicable: "Non applicables",
-};
+// Exports are written in the current interface language (sheet names, headers, fixed values).
+const INSTALL_STATE_COLUMN_LABEL = localizedTable("export.state", [
+  "installed",
+  "failed",
+  "pendingInstall",
+  "notInstalled",
+  "notApplicable",
+]);
+
+/** Bold header cell with a translated label. */
+function header(key) {
+  return { value: tr(key), fontWeight: "bold" };
+}
 
 /**
  * Génère et déclenche le téléchargement d'un export Excel (.xlsx) pour UNE CVE — bouton
@@ -46,27 +53,27 @@ export async function exportCveToExcel(v) {
   const { summary, devices } = buildCveExportData(v);
 
   const summarySheet = {
-    sheet: "Résumé",
+    sheet: tr("export.sheet.summary"),
     columns: [{ width: 34 }, { width: 42 }],
     data: [
       [
-        { value: "Indicateur", fontWeight: "bold" },
-        { value: "Valeur", fontWeight: "bold" },
+        header("export.col.indicator"),
+        header("export.col.value"),
       ],
       ...summary.map((row) => [{ value: row.label }, toCell(row.value)]),
     ],
   };
 
   const deviceSheet = {
-    sheet: "Devices exposés",
+    sheet: tr("export.sheet.exposedDevices"),
     stickyRowsCount: 1,
     columns: [{ width: 26 }, { width: 22 }, { width: 55 }, { width: 55 }],
     data: [
       [
-        { value: "Device", fontWeight: "bold" },
-        { value: "Groupe RBAC", fontWeight: "bold" },
-        { value: "Chemin(s) disque", fontWeight: "bold" },
-        { value: "Chemin(s) registre", fontWeight: "bold" },
+        header("export.col.device"),
+        header("export.col.rbacGroup"),
+        header("export.col.diskPaths"),
+        header("export.col.registryPaths"),
       ],
       ...devices.map((d) => [
         { value: safeText(d.device) },
@@ -102,30 +109,30 @@ export async function exportAppInstallStatusToExcel(app, devices) {
 
   const overviewColumns = ["Installées", "Échecs", "En attente", "Non installées", "Non applicables", "Autres"];
   const overviewSheet = {
-    sheet: "Vue d'ensemble",
+    sheet: tr("export.sheet.overview"),
     columns: [{ width: 28 }, { width: 12 }, ...overviewColumns.map(() => ({ width: 14 }))],
     data: [
-      [{ value: `Application : ${appName}`, fontWeight: "bold", columnSpan: 2 + overviewColumns.length }],
+      [{ value: tr("export.appTitle", { name: appName }), fontWeight: "bold", columnSpan: 2 + overviewColumns.length }],
       [],
       [
-        { value: "Département", fontWeight: "bold" },
-        { value: "Devices", fontWeight: "bold" },
-        ...Object.keys(INSTALL_STATE_COLUMN_LABEL_FR).map((k) => ({
-          value: INSTALL_STATE_COLUMN_LABEL_FR[k],
+        header("export.col.department"),
+        header("export.col.devices"),
+        ...Object.keys(INSTALL_STATE_COLUMN_LABEL).map((k) => ({
+          value: INSTALL_STATE_COLUMN_LABEL[k],
           fontWeight: "bold",
         })),
-        { value: "Autres", fontWeight: "bold" },
+        header("export.col.other"),
       ],
       ...overview.map((row) => [
         { value: safeText(row.star) },
         { value: row.total, type: Number },
-        ...Object.keys(INSTALL_STATE_COLUMN_LABEL_FR).map((k) => ({ value: row[k] || 0, type: Number })),
+        ...Object.keys(INSTALL_STATE_COLUMN_LABEL).map((k) => ({ value: row[k] || 0, type: Number })),
         { value: row.other || 0, type: Number },
       ]),
     ],
   };
 
-  const usedSheetNames = new Set(["Vue d'ensemble"]);
+  const usedSheetNames = new Set([tr("export.sheet.overview")]);
   const starSheets = starNames.map((star) => {
     const sheetDevices = byStar[star] || [];
     return {
@@ -134,18 +141,18 @@ export async function exportAppInstallStatusToExcel(app, devices) {
       columns: [{ width: 24 }, { width: 30 }, { width: 16 }, { width: 16 }, { width: 26 }, { width: 20 }],
       data: [
         [
-          { value: "Device", fontWeight: "bold" },
-          { value: "Utilisateur", fontWeight: "bold" },
-          { value: "Version installée", fontWeight: "bold" },
-          { value: "État d'installation", fontWeight: "bold" },
-          { value: "OS", fontWeight: "bold" },
-          { value: "Dernière synchro", fontWeight: "bold" },
+          header("export.col.device"),
+          header("export.col.user"),
+          header("export.col.installedVersion"),
+          header("export.col.installState"),
+          header("export.col.os"),
+          header("export.col.lastSync"),
         ],
         ...sheetDevices.map((d) => [
           { value: safeText(d.deviceName) },
           { value: safeText(d.userPrincipalName) },
           { value: safeText(d.appVersion) },
-          { value: INSTALL_STATE_COLUMN_LABEL_FR[d.installState] || d.installState || "Inconnu" },
+          { value: INSTALL_STATE_COLUMN_LABEL[d.installState] || d.installState || tr("export.col.unknown") },
           { value: safeText(d.osDescription) },
           toCell(d.lastSyncDateTime),
         ]),
@@ -163,7 +170,7 @@ export async function exportAppInstallStatusToExcel(app, devices) {
  * troncature fait collisionner deux départements au nom proche (peu probable mais silencieusement
  * écraser une feuille serait pire qu'un nom légèrement moins lisible). */
 function uniqueSheetName(rawName, used) {
-  const cleaned = (rawName || "Département").replace(/[:\\/?*[\]]/g, "-").trim() || "Département";
+  const cleaned = (rawName || tr("export.sheet.departmentFallback")).replace(/[:\\/?*[\]]/g, "-").trim() || tr("export.sheet.departmentFallback");
   let base = cleaned.slice(0, 31);
   let name = base;
   let suffix = 2;
@@ -217,7 +224,7 @@ function toCell(value) {
  * sauts de ligne insérés par `buildCveExportData` (un chemin par ligne, comme PathList à
  * l'écran) soient bien visibles dans Excel plutôt qu'aplatis en une seule ligne illisible. */
 function pathCell(joinedPaths) {
-  return { value: joinedPaths ? safeText(joinedPaths) : "Aucune évidence", wrap: true, alignVertical: "top" };
+  return { value: joinedPaths ? safeText(joinedPaths) : tr("export.noEvidence"), wrap: true, alignVertical: "top" };
 }
 
 /** "Export-CVE-2024-3400-2026-08-21.xlsx" — même convention de nom que le script PowerShell
@@ -251,24 +258,24 @@ function appExportFileName(appName) {
 export async function exportPostesToExcel(agents, groupById, latestCommandByAgent, isOnlineFn) {
   const rows = buildPostesExportData(agents, groupById, latestCommandByAgent, isOnlineFn);
   const sheet = {
-    sheet: "Postes",
+    sheet: tr("export.sheet.endpoints"),
     stickyRowsCount: 1,
     columns: [{ width: 22 }, { width: 10 }, { width: 24 }, { width: 14 }, { width: 24 }, { width: 10 }, { width: 26 }, { width: 20 }, { width: 20 }],
     data: [
       [
-        { value: "Poste", fontWeight: "bold" },
-        { value: "En ligne", fontWeight: "bold" },
-        { value: "Dernière synchro", fontWeight: "bold" },
-        { value: "Version agent", fontWeight: "bold" },
-        { value: "Certificat (expire)", fontWeight: "bold" },
-        { value: "Applications", fontWeight: "bold" },
-        { value: "Groupes", fontWeight: "bold" },
-        { value: "Dernière commande", fontWeight: "bold" },
-        { value: "Envoyée le", fontWeight: "bold" },
+        header("export.col.endpoint"),
+        header("export.col.online"),
+        header("export.col.lastSync"),
+        header("export.col.agentVersion"),
+        header("export.col.certificate"),
+        header("export.col.applications"),
+        header("export.col.groups"),
+        header("export.col.lastCommand"),
+        header("export.col.sentOn"),
       ],
       ...rows.map((r) => [
         { value: safeText(r.hostname) },
-        { value: r.online ? "Oui" : "Non" },
+        { value: tr(r.online ? "export.yes" : "export.no") },
         toCell(r.lastSeen),
         { value: safeText(r.agentVersion) },
         toCell(r.certNotAfter),
@@ -289,21 +296,21 @@ export async function exportConformiteToExcel(rules) {
   const { summary, detail } = buildConformiteExportData(rules);
 
   const summarySheet = {
-    sheet: "Résumé par règle",
+    sheet: tr("export.sheet.ruleSummary"),
     stickyRowsCount: 1,
     columns: [{ width: 30 }, { width: 12 }, { width: 10 }, { width: 10 }, { width: 20 }, { width: 12 }],
     data: [
       [
-        { value: "Règle", fontWeight: "bold" },
-        { value: "Activée", fontWeight: "bold" },
-        { value: "Postes", fontWeight: "bold" },
-        { value: "Conformes", fontWeight: "bold" },
-        { value: "Non conformes", fontWeight: "bold" },
-        { value: "Inconnu", fontWeight: "bold" },
+        header("export.col.rule"),
+        header("export.col.enabled"),
+        header("export.col.endpoints"),
+        header("export.col.compliant"),
+        header("export.col.nonCompliant"),
+        header("export.col.unknown"),
       ],
       ...summary.map((r) => [
         { value: safeText(r.name) },
-        { value: r.enabled ? "Oui" : "Non" },
+        { value: tr(r.enabled ? "export.yes" : "export.no") },
         { value: r.total, type: Number },
         { value: r.compliant, type: Number },
         { value: r.nonCompliant, type: Number },
@@ -313,14 +320,14 @@ export async function exportConformiteToExcel(rules) {
   };
 
   const detailSheet = {
-    sheet: "Détail par poste",
+    sheet: tr("export.sheet.endpointDetail"),
     stickyRowsCount: 1,
     columns: [{ width: 30 }, { width: 22 }, { width: 16 }],
     data: [
       [
-        { value: "Règle", fontWeight: "bold" },
-        { value: "Poste", fontWeight: "bold" },
-        { value: "Statut", fontWeight: "bold" },
+        header("export.col.rule"),
+        header("export.col.endpoint"),
+        header("export.col.status"),
       ],
       ...detail.map((r) => [{ value: safeText(r.rule) }, { value: safeText(r.hostname) }, { value: r.status }]),
     ],
@@ -335,19 +342,19 @@ export async function exportConformiteToExcel(rules) {
 export async function exportVulnerabilitiesToExcel(groups) {
   const rows = buildVulnerabilitiesExportData(groups);
   const sheet = {
-    sheet: "CVE x poste",
+    sheet: tr("export.sheet.cveByEndpoint"),
     stickyRowsCount: 1,
     columns: [{ width: 18 }, { width: 12 }, { width: 10 }, { width: 18 }, { width: 22 }, { width: 28 }, { width: 16 }, { width: 14 }],
     data: [
       [
-        { value: "CVE", fontWeight: "bold" },
-        { value: "Sévérité", fontWeight: "bold" },
-        { value: "CVSS", fontWeight: "bold" },
-        { value: "Publiée", fontWeight: "bold" },
-        { value: "Poste", fontWeight: "bold" },
-        { value: "Logiciel", fontWeight: "bold" },
-        { value: "Version installée", fontWeight: "bold" },
-        { value: "Version affectée", fontWeight: "bold" },
+        header("export.col.cve"),
+        header("export.col.severity"),
+        header("export.col.cvss"),
+        header("export.col.published"),
+        header("export.col.endpoint"),
+        header("export.col.software"),
+        header("export.col.installedVersion"),
+        header("export.col.affectedVersion"),
       ],
       ...rows.map((r) => [
         { value: safeText(r.cveId) },
@@ -370,26 +377,26 @@ export async function exportVulnerabilitiesToExcel(groups) {
 export async function exportEolToExcel(rows, typeLabels) {
   const data = buildEolExportData(rows, typeLabels);
   const sheet = {
-    sheet: "Logiciels obsolètes",
+    sheet: tr("export.sheet.eol"),
     stickyRowsCount: 1,
     columns: [{ width: 22 }, { width: 20 }, { width: 26 }, { width: 16 }, { width: 10 }, { width: 14 }, { width: 14 }, { width: 40 }],
     data: [
       [
-        { value: "Poste", fontWeight: "bold" },
-        { value: "Type", fontWeight: "bold" },
-        { value: "Logiciel / OS", fontWeight: "bold" },
-        { value: "Version", fontWeight: "bold" },
-        { value: "EOL", fontWeight: "bold" },
-        { value: "Jours avant EOL", fontWeight: "bold" },
-        { value: "Date de fin de support", fontWeight: "bold" },
-        { value: "Constat", fontWeight: "bold" },
+        header("export.col.endpoint"),
+        header("export.col.type"),
+        header("export.col.softwareOrOs"),
+        header("export.col.version"),
+        header("export.col.eol"),
+        header("export.col.daysUntilEol"),
+        header("export.col.eolDate"),
+        header("export.col.finding"),
       ],
       ...data.map((r) => [
         { value: safeText(r.hostname) },
         { value: r.type },
         { value: safeText(r.name) },
         { value: safeText(r.version) },
-        { value: r.isEol ? "Oui" : "Bientôt" },
+        { value: tr(r.isEol ? "export.yes" : "export.soon") },
         r.daysUntilEol === null ? { value: "" } : { value: r.daysUntilEol, type: Number },
         toCell(r.eolDate),
         { value: safeText(r.message), wrap: true },
@@ -405,21 +412,21 @@ export async function exportEolToExcel(rows, typeLabels) {
 export async function exportSuspiciousEventsToExcel(events, labels) {
   const rows = buildSuspiciousEventsExportData(events, labels);
   const sheet = {
-    sheet: "Activités suspectes",
+    sheet: tr("export.sheet.suspicious"),
     stickyRowsCount: 1,
     columns: [{ width: 22 }, { width: 12 }, { width: 18 }, { width: 22 }, { width: 40 }, { width: 18 }, { width: 14 }, { width: 18 }, { width: 18 }, { width: 30 }],
     data: [
       [
-        { value: "Poste", fontWeight: "bold" },
-        { value: "Sévérité", fontWeight: "bold" },
-        { value: "Signal", fontWeight: "bold" },
-        { value: "Règle déclenchée", fontWeight: "bold" },
-        { value: "Résumé", fontWeight: "bold" },
-        { value: "Survenu le", fontWeight: "bold" },
-        { value: "Statut", fontWeight: "bold" },
-        { value: "Traité par", fontWeight: "bold" },
-        { value: "Traité le", fontWeight: "bold" },
-        { value: "Note", fontWeight: "bold" },
+        header("export.col.endpoint"),
+        header("export.col.severity"),
+        header("export.col.signal"),
+        header("export.col.matchedRule"),
+        header("export.col.summary"),
+        header("export.col.occurredOn"),
+        header("export.col.status"),
+        header("export.col.handledBy"),
+        header("export.col.handledOn"),
+        header("export.col.note"),
       ],
       ...rows.map((r) => [
         { value: safeText(r.hostname) },
@@ -446,18 +453,18 @@ export async function exportVanitasDeployedAppsToExcel(rows) {
   const { appNames, overview, byApp } = buildVanitasDeployedAppsExportData(rows);
 
   const overviewSheet = {
-    sheet: "Vue d'ensemble",
+    sheet: tr("export.sheet.overview"),
     stickyRowsCount: 1,
     columns: [{ width: 26 }, { width: 12 }, { width: 30 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 12 }],
     data: [
       [
-        { value: "Application", fontWeight: "bold" },
-        { value: "Version", fontWeight: "bold" },
-        { value: "Cibles", fontWeight: "bold" },
-        { value: "Postes", fontWeight: "bold" },
-        { value: "Réussis", fontWeight: "bold" },
-        { value: "Échecs", fontWeight: "bold" },
-        { value: "En attente", fontWeight: "bold" },
+        header("export.col.application"),
+        header("export.col.version"),
+        header("export.col.targets"),
+        header("export.col.endpoints"),
+        header("export.col.succeeded"),
+        header("export.col.failed"),
+        header("export.col.pending"),
       ],
       ...overview.map((r) => [
         { value: safeText(r.name) },
@@ -471,21 +478,21 @@ export async function exportVanitasDeployedAppsToExcel(rows) {
     ],
   };
 
-  const usedSheetNames = new Set(["Vue d'ensemble"]);
+  const usedSheetNames = new Set([tr("export.sheet.overview")]);
   const appSheets = appNames.map((name) => ({
     sheet: uniqueSheetName(name, usedSheetNames),
     stickyRowsCount: 1,
     columns: [{ width: 22 }, { width: 14 }, { width: 40 }, { width: 18 }],
     data: [
       [
-        { value: "Poste", fontWeight: "bold" },
-        { value: "Statut", fontWeight: "bold" },
-        { value: "Résultat", fontWeight: "bold" },
-        { value: "Terminé le", fontWeight: "bold" },
+        header("export.col.endpoint"),
+        header("export.col.status"),
+        header("export.col.result"),
+        header("export.col.completedOn"),
       ],
       ...(byApp[name] || []).map((d) => [
         { value: safeText(d.hostname) },
-        { value: d.status === "ok" ? "Réussi" : d.status === "bad" ? "Échec" : "En attente" },
+        { value: tr(`export.deploy.${d.status === "ok" || d.status === "bad" ? d.status : "pending"}`) },
         { value: safeText(d.result || "") },
         toCell(d.completed_at || d.created_at),
       ]),
@@ -501,21 +508,21 @@ export async function exportVanitasDeployedAppsToExcel(rows) {
 export async function exportPatchStatusToExcel(entries) {
   const rows = buildPatchStatusExportData(entries);
   const sheet = {
-    sheet: "Mises à jour",
+    sheet: tr("export.sheet.updates"),
     stickyRowsCount: 1,
     columns: [{ width: 22 }, { width: 20 }, { width: 18 }, { width: 12 }, { width: 10 }, { width: 14 }, { width: 12 }, { width: 20 }, { width: 20 }, { width: 20 }],
     data: [
       [
-        { value: "Poste", fontWeight: "bold" },
-        { value: "Groupe", fontWeight: "bold" },
-        { value: "Statut", fontWeight: "bold" },
-        { value: "Disponibles", fontWeight: "bold" },
-        { value: "À faire", fontWeight: "bold" },
-        { value: "En cours", fontWeight: "bold" },
-        { value: "Installées", fontWeight: "bold" },
-        { value: "Installées le", fontWeight: "bold" },
-        { value: "Forcé le", fontWeight: "bold" },
-        { value: "Dernière vérif.", fontWeight: "bold" },
+        header("export.col.endpoint"),
+        header("export.col.group"),
+        header("export.col.status"),
+        header("export.col.available"),
+        header("export.col.todo"),
+        header("export.col.inProgress"),
+        header("export.col.installed"),
+        header("export.col.installedOn"),
+        header("export.col.forcedOn"),
+        header("export.col.lastCheck"),
       ],
       ...rows.map((r) => [
         { value: safeText(r.hostname) },

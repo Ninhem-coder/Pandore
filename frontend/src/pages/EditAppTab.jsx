@@ -6,6 +6,8 @@ import { IconPicker } from "../components/IconPicker.jsx";
 import { GENERIC_PALETTE } from "../theme.js";
 import { DETECTION_MODES, INSTALL_MODES, RESTART_BEHAVIORS } from "../components/DeployAppWizard.jsx";
 import { IconSearch, IconUpload, IconWrench } from "../components/icons.jsx";
+import { currentLocale, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Onglet "Application" > Administration > "Modifier une application" (2026-08-26, demande de
@@ -72,7 +74,7 @@ import { IconSearch, IconUpload, IconWrench } from "../components/icons.jsx";
 async function unwrap(promise) {
   const payload = await promise;
   if (isErrorPayload(payload)) {
-    throw new Error(payload.message || "Erreur inconnue.");
+    throw new Error(payload.message || tr("wiz.unknownError"));
   }
   return payload;
 }
@@ -91,28 +93,28 @@ function parseGithubRepoInput(value) {
 
 function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return "—";
-  const units = ["o", "Ko", "Mo", "Go"];
+  const units = tr("wiz.units").split(",");
   let value = bytes;
   let i = 0;
   while (value >= 1024 && i < units.length - 1) {
     value /= 1024;
     i += 1;
   }
-  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  return `${value.toLocaleString(currentLocale(), { maximumFractionDigits: i === 0 ? 0 : 1, minimumFractionDigits: i === 0 ? 0 : 1 })} ${units[i]}`;
 }
 
 function formatReleaseDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function hashString(str) {
@@ -146,11 +148,8 @@ function EntryIcon({ name, icon }) {
 /** Copie un bloc de commande/script généré — même motif que `CopyButton` dans
  * `DeployAppWizard.jsx` (non exporté là-bas, dupliqué ici : un composant de 15 lignes, pas le
  * même risque de dérive que les tableaux de config ci-dessus). */
-const SOURCE_FILTERS = [
-  { key: "all", label: "Toutes" },
-  { key: "manual", label: "Manuelle" },
-  { key: "packaged", label: "Packagée" },
-];
+// `key` doubles as the translation suffix (apps.source.<key>).
+const SOURCE_FILTERS = [{ key: "all" }, { key: "manual" }, { key: "packaged" }];
 
 /** Carte du sélecteur — même gabarit visuel que `LibraryCard` (AppCatalogTab.jsx), mais SANS
  * pied de carte "Télécharger"/"Retirer" : la carte entière est le bouton, cliquer SÉLECTIONNE
@@ -172,14 +171,14 @@ function EditAppPickerCard({ entry, active, onSelect }) {
           <span className="library-card-name" title={entry.displayName}>
             {entry.displayName}
           </span>
-          <span className="library-card-meta">{entry.publisher || "Éditeur non renseigné"}</span>
+          <span className="library-card-meta">{entry.publisher || tr("apps.publisherNotSet")}</span>
         </div>
         {entry.version && <span className="library-version-badge">v{entry.version}</span>}
       </div>
       <div className="library-card-body">
         <div className="library-card-tags">
-          <span className={`library-source-badge${isPackaged ? " packaged" : ""}`}>{isPackaged ? "Packagée" : "Manuelle"}</span>
-          <span className="library-card-date">ajoutée le {formatDate(entry.addedAt)}</span>
+          <span className={`library-source-badge${isPackaged ? " packaged" : ""}`}>{tr(isPackaged ? "apps.source.packaged" : "apps.source.manual")}</span>
+          <span className="library-card-date">{tr("edit.addedOn", { date: formatDate(entry.addedAt) })}</span>
         </div>
       </div>
     </button>
@@ -262,7 +261,7 @@ function RepackageSection({
       const info = await unwrap(api.packaging.uploadSource(id, file));
       setSource(info);
     } catch (err) {
-      setError(err.message || "Échec du dépôt du fichier.");
+      setError(err.message || tr("wiz.uploadFailed"));
     } finally {
       setBusy(false);
     }
@@ -272,7 +271,7 @@ function RepackageSection({
     e?.preventDefault();
     const parsed = parseGithubRepoInput(repoInput);
     if (!parsed) {
-      setError("Entrée invalide — attendu un lien GitHub (https://github.com/organisation/depot) ou « organisation/depot ».");
+      setError(tr("wiz.invalidRepo"));
       return;
     }
     setBusy(true);
@@ -285,7 +284,7 @@ function RepackageSection({
       setRepo(parsed);
       setReleases(data.releases || []);
     } catch (err) {
-      setError(err.message || "Échec de la recherche GitHub.");
+      setError(err.message || tr("wiz.githubSearchFailed"));
     } finally {
       setBusy(false);
     }
@@ -315,7 +314,7 @@ function RepackageSection({
       // changer à la main (repéré en testant : le premier essai laissait la version périmée).
       onVersionSuggested?.(rel.tagName);
     } catch (err) {
-      setError(err.message || "Échec de la récupération de cette release.");
+      setError(err.message || tr("wiz.releaseFailed"));
     } finally {
       setBusy(false);
     }
@@ -328,7 +327,7 @@ function RepackageSection({
       const info = await unwrap(api.packaging.githubFetch(jobId, asset.downloadUrl, asset.name, repo?.owner, repo?.repo));
       setSource(info);
     } catch (err) {
-      setError(err.message || "Échec du téléchargement de l'asset.");
+      setError(err.message || tr("wiz.assetFailed"));
     } finally {
       setBusy(false);
     }
@@ -352,7 +351,7 @@ function RepackageSection({
       setRepackaged(true);
       onRepackaged(entry);
     } catch (err) {
-      setError(err.message || "Échec du repackaging.");
+      setError(err.message || tr("edit.repackageFailed"));
     } finally {
       setRepackaging(false);
     }
@@ -361,30 +360,34 @@ function RepackageSection({
   return (
     <div className="wizard-field-group edit-app-repackage-group">
       <div className="edit-app-section-divider">
-        <span>Optionnel — repackaging</span>
+        <span>{tr("edit.optionalRepackaging")}</span>
       </div>
-      <p className="filter-chip-group-label">Repackager avec une autre version</p>
+      <p className="filter-chip-group-label">{tr("edit.repackageTitle")}</p>
       <p className="card-note">
-        <strong>Indépendant du bouton "Enregistrer les modifications" ci-dessus</strong>, qui a déjà sauvegardé la
-        fiche et la configuration sans rien demander ici. Utilise cette section UNIQUEMENT si tu veux remplacer le
-        fichier .intunewin par une nouvelle version — {sourceRepo ? (
-          <>
-            dépôt d'origine : <span className="cve-mono">{sourceRepo.owner}/{sourceRepo.repo}</span> (les releases se
-            chargent ci-dessous, choisis-en une autre pour changer de version)
-          </>
-        ) : (
-          "dépose un nouvel installeur ou choisis une release GitHub"
-        )}{" "}
-        ; le mode d'installation/options/détection ci-dessus s'appliqueraient alors au nouveau paquet, .intunewin
-        ré-exécuté pour de vrai.
+        {trRich("edit.repackageIntro", {
+          strong: <strong>{tr("edit.independent")}</strong>,
+          source: sourceRepo ? (
+            <>
+              {trRich("edit.originRepo", {
+                repo: (
+                  <span className="cve-mono">
+                    {sourceRepo.owner}/{sourceRepo.repo}
+                  </span>
+                ),
+              })}
+            </>
+          ) : (
+            <>{tr("edit.uploadOrRelease")}</>
+          ),
+        })}
       </p>
 
-      <div className="wizard-source-toggle" role="group" aria-label="Origine du nouvel installeur">
+      <div className="wizard-source-toggle" role="group" aria-label={tr("edit.newSourceAria")}>
         <button type="button" className={`wizard-toggle-btn${mode === "upload" ? " active" : ""}`} onClick={() => setMode("upload")}>
-          Déposer un fichier
+          {tr("wiz.uploadFile")}
         </button>
         <button type="button" className={`wizard-toggle-btn${mode === "github" ? " active" : ""}`} onClick={() => setMode("github")}>
-          Depuis GitHub Releases
+          {tr("wiz.fromGithub")}
         </button>
       </div>
 
@@ -392,7 +395,7 @@ function RepackageSection({
         <div className="wizard-source-panel">
           <button type="button" className="wizard-upload-drop" onClick={() => fileInputRef.current?.click()} disabled={busy}>
             <IconUpload />
-            <span>Choisir un fichier .msi ou .ps1…</span>
+            <span>{tr("apps.chooseFile")}</span>
           </button>
           <input ref={fileInputRef} type="file" accept=".msi,.ps1" hidden onChange={handleFileChange} />
         </div>
@@ -404,19 +407,19 @@ function RepackageSection({
             <input
               type="text"
               className="filter-input"
-              placeholder="https://github.com/organisation/depot ou organisation/depot"
+              placeholder={tr("wiz.githubPlaceholder")}
               value={repoInput}
               onChange={(e) => setRepoInput(e.target.value)}
             />
             <button type="submit" className="wizard-secondary-btn" disabled={busy || !repoInput.trim()}>
-              Rechercher
+              {tr("wiz.search")}
             </button>
           </form>
 
           {releases && !selectedRelease && (
             <div className="wizard-github-assets">
-              <p className="filter-chip-group-label">{releases.length} release{releases.length > 1 ? "s" : ""} — choisis une version</p>
-              {releases.length === 0 && <p className="empty">Aucune release publiée sur ce dépôt.</p>}
+              <p className="filter-chip-group-label">{tr("wiz.releases", { count: releases.length })}</p>
+              {releases.length === 0 && <p className="empty">{tr("wiz.noRelease")}</p>}
               {releases.map((rel) => (
                 <button
                   type="button"
@@ -435,12 +438,12 @@ function RepackageSection({
           {selectedRelease && (
             <div className="wizard-github-assets">
               <div className="wizard-result-row">
-                <p className="filter-chip-group-label">{selectedRelease.tagName || "release"} — choisis l'asset</p>
+                <p className="filter-chip-group-label">{tr("edit.pickAsset", { tag: selectedRelease.tagName || "release" })}</p>
                 <button type="button" className="wizard-copy-btn" onClick={() => setSelectedRelease(null)}>
-                  ‹ Toutes les versions
+                  {tr("wiz.allVersions")}
                 </button>
               </div>
-              {selectedRelease.assets.length === 0 && <p className="empty">Aucun asset publié sur cette release.</p>}
+              {selectedRelease.assets.length === 0 && <p className="empty">{tr("wiz.noAsset")}</p>}
               {selectedRelease.assets.map((asset) => (
                 <button
                   type="button"
@@ -458,11 +461,11 @@ function RepackageSection({
         </div>
       )}
 
-      {busy && <p className="card-note">Traitement en cours…</p>}
+      {busy && <p className="card-note">{tr("wiz.processing")}</p>}
 
       {source && (
         <div className="wizard-source-confirmed">
-          <p className="filter-chip-group-label">Nouvelle source déposée</p>
+          <p className="filter-chip-group-label">{tr("edit.newSource")}</p>
           <p className="cve-mono cve-small">{source.fileName} · {formatBytes(source.sizeBytes)}</p>
         </div>
       )}
@@ -470,12 +473,12 @@ function RepackageSection({
       {source && !repackaged && (
         <div className="wizard-actions library-manual-actions">
           <button type="button" className="wizard-secondary-btn" onClick={handleRepackage} disabled={repackaging}>
-            {repackaging ? "Repackaging en cours…" : "Repackager avec ce fichier"}
+            {repackaging ? tr("edit.repackaging") : tr("edit.repackageWithFile")}
           </button>
         </div>
       )}
 
-      {repackaged && <p className="card-note">Repackagée — livrable et commandes/script remplacés.</p>}
+      {repackaged && <p className="card-note">{tr("edit.repackaged")}</p>}
       {error && <p className="error-note">{error}</p>}
     </div>
   );
@@ -568,7 +571,7 @@ function EditAppForm({ entry, onSaved }) {
         onSaved(result);
       }
     } catch (err) {
-      setError(err.message || "Échec de la modification.");
+      setError(err.message || tr("edit.updateFailed"));
     } finally {
       setSaving(false);
     }
@@ -588,35 +591,35 @@ function EditAppForm({ entry, onSaved }) {
           <input
             type="text"
             className="filter-input"
-            placeholder="Nom de l'application *"
+            placeholder={tr("apps.namePlaceholder")}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            aria-label="Nom de l'application"
+            aria-label={tr("apps.nameAria")}
           />
           <input
             type="text"
             className="filter-input"
-            placeholder="Éditeur"
+            placeholder={tr("apps.publisher")}
             value={publisher}
             onChange={(e) => setPublisher(e.target.value)}
-            aria-label="Éditeur"
+            aria-label={tr("apps.publisher")}
           />
           <input
             type="text"
             className="filter-input"
-            placeholder="Version"
+            placeholder={tr("apps.version")}
             value={version}
             onChange={(e) => setVersion(e.target.value)}
-            aria-label="Version"
+            aria-label={tr("apps.version")}
           />
         </div>
         <input
           type="text"
           className="filter-input library-manual-note"
-          placeholder="Note (lien, contexte…)"
+          placeholder={tr("apps.notePlaceholder")}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          aria-label="Note"
+          aria-label={tr("apps.note")}
         />
         <IconPicker
           icon={previewIcon}
@@ -624,7 +627,7 @@ function EditAppForm({ entry, onSaved }) {
           onPick={handleIconPick}
           onClear={handleRemoveIcon}
           error={iconError}
-          clearLabel={newIcon ? "Retirer le nouveau logo" : "Retirer le logo"}
+          clearLabel={newIcon ? tr("edit.removeNewLogo") : tr("icon.remove")}
         />
 
         {isPackaged && (
@@ -634,8 +637,8 @@ function EditAppForm({ entry, onSaved }) {
             {sourceType === "msi" && (
               <>
                 <div className="wizard-field-group">
-                  <p className="filter-chip-group-label">Mode d'installation</p>
-                  <div className="wizard-mode-grid" role="radiogroup" aria-label="Mode d'installation">
+                  <p className="filter-chip-group-label">{tr("wiz.step.installMode")}</p>
+                  <div className="wizard-mode-grid" role="radiogroup" aria-label={tr("wiz.step.installMode")}>
                     {INSTALL_MODES.map((m) => (
                       <label key={m.key} className="wizard-mode-card">
                         <input
@@ -655,11 +658,11 @@ function EditAppForm({ entry, onSaved }) {
                 </div>
 
                 <div className="wizard-field-group">
-                  <p className="filter-chip-group-label">Options complémentaires</p>
+                  <p className="filter-chip-group-label">{tr("wiz.extraOptions")}</p>
                   <div
                     className="wizard-mode-grid wizard-mode-grid-compact"
                     role="radiogroup"
-                    aria-label="Comportement de redémarrage"
+                    aria-label={tr("wiz.restartAria")}
                   >
                     {RESTART_BEHAVIORS.map((r) => (
                       <label key={r.key || "default"} className="wizard-mode-card">
@@ -678,7 +681,7 @@ function EditAppForm({ entry, onSaved }) {
                   </div>
                   <label className="wizard-checkbox-row">
                     <input type="checkbox" checked={logVerbose} onChange={(e) => setLogVerbose(e.target.checked)} />
-                    <span>Journalisation détaillée (/l*v)</span>
+                    <span>{tr("wiz.verboseLog")}</span>
                   </label>
                 </div>
               </>
@@ -686,9 +689,9 @@ function EditAppForm({ entry, onSaved }) {
 
             {isPowershell && (
               <div className="wizard-field-group">
-                <p className="filter-chip-group-label">Commande de désinstallation</p>
+                <p className="filter-chip-group-label">{tr("apps.uninstallCommand")}</p>
                 <p className="card-note">
-                  Aucune génération automatique possible pour un script — à saisir à la main.
+                  {tr("edit.manualUninstallShort")}
                 </p>
                 <input
                   type="text"
@@ -696,13 +699,13 @@ function EditAppForm({ entry, onSaved }) {
                   placeholder="powershell -executionpolicy bypass -file .\Uninstall.ps1"
                   value={uninstallCommand}
                   onChange={(e) => setUninstallCommand(e.target.value)}
-                  aria-label="Commande de désinstallation"
+                  aria-label={tr("apps.uninstallCommand")}
                 />
               </div>
             )}
 
             <div className="wizard-field-group">
-              <p className="filter-chip-group-label">Règle de détection</p>
+              <p className="filter-chip-group-label">{tr("wiz.detectionRule")}</p>
               <select className="filter-input" value={detectionMode} onChange={(e) => setDetectionMode(e.target.value)}>
                 {DETECTION_MODES.map((d) => (
                   <option key={d.key} value={d.key}>
@@ -716,28 +719,28 @@ function EditAppForm({ entry, onSaved }) {
 
         <div className="wizard-actions library-manual-actions">
           <button type="submit" className="wizard-secondary-btn" disabled={saving || !displayName.trim()}>
-            {saving ? "Enregistrement…" : "Enregistrer les modifications"}
+            {saving ? tr("edit.saving") : tr("edit.save")}
           </button>
         </div>
         {error && <p className="error-note">{error}</p>}
 
         {saved && (
           <div className="wizard-field-group">
-            <p className="card-note">Modifications enregistrées.</p>
+            <p className="card-note">{tr("edit.saved")}</p>
             {savedPackage && (
               <>
                 <div className="wizard-result-row">
-                  <p className="filter-chip-group-label">Commande d'installation (mise à jour)</p>
+                  <p className="filter-chip-group-label">{tr("edit.installUpdated")}</p>
                   <CopyButton text={savedPackage.installCommand} />
                 </div>
                 <pre className="wizard-code-block">{savedPackage.installCommand}</pre>
                 <div className="wizard-result-row">
-                  <p className="filter-chip-group-label">Commande de désinstallation (mise à jour)</p>
+                  <p className="filter-chip-group-label">{tr("edit.uninstallUpdated")}</p>
                   <CopyButton text={savedPackage.uninstallCommand} />
                 </div>
                 <pre className="wizard-code-block">{savedPackage.uninstallCommand}</pre>
                 <div className="wizard-result-row">
-                  <p className="filter-chip-group-label">Script de détection (mis à jour)</p>
+                  <p className="filter-chip-group-label">{tr("edit.detectionUpdated")}</p>
                   <CopyButton text={savedPackage.detectionScript} />
                 </div>
                 <pre className="wizard-code-block wizard-code-block-tall">{savedPackage.detectionScript}</pre>
@@ -791,16 +794,16 @@ function EditAppModal({ entry, onClose, onSaved }) {
 
   return (
     <div className="wizard-overlay">
-      <div className="wizard-shell wizard-shell-wide" ref={shellRef} role="dialog" aria-modal="true" aria-label="Modifier une application">
+      <div className="wizard-shell wizard-shell-wide" ref={shellRef} role="dialog" aria-modal="true" aria-label={tr("edit.title")}>
         <div className="wizard-header">
           <span className="wizard-header-icon">
             <IconWrench />
           </span>
           <div className="wizard-header-text">
             <h2>{entry.displayName}</h2>
-            <p className="card-note">ajoutée le {formatDate(entry.addedAt)}</p>
+            <p className="card-note">{tr("edit.addedOn", { date: formatDate(entry.addedAt) })}</p>
           </div>
-          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer la modification">
+          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("edit.closeAria")}>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
@@ -863,15 +866,15 @@ export default function EditAppTab() {
     <>
       <div className="card">
         <div className="card-head">
-          <h2>Modifier une application</h2>
-          <span className="card-note">{state.entries.length} entrée{state.entries.length > 1 ? "s" : ""}</span>
+          <h2>{tr("edit.title")}</h2>
+          <span className="card-note">{tr("apps.entries", { count: state.entries.length })}</span>
         </div>
-        <p className="card-note">Choisis une application de la bibliothèque à modifier.</p>
+        <p className="card-note">{tr("edit.pick")}</p>
 
-        {state.status === "loading" && <p className="card-note">Chargement de la bibliothèque…</p>}
+        {state.status === "loading" && <p className="card-note">{tr("apps.loadingLibrary")}</p>}
         {state.status === "error" && <p className="error-note">{state.error}</p>}
         {state.status === "done" && state.entries.length === 0 && (
-          <p className="card-note">La bibliothèque est vide — rien à modifier pour l'instant.</p>
+          <p className="card-note">{tr("edit.emptyLibrary")}</p>
         )}
 
         {state.status === "done" && state.entries.length > 0 && (
@@ -882,13 +885,13 @@ export default function EditAppTab() {
                 <input
                   type="text"
                   className="filter-input library-search-input"
-                  placeholder="Rechercher par nom d'application ou éditeur…"
+                  placeholder={tr("apps.searchPlaceholder")}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  aria-label="Rechercher une application à modifier"
+                  aria-label={tr("edit.searchAria")}
                 />
               </div>
-              <div className="library-source-filter" role="group" aria-label="Filtrer par source">
+              <div className="library-source-filter" role="group" aria-label={tr("apps.filterSourceAria")}>
                 {SOURCE_FILTERS.map((f) => (
                   <button
                     key={f.key}
@@ -896,13 +899,13 @@ export default function EditAppTab() {
                     className={`library-source-chip${sourceFilter === f.key ? " active" : ""}`}
                     onClick={() => setSourceFilter(f.key)}
                   >
-                    {f.label} <span className="chip-count">{sourceCounts[f.key] ?? 0}</span>
+                    {tr(`apps.source.${f.key}`)} <span className="chip-count">{sourceCounts[f.key] ?? 0}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {filtered.length === 0 && <p className="card-note">Aucun résultat.</p>}
+            {filtered.length === 0 && <p className="card-note">{tr("edit.noResult")}</p>}
             {filtered.length > 0 && (
               <div className="library-grid">
                 {filtered.map((entry) => (
