@@ -30,8 +30,8 @@ detection on the endpoints you manage.
 > [!NOTE]
 > **Status:** built and used by one IT department on a real tenant (~1,000 devices). It is
 > functional and tested, but it is not a packaged product: expect to read the docs and run a
-> few commands. **The interface is available in French and English** (Pandore pages today, the
-> Vanitas pages are being translated); documentation is in English.
+> few commands. **The interface is available in French and English** (Pandore and Vanitas;
+> messages from the backend are still French); documentation is in English.
 
 ## Contents
 
@@ -257,7 +257,7 @@ A longer description of each component is in [docs/architecture.md](docs/archite
 
 These are ideas, **not existing features**:
 
-- Complete the English user interface (Vanitas pages; Pandore is done).
+- Translate the backend error messages and the demo data into English.
 - A hosted public demo (the static `npm run build:demo` output) on GitHub Pages.
 - Continuous integration for the .NET agent and the MSI build.
 - Packaging that simplifies first-time setup (for example a single launcher script).

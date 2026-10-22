@@ -88,8 +88,8 @@ The most important rules; the architecture page explains the reasons.
   components, `tr("key")` in page content and helpers, `trRich()` for sentences with markup.
   Add the key in French and English (`i18n/messages/<area>.js`) — the tests fail if a key or a
   placeholder is missing in one language. Format dates and numbers with the current locale
-  (`currentLocale()`), never a hard-coded `"fr-FR"`. Vanitas pages are still French-only and are
-  being migrated.
+  (`currentLocale()`), never a hard-coded `"fr-FR"`. The Vanitas documentation has one body per
+  language (`VanitasDocsFr.jsx` / `VanitasDocsEn.jsx`): change both.
 - `styles.css` is large: search for a selector before adding a rule, and scope new rules to the
   page or component so they cannot override other pages.
 - Colours, fonts and radii come from tokens (`:root` in `styles.css`, `theme.js`); follow the

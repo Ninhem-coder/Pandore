@@ -13,8 +13,9 @@ import vanitasActivityMessages from "./vanitasActivity.js";
 import vanitasAdminMessages from "./vanitasAdmin.js";
 import vanitasAppsMessages from "./vanitasApps.js";
 import vanitasDeviceMessages from "./vanitasDevice.js";
+import vanitasDocsMessages from "./vanitasDocs.js";
 import vanitasOverviewMessages from "./vanitasOverview.js";
 import vanitasSecurityMessages from "./vanitasSecurity.js";
 import vulnerabilitiesMessages from "./vulnerabilities.js";
 
-export default [accountMessages, alertsMessages, appsMessages, complianceMessages, devicesMessages, exportMessages, labelsMessages, overviewMessages, secureScoreMessages, vanitasMessages, vanitasActivityMessages, vanitasAdminMessages, vanitasAppsMessages, vanitasDeviceMessages, vanitasOverviewMessages, vanitasSecurityMessages, vulnerabilitiesMessages];
+export default [accountMessages, alertsMessages, appsMessages, complianceMessages, devicesMessages, exportMessages, labelsMessages, overviewMessages, secureScoreMessages, vanitasMessages, vanitasActivityMessages, vanitasAdminMessages, vanitasAppsMessages, vanitasDeviceMessages, vanitasDocsMessages, vanitasOverviewMessages, vanitasSecurityMessages, vulnerabilitiesMessages];

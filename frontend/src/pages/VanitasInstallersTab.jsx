@@ -11,6 +11,8 @@ import {
   useVanitasInstallers,
 } from "../hooks/useDashboardData.js";
 import { ConfirmButton, VanitasWizardShell, fmtBytes, fmtDateTime } from "./vanitasShared.jsx";
+import { currentLocale, localizedTable, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 // Même mapping EXACT que `backend/intune/packaging.py::_INSTALL_MODE_UI_FLAGS`/
 // `_msi_commands` (assistant de packaging Win32 de Pandore) — dupliqué ici en quelques lignes
@@ -54,7 +56,7 @@ function parseGithubRepoInput(value) {
 function formatReleaseDate(iso) {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString("fr-FR");
+    return new Date(iso).toLocaleDateString(currentLocale());
   } catch {
     return "—";
   }
@@ -66,7 +68,11 @@ function formatReleaseDate(iso) {
 const TYPE_META = {
   msi: { label: "MSI", color: "var(--hud-accent)", dim: "var(--hud-accent-dim)", Icon: IconPackage },
   powershell: { label: "PS1", color: "var(--hud-accent2)", dim: "var(--hud-accent2-dim)", Icon: IconTerminal },
-  other: { label: "Autre", color: "var(--hud-warn)", dim: "var(--hud-warn-soft)", Icon: IconWrench },
+  other: {
+    get label() {
+      return tr("vin.type.other");
+    },
+    color: "var(--hud-warn)", dim: "var(--hud-warn-soft)", Icon: IconWrench },
 };
 const TYPE_ORDER = ["msi", "powershell", "other"];
 
@@ -119,21 +125,21 @@ function InstallerCard({ installer, onEdit, onDelete, onDeploy, readOnly }) {
       <div className="installer-card-cmd">{installer.install_command}</div>
       <div className="installer-card-meta">
         <span>{fmtBytes(installer.size_bytes)}</span>
-        <span>ajouté le {fmtDateTime(installer.uploaded_at)}</span>
+        <span>{tr("vin.addedOn", { date: fmtDateTime(installer.uploaded_at) })}</span>
       </div>
       {!readOnly && (
         <div className="installer-card-actions">
           <button type="button" className="vanitas-ghost-btn" onClick={() => onEdit(installer)}>
-            Modifier
+            {tr("vin.edit")}
           </button>
           <ConfirmButton
-            label="Supprimer"
-            confirmLabel="Confirmer ?"
+            label={tr("vin.delete")}
+            confirmLabel={tr("v.confirm")}
             className="vanitas-danger-btn"
             onConfirm={() => onDelete(installer.id)}
           />
           <button type="button" className="vanitas-deploy-btn" onClick={() => onDeploy(installer)}>
-            ↑ Déployer
+            {tr("vin.deploy")}
           </button>
         </div>
       )}
@@ -141,7 +147,7 @@ function InstallerCard({ installer, onEdit, onDelete, onDeploy, readOnly }) {
   );
 }
 
-const ADD_STEP_LABELS = { 1: "Source", 2: "Mode", 3: "Redémarrage", 4: "Informations", 5: "Résultat" };
+const ADD_STEP_LABELS = localizedTable("vin.step", [1, 2, 3, 4, 5]);
 
 /**
  * Étape "Source" de l'assistant — dépôt local OU recherche GitHub Releases (2026-09-11,
@@ -167,7 +173,7 @@ function SourceStep({ file, fileInputRef, onFileChange, githubAsset, onGithubAss
     e?.preventDefault();
     const parsed = parseGithubRepoInput(repoInput);
     if (!parsed) {
-      setError("Entrée invalide — attendu un lien GitHub (https://github.com/organisation/depot) ou « organisation/depot ».");
+      setError(tr("vin.gh.invalid"));
       return;
     }
     setBusy(true);
@@ -183,7 +189,7 @@ function SourceStep({ file, fileInputRef, onFileChange, githubAsset, onGithubAss
         setReleases(data.releases || []);
       }
     } catch (err) {
-      setError(err.message || "Échec de la recherche GitHub.");
+      setError(err.message || tr("vin.gh.searchFailed"));
     } finally {
       setBusy(false);
     }
@@ -200,7 +206,7 @@ function SourceStep({ file, fileInputRef, onFileChange, githubAsset, onGithubAss
         setSelectedRelease(data);
       }
     } catch (err) {
-      setError(err.message || "Échec de la récupération de cette release.");
+      setError(err.message || tr("vin.gh.releaseFailed"));
     } finally {
       setBusy(false);
     }
@@ -208,12 +214,12 @@ function SourceStep({ file, fileInputRef, onFileChange, githubAsset, onGithubAss
 
   return (
     <>
-      <div className="installer-source-toggle" role="group" aria-label="Origine de la source">
+      <div className="installer-source-toggle" role="group" aria-label={tr("vin.sourceOrigin")}>
         <button type="button" className={`vanitas-hud-chip${mode === "upload" ? " active" : ""}`} onClick={() => setMode("upload")}>
-          Déposer un fichier
+          {tr("vin.upload")}
         </button>
         <button type="button" className={`vanitas-hud-chip${mode === "github" ? " active" : ""}`} onClick={() => setMode("github")}>
-          Depuis GitHub Releases
+          {tr("vin.fromGithub")}
         </button>
       </div>
 
@@ -223,8 +229,8 @@ function SourceStep({ file, fileInputRef, onFileChange, githubAsset, onGithubAss
             <DropIcon />
           </div>
           <div className="installer-dropzone-text">
-            <b>{file ? file.name : "Glisser un fichier ici ou cliquer pour parcourir"}</b>
-            <span>{file ? fmtBytes(file.size) : "MSI, PS1 ou EXE — 1 Go max"}</span>
+            <b>{file ? file.name : tr("vin.dropHere")}</b>
+            <span>{file ? fmtBytes(file.size) : tr("vin.dropHint")}</span>
           </div>
           <input ref={fileInputRef} type="file" onChange={onFileChange} hidden />
         </label>
@@ -233,27 +239,26 @@ function SourceStep({ file, fileInputRef, onFileChange, githubAsset, onGithubAss
       {mode === "github" && (
         <div className="installer-github-panel">
           <p className="vanitas-hud-empty-note" style={{ margin: "0 0 10px" }}>
-            Lien du dépôt (ex. https://github.com/ip7z/7zip) ou raccourci « organisation/dépôt » — liste toutes les
-            releases publiées.
+            {tr("vin.gh.help")}
           </p>
           <form className="installer-github-form" onSubmit={handleGithubSearch}>
             <input
               type="text"
               className="filter-input"
               style={{ flex: "1 1 auto" }}
-              placeholder="https://github.com/organisation/depot ou organisation/depot"
+              placeholder={tr("vin.gh.placeholder")}
               value={repoInput}
               onChange={(e) => setRepoInput(e.target.value)}
             />
             <button type="submit" className="vanitas-ghost-btn" disabled={busy || !repoInput.trim()}>
-              Rechercher
+              {tr("vin.search")}
             </button>
           </form>
 
           {releases && !selectedRelease && (
             <div className="installer-github-list">
-              <p className="filter-chip-group-label">{releases.length} release{releases.length > 1 ? "s" : ""} — choisis une version</p>
-              {releases.length === 0 && <p className="vanitas-hud-empty-note">Aucune release publiée sur ce dépôt.</p>}
+              <p className="filter-chip-group-label">{tr("vin.releases", { count: releases.length })}</p>
+              {releases.length === 0 && <p className="vanitas-hud-empty-note">{tr("vin.noRelease")}</p>}
               {releases.map((rel) => (
                 <button type="button" key={rel.tagName} className="installer-asset-row" onClick={() => handleReleasePick(rel)} disabled={busy}>
                   <span className="installer-asset-name">{rel.name || rel.tagName}</span>
@@ -266,12 +271,12 @@ function SourceStep({ file, fileInputRef, onFileChange, githubAsset, onGithubAss
           {selectedRelease && (
             <div className="installer-github-list">
               <div className="installer-github-list-head">
-                <p className="filter-chip-group-label">{selectedRelease.tagName || "release"} — choisis l'asset à ajouter</p>
+                <p className="filter-chip-group-label">{tr("vin.pickAsset", { tag: selectedRelease.tagName || "release" })}</p>
                 <button type="button" className="vanitas-ghost-btn" onClick={() => setSelectedRelease(null)}>
-                  ‹ Toutes les versions
+                  {tr("vin.allVersions")}
                 </button>
               </div>
-              {selectedRelease.assets.length === 0 && <p className="vanitas-hud-empty-note">Aucun asset publié sur cette release.</p>}
+              {selectedRelease.assets.length === 0 && <p className="vanitas-hud-empty-note">{tr("vin.noAsset")}</p>}
               {selectedRelease.assets.map((asset) => (
                 <button
                   type="button"
@@ -289,8 +294,7 @@ function SourceStep({ file, fileInputRef, onFileChange, githubAsset, onGithubAss
 
           {githubAsset && (
             <p className="installer-github-picked">
-              Asset choisi · <b>{githubAsset.assetName}</b> ({fmtBytes(githubAsset.sizeBytes)}) — téléchargé au moment de
-              l'ajout au catalogue.
+              {trRich("vin.assetPicked", { name: <b>{githubAsset.assetName}</b>, size: fmtBytes(githubAsset.sizeBytes) })}
             </p>
           )}
         </div>
@@ -413,8 +417,8 @@ function AddInstallerWizard({ onClose, onAdded }) {
           <IconUpload />
         </div>
         <div className="vanitas-wiz-header-text">
-          <h2>Ajouter un installeur</h2>
-          <p>Catalogue Vanitas · Applications</p>
+          <h2>{tr("vin.addTitle")}</h2>
+          <p>{tr("vin.catalogSub")}</p>
         </div>
       </div>
 
@@ -444,7 +448,7 @@ function AddInstallerWizard({ onClose, onAdded }) {
             />
             <div className="wizard-actions">
               <button type="button" className="vanitas-wiz-primary-btn" disabled={!file && !githubAsset} onClick={goNext}>
-                Suivant
+                {tr("vin.next")}
               </button>
             </div>
           </>
@@ -453,8 +457,8 @@ function AddInstallerWizard({ onClose, onAdded }) {
         {activeStep === 2 && (
           <>
             <div className="wizard-field-group">
-              <p className="filter-chip-group-label">Mode d'installation</p>
-              <div className="installer-mode-grid g3" role="radiogroup" aria-label="Mode d'installation">
+              <p className="filter-chip-group-label">{tr("vin.installMode")}</p>
+              <div className="installer-mode-grid g3" role="radiogroup" aria-label={tr("vin.installMode")}>
                 {INSTALL_MODES.map((m) => (
                   <label key={m.key} className="installer-mode-card">
                     <input type="radio" name="installerInstallMode" checked={installMode === m.key} onChange={() => setInstallMode(m.key)} />
@@ -469,10 +473,10 @@ function AddInstallerWizard({ onClose, onAdded }) {
             </div>
             <div className="wizard-actions">
               <button type="button" className="vanitas-ghost-btn" onClick={goBack}>
-                Retour
+                {tr("vin.back")}
               </button>
               <button type="button" className="vanitas-wiz-primary-btn" onClick={goNext}>
-                Suivant
+                {tr("vin.next")}
               </button>
             </div>
           </>
@@ -481,8 +485,8 @@ function AddInstallerWizard({ onClose, onAdded }) {
         {activeStep === 3 && (
           <>
             <div className="wizard-field-group">
-              <p className="filter-chip-group-label">Comportement de redémarrage</p>
-              <div className="installer-mode-grid g4" role="radiogroup" aria-label="Comportement de redémarrage">
+              <p className="filter-chip-group-label">{tr("vin.restart")}</p>
+              <div className="installer-mode-grid g4" role="radiogroup" aria-label={tr("vin.restart")}>
                 {RESTART_BEHAVIORS.map((r) => (
                   <label key={r.key || "default"} className="installer-mode-card">
                     <input type="radio" name="installerRestartBehavior" checked={restartBehavior === r.key} onChange={() => setRestartBehavior(r.key)} />
@@ -498,10 +502,10 @@ function AddInstallerWizard({ onClose, onAdded }) {
             </div>
             <div className="wizard-actions">
               <button type="button" className="vanitas-ghost-btn" onClick={goBack}>
-                Retour
+                {tr("vin.back")}
               </button>
               <button type="button" className="vanitas-wiz-primary-btn" onClick={goNext}>
-                Suivant
+                {tr("vin.next")}
               </button>
             </div>
           </>
@@ -511,35 +515,35 @@ function AddInstallerWizard({ onClose, onAdded }) {
           <>
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 220px" }}>
-                <p className="filter-chip-group-label">Nom</p>
-                <input className="filter-input" style={{ flex: "none", width: "100%" }} type="text" placeholder="Nom (ex. 7-Zip)" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
+                <p className="filter-chip-group-label">{tr("vin.name")}</p>
+                <input className="filter-input" style={{ flex: "none", width: "100%" }} type="text" placeholder={tr("vin.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
               </div>
               <div style={{ flex: "0 0 140px" }}>
                 <p className="filter-chip-group-label">Version</p>
-                <input className="filter-input" style={{ flex: "none", width: "100%" }} type="text" placeholder="optionnel" value={version} onChange={(e) => setVersion(e.target.value)} disabled={busy} />
+                <input className="filter-input" style={{ flex: "none", width: "100%" }} type="text" placeholder={tr("vin.optional")} value={version} onChange={(e) => setVersion(e.target.value)} disabled={busy} />
               </div>
             </div>
 
             {sourceType === "msi" ? (
               <div className="wizard-field-group">
-                <p className="filter-chip-group-label">Commande finale (calculée)</p>
+                <p className="filter-chip-group-label">{tr("vin.finalCmd")}</p>
                 <div className="installer-cmd-final">{installCommand || "—"}</div>
               </div>
             ) : (
               <div className="wizard-field-group">
-                <p className="filter-chip-group-label">Commande d'installation</p>
+                <p className="filter-chip-group-label">{tr("vin.installCmd")}</p>
                 <input
                   className="filter-input"
                   style={{ flex: "none", width: "100%" }}
                   type="text"
                   value={manualCommand}
                   onChange={(e) => setManualCommand(e.target.value)}
-                  placeholder={sourceType === "powershell" ? 'powershell -executionpolicy bypass -file ".\\installeur.ps1"' : 'ex. "installeur.exe" /S'}
+                  placeholder={sourceType === "powershell" ? tr("vin.ps1Placeholder") : tr("vin.exePlaceholder")}
                   disabled={busy}
                 />
                 {sourceType === "other" && (
                   <p className="vanitas-hud-empty-note" style={{ margin: "6px 0 0" }}>
-                    Aucun flag silencieux générique fiable entre éditeurs pour ce format — à taper soi-même (ex. <code>/S</code>, <code>/quiet</code>, selon l'installeur).
+                    {trRich("vin.noSilentFlag", { s: <code>/S</code>, quiet: <code>/quiet</code> })}
                   </p>
                 )}
               </div>
@@ -549,10 +553,10 @@ function AddInstallerWizard({ onClose, onAdded }) {
 
             <div className="wizard-actions">
               <button type="button" className="vanitas-ghost-btn" onClick={goBack} disabled={busy}>
-                Retour
+                {tr("vin.back")}
               </button>
               <button type="button" className="vanitas-wiz-primary-btn" disabled={!name.trim() || !installCommand.trim() || busy} onClick={handleAdd}>
-                {busy ? "Envoi…" : "Ajouter au catalogue"}
+                {busy ? tr("vin.sending") : tr("vin.addToCatalog")}
               </button>
             </div>
           </>
@@ -564,13 +568,13 @@ function AddInstallerWizard({ onClose, onAdded }) {
               <div className="vanitas-wiz-result-check">
                 <CheckIcon />
               </div>
-              <div className="vanitas-wiz-result-title">Installeur ajouté au catalogue.</div>
-              <div className="vanitas-wiz-result-sub">visible immédiatement, prêt à être poussé depuis « Groupes »</div>
+              <div className="vanitas-wiz-result-title">{tr("vin.added")}</div>
+              <div className="vanitas-wiz-result-sub">{tr("vin.addedSub")}</div>
               <InstallerCard installer={created} readOnly />
             </div>
             <div className="wizard-actions">
               <button type="button" className="vanitas-wiz-primary-btn" onClick={onClose}>
-                Fermer
+                {tr("vin.close")}
               </button>
             </div>
           </>
@@ -625,14 +629,14 @@ function EditInstallerModal({ installer, onClose, onSaved }) {
           <PencilIcon />
         </div>
         <div className="vanitas-wiz-header-text">
-          <h2>Modifier « {installer.name} »</h2>
-          <p>Fichier d'origine · {installer.original_filename}</p>
+          <h2>{tr("vin.editTitle", { name: installer.name })}</h2>
+          <p>{tr("vin.originalFile", { file: installer.original_filename })}</p>
         </div>
       </div>
       <form onSubmit={handleSubmit} className="vanitas-wiz-body">
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 100%" }}>
-            <p className="filter-chip-group-label">Nom</p>
+            <p className="filter-chip-group-label">{tr("vin.name")}</p>
             <input className="filter-input" style={{ flex: "none", width: "100%" }} type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
           </div>
         </div>
@@ -643,19 +647,19 @@ function EditInstallerModal({ installer, onClose, onSaved }) {
           </div>
         </div>
         <div className="wizard-field-group">
-          <p className="filter-chip-group-label">Commande d'installation</p>
+          <p className="filter-chip-group-label">{tr("vin.installCmd")}</p>
           <input className="filter-input" style={{ flex: "none", width: "100%" }} type="text" value={installCommand} onChange={(e) => setInstallCommand(e.target.value)} disabled={busy} />
         </div>
         <p className="vanitas-hud-empty-note" style={{ margin: 0 }}>
-          Fichier d'origine « {installer.original_filename} » inchangé — cette fiche ne modifie que le nom/la version/la commande, jamais le binaire déjà en catalogue.
+          {tr("vin.editNote", { file: installer.original_filename })}
         </p>
         {error && <p className="error-note">{error}</p>}
         <div className="wizard-actions">
           <button type="button" className="vanitas-ghost-btn" onClick={onClose} disabled={busy}>
-            Annuler
+            {tr("vin.cancel")}
           </button>
           <button type="submit" className="vanitas-wiz-primary-btn" disabled={!canSubmit}>
-            {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+            {busy ? tr("vin.saving") : tr("vin.saveChanges")}
           </button>
         </div>
       </form>
@@ -738,8 +742,8 @@ function DeployInstallerModal({ installer, groups, agents, onClose, onDeployed, 
           <IconUpload />
         </div>
         <div className="vanitas-wiz-header-text">
-          <h2>Déployer « {installer.name} »</h2>
-          <p>Catalogue Vanitas · Applications</p>
+          <h2>{tr("vin.deployTitle", { name: installer.name })}</h2>
+          <p>{tr("vin.catalogSub")}</p>
         </div>
       </div>
       <div className="vanitas-wiz-body">
@@ -750,15 +754,15 @@ function DeployInstallerModal({ installer, groups, agents, onClose, onDeployed, 
                 <CheckIcon />
               </div>
               <div className="vanitas-wiz-result-title">
-                {result.count} commande{result.count > 1 ? "s" : ""} mise{result.count > 1 ? "s" : ""} en file.
+                {tr("vin.queued", { count: result.count })}
               </div>
               <div className="vanitas-wiz-result-sub">
-                « {installer.name} » → {result.label}
+                {tr("vin.resultSub", { name: installer.name, target: result.label })}
               </div>
             </div>
             <div className="wizard-actions">
               <button type="button" className="vanitas-ghost-btn" onClick={onClose}>
-                Fermer
+                {tr("vin.close")}
               </button>
               {onNavigateVanitas && (
                 <button
@@ -769,7 +773,7 @@ function DeployInstallerModal({ installer, groups, agents, onClose, onDeployed, 
                     onClose();
                   }}
                 >
-                  Voir dans « Applications déployées »
+                  {tr("vin.viewDeployed")}
                 </button>
               )}
             </div>
@@ -777,25 +781,25 @@ function DeployInstallerModal({ installer, groups, agents, onClose, onDeployed, 
         ) : (
           <>
             <div className="wizard-field-group">
-              <p className="filter-chip-group-label">Cible</p>
-              <div className="deploy-target-toggle" role="radiogroup" aria-label="Cible du déploiement">
+              <p className="filter-chip-group-label">{tr("vin.target")}</p>
+              <div className="deploy-target-toggle" role="radiogroup" aria-label={tr("vin.targetAria")}>
                 <label className={`deploy-target-card${targetType === "group" ? " active" : ""}`}>
                   <input type="radio" name="deployTargetType" checked={targetType === "group"} onChange={() => setTargetType("group")} />
-                  Un groupe
+                  {tr("vin.aGroup")}
                 </label>
                 <label className={`deploy-target-card${targetType === "device" ? " active" : ""}`}>
                   <input type="radio" name="deployTargetType" checked={targetType === "device"} onChange={() => setTargetType("device")} />
-                  Un poste
+                  {tr("vin.aDevice")}
                 </label>
               </div>
             </div>
 
             {targetType === "group" ? (
               <div className="wizard-field-group">
-                <p className="filter-chip-group-label">Groupe</p>
+                <p className="filter-chip-group-label">{tr("vin.group")}</p>
                 {groups.length === 0 ? (
                   <p className="vanitas-hud-empty-note" style={{ margin: 0 }}>
-                    Aucun groupe créé pour l'instant — crée-en un depuis « Groupes », ou choisis "Un poste" ci-dessus.
+                    {tr("vin.noGroup")}
                   </p>
                 ) : (
                   <div className="deploy-picker-list">
@@ -804,10 +808,10 @@ function DeployInstallerModal({ installer, groups, agents, onClose, onDeployed, 
                         <span>
                           <input type="radio" name="deployGroup" checked={groupId === g.id} onChange={() => setGroupId(g.id)} />
                           {g.name}
-                          {g.rules && <span className="deploy-picker-dynamic"> (dynamique)</span>}
+                          {g.rules && <span className="deploy-picker-dynamic">{tr("vin.dynamic")}</span>}
                         </span>
                         <span className="deploy-picker-badge">
-                          {g.device_count} poste{g.device_count > 1 ? "s" : ""}
+                          {tr("vin.endpoints", { count: g.device_count })}
                         </span>
                       </label>
                     ))}
@@ -816,23 +820,23 @@ function DeployInstallerModal({ installer, groups, agents, onClose, onDeployed, 
               </div>
             ) : (
               <div className="wizard-field-group">
-                <p className="filter-chip-group-label">Poste</p>
+                <p className="filter-chip-group-label">{tr("vin.device")}</p>
                 <input
                   className="filter-input"
                   style={{ flex: "none", width: "100%", marginBottom: "8px" }}
                   type="text"
-                  placeholder="Rechercher un poste..."
+                  placeholder={tr("vin.searchDevice")}
                   value={agentQuery}
                   onChange={(e) => setAgentQuery(e.target.value)}
                   autoComplete="off"
                 />
                 {agents.length === 0 ? (
                   <p className="vanitas-hud-empty-note" style={{ margin: 0 }}>
-                    Aucun poste enrôlé pour l'instant.
+                    {tr("vin.noDevice")}
                   </p>
                 ) : filteredAgents.length === 0 ? (
                   <p className="vanitas-hud-empty-note" style={{ margin: 0 }}>
-                    0 résultat pour cette recherche.
+                    {tr("vin.noDeviceMatch")}
                   </p>
                 ) : (
                   <div className="deploy-picker-list">
@@ -850,14 +854,14 @@ function DeployInstallerModal({ installer, groups, agents, onClose, onDeployed, 
             )}
 
             <p className="deploy-recap">
-              → sera poussé vers <b>{targetCount} poste{targetCount > 1 ? "s" : ""}</b>
+              {trRich("vin.recap", { target: <b>{tr("vin.endpoints", { count: targetCount })}</b> })}
             </p>
 
             {error && <p className="error-note">{error}</p>}
 
             <div className="wizard-actions">
               <button type="button" className="vanitas-ghost-btn" onClick={onClose} disabled={busy}>
-                Annuler
+                {tr("vin.cancel")}
               </button>
               <button
                 type="button"
@@ -865,7 +869,7 @@ function DeployInstallerModal({ installer, groups, agents, onClose, onDeployed, 
                 disabled={busy || targetCount === 0}
                 onClick={handleDeploy}
               >
-                {busy ? "Déploiement…" : `Déployer vers ${targetCount} poste${targetCount > 1 ? "s" : ""}`}
+                {busy ? tr("vin.deploying") : tr("vin.deployTo", { count: targetCount })}
               </button>
             </div>
           </>
@@ -922,8 +926,8 @@ function UploadAgentPackageModal({ onClose, onUploaded }) {
           <IconRefresh />
         </div>
         <div className="vanitas-wiz-header-text">
-          <h2>Uploader une nouvelle version de l'agent</h2>
-          <p>Catalogue Vanitas · Agent · MSI uniquement</p>
+          <h2>{tr("vin.agentTitle")}</h2>
+          <p>{tr("vin.agentSub")}</p>
         </div>
       </div>
       <form onSubmit={handleSubmit} className="vanitas-wiz-body">
@@ -933,7 +937,7 @@ function UploadAgentPackageModal({ onClose, onUploaded }) {
             className="filter-input"
             style={{ flex: "none", width: "100%" }}
             type="text"
-            placeholder="ex. 1.2.0 — doit correspondre au <Package Version> de Product.wxs"
+            placeholder={tr("vin.agentVersionPlaceholder")}
             value={version}
             onChange={(e) => setVersion(e.target.value)}
             disabled={busy}
@@ -941,26 +945,25 @@ function UploadAgentPackageModal({ onClose, onUploaded }) {
           />
         </div>
         <div className="wizard-field-group">
-          <p className="filter-chip-group-label">Fichier .msi</p>
+          <p className="filter-chip-group-label">{tr("vin.msiFile")}</p>
           <label className={`installer-dropzone${file ? " filled" : ""}`}>
             <div className="installer-dropzone-text">
-              <b>{file ? file.name : "Glisser le .msi ici ou cliquer pour parcourir"}</b>
-              <span>{file ? fmtBytes(file.size) : "EndpointAgent.msi — 200 Mo max"}</span>
+              <b>{file ? file.name : tr("vin.dropMsi")}</b>
+              <span>{file ? fmtBytes(file.size) : tr("vin.dropMsiHint")}</span>
             </div>
             <input type="file" accept=".msi" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </label>
         </div>
         <p className="vanitas-hud-empty-note" style={{ margin: 0 }}>
-          Une fois uploadé, tout poste en retard reçoit la mise à jour automatiquement au
-          prochain cycle (~1h) — ou immédiatement en forçant depuis sa propre fiche.
+          {tr("vin.agentNote")}
         </p>
         {error && <p className="error-note">{error}</p>}
         <div className="wizard-actions">
           <button type="button" className="vanitas-ghost-btn" onClick={onClose} disabled={busy}>
-            Annuler
+            {tr("vin.cancel")}
           </button>
           <button type="submit" className="vanitas-wiz-primary-btn" disabled={!canSubmit}>
-            {busy ? "Envoi…" : "Ajouter au catalogue"}
+            {busy ? tr("vin.sending") : tr("vin.addToCatalog")}
           </button>
         </div>
       </form>
@@ -1072,7 +1075,7 @@ export default function VanitasInstallersTab({ onNavigateVanitas }) {
           <span className="prompt">&gt;</span>
           <input
             type="text"
-            placeholder="Rechercher une application (nom, fichier, commande)..."
+            placeholder={tr("vin.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
@@ -1081,7 +1084,7 @@ export default function VanitasInstallersTab({ onNavigateVanitas }) {
         <div className="vanitas-hud-chips">
           <button type="button" className={`vanitas-hud-chip${typeFilter === "all" ? " active" : ""}`} onClick={() => setTypeFilter("all")}>
             <span className="led" />
-            Tous<span className="n">{installers.state.data.length}</span>
+            {tr("vin.all")}<span className="n">{installers.state.data.length}</span>
           </button>
           <button type="button" className={`vanitas-hud-chip${typeFilter === "msi" ? " active" : ""}`} onClick={() => setTypeFilter("msi")}>
             <span className="led" />
@@ -1097,7 +1100,7 @@ export default function VanitasInstallersTab({ onNavigateVanitas }) {
           </button>
           <button type="button" className={`vanitas-hud-chip tone-warn${typeFilter === "other" ? " active" : ""}`} onClick={() => setTypeFilter("other")}>
             <span className="led" />
-            Autre<span className="n">{counts.other}</span>
+            {tr("vin.type.other")}<span className="n">{counts.other}</span>
           </button>
         </div>
       </div>
@@ -1105,18 +1108,18 @@ export default function VanitasInstallersTab({ onNavigateVanitas }) {
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
           <h2>
-            {filtered.length} / {installers.state.data.length} installeur{installers.state.data.length > 1 ? "s" : ""}
+            {tr("vin.count", { filtered: filtered.length, count: installers.state.data.length })}
           </h2>
           <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowAddWizard(true)}>
-            + Ajouter un installeur
+            {tr("vin.addInstaller")}
           </button>
         </div>
         {installers.state.status === "loading" ? (
-          <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+          <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
         ) : installers.state.data.length === 0 ? (
-          <p className="vanitas-hud-empty-note">Aucun installeur dans le catalogue pour l'instant — ajoutes-en un ci-dessus.</p>
+          <p className="vanitas-hud-empty-note">{tr("vin.empty")}</p>
         ) : filtered.length === 0 ? (
-          <p className="vanitas-hud-empty-note">0 résultat — aucun installeur ne correspond à ce filtre.</p>
+          <p className="vanitas-hud-empty-note">{tr("vin.noResult")}</p>
         ) : (
           <div className="installer-grid">
             {filtered.map((i) => (
@@ -1132,26 +1135,24 @@ export default function VanitasInstallersTab({ onNavigateVanitas }) {
         )}
         {filtered.length > 0 && (
           <p className="vanitas-hud-card-note" style={{ display: "block", padding: "0 16px 16px" }}>
-            « ↑ DÉPLOYER » CI-DESSUS, OU DEPUIS LA FICHE D'UN GROUPE
+            {tr("vin.deployHint")}
           </p>
         )}
       </div>
 
       <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginTop: "16px" }}>
         <div className="vanitas-hud-card-head">
-          <h2>Mise à jour de l'agent — {agentPackages.state.data.length} version{agentPackages.state.data.length > 1 ? "s" : ""}</h2>
+          <h2>{tr("vin.agentUpdate", { count: agentPackages.state.data.length })}</h2>
           <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowUploadAgentPackage(true)}>
-            + Uploader une nouvelle version
+            {tr("vin.uploadVersion")}
           </button>
         </div>
         {agentPackageError && <p className="vanitas-hud-error">{agentPackageError}</p>}
         {agentPackages.state.status === "loading" ? (
-          <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+          <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
         ) : agentPackages.state.data.length === 0 ? (
           <p className="vanitas-hud-empty-note">
-            Aucun paquet au catalogue — uploade le .msi régénéré depuis <code>Installer/Installer.wixproj</code> ci-dessus.
-            Une fois uploadé, la propagation vers un poste en retard est automatique (ou déclenchable immédiatement
-            depuis sa fiche).
+            {trRich("vin.noPackage", { path: <code>Installer/Installer.wixproj</code> })}
           </p>
         ) : (
           <div className="installer-grid">
@@ -1169,18 +1170,18 @@ export default function VanitasInstallersTab({ onNavigateVanitas }) {
                     <div className="installer-card-name">Endpoint Agent</div>
                     <div className="installer-card-version">v{p.version}</div>
                   </div>
-                  {i === 0 && <span className="installer-card-badge">DERNIÈRE</span>}
+                  {i === 0 && <span className="installer-card-badge">{tr("vin.latest")}</span>}
                 </div>
                 <div className="installer-card-file">{p.original_filename}</div>
                 <div className="installer-card-cmd">SHA-256 · {p.sha256.slice(0, 16)}…</div>
                 <div className="installer-card-meta">
                   <span>{fmtBytes(p.size_bytes)}</span>
-                  <span>uploadé le {fmtDateTime(p.uploaded_at)}</span>
+                  <span>{tr("vin.uploadedOn", { date: fmtDateTime(p.uploaded_at) })}</span>
                 </div>
                 <div className="installer-card-actions">
                   <ConfirmButton
-                    label="Supprimer"
-                    confirmLabel="Confirmer ?"
+                    label={tr("vin.delete")}
+                    confirmLabel={tr("v.confirm")}
                     className="vanitas-danger-btn"
                     onConfirm={() => handleDeleteAgentPackage(p.id)}
                   />

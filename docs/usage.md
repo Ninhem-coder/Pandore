@@ -1,8 +1,9 @@
 # Usage
 
 A tour of the dashboard and the MCP integration. The interface defaults to **French**; the globe
-button in the sidebar rail switches it to English (all Pandore pages today, the Vanitas pages
-are being translated). Each page is listed with its French label and an English description.
+button in the sidebar rail switches it to English (every Pandore and Vanitas page; messages
+from the backend are still French). Each page is listed with its French label and an English
+description.
 
 - [Navigation](#navigation)
 - [Pandore pages](#pandore-pages)
@@ -56,7 +57,7 @@ are being translated). Each page is listed with its French label and an English 
 | **Ajouter un poste** (*Add a device*) | Generates a one-time enrollment token and the matching `msiexec` command. |
 | **Applications** | Upload installers (or fetch a GitHub release) and new agent versions. |
 | **Profils** (*Profiles*) | Accounts and per-module read/write permission profiles (admins only). |
-| **Documentation** | In-app documentation of Vanitas (French). |
+| **Documentation** | In-app documentation of Vanitas (French and English). |
 
 ## Accounts and permissions
 

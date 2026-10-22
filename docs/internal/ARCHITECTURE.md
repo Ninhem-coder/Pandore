@@ -181,8 +181,11 @@ flowchart LR
   ("Non conforme", "Erreur"… de `SEVERITY`/`FAILING_CATEGORIES`) RESTENT des identifiants en
   français : traduire à l'affichage via `categoryLabel()` (theme.js). Dictionnaires par zone dans
   `i18n/messages/<zone>.js` (`{ fr, en }` côte à côte), listés par `messages/index.js`.
-  Traduit à ce jour : coquille + toutes les pages Pandore + exports Excel ; reste : pages
-  Vanitas, messages d'erreur du backend, données démo.
+  Documentation Vanitas : UN CORPS PAR LANGUE (`VanitasDocsFr.jsx` / `VanitasDocsEn.jsx`, choisi
+  par `getLang()`), pièces communes (sommaire, encadrés, illustrations traduites via `tr`) dans
+  `vanitasDocsParts.jsx` — toute modification du texte se fait dans LES DEUX corps.
+  Traduit à ce jour : coquille + toutes les pages Pandore et Vanitas + doc Vanitas + exports
+  Excel ; reste : messages d'erreur du backend, données démo.
 - **Ne jamais reproduire un logo de marque réelle** sans asset officiel dans le repo — glyphes
   abstraits/neutres.
 
