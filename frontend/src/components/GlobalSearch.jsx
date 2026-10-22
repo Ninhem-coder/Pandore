@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { IconSearch } from "./icons.jsx";
+import { useI18n } from "../i18n/I18nContext.jsx";
 
 /**
  * Recherche globale du masthead (2026-08-20, demande de Nicolas — point 3.5/4 du
@@ -27,6 +28,7 @@ export function isCveLike(value) {
 }
 
 export default function GlobalSearch({ onSearch }) {
+  const { t } = useI18n();
   const [value, setValue] = useState("");
 
   function handleSubmit(event) {
@@ -48,10 +50,10 @@ export default function GlobalSearch({ onSearch }) {
       <input
         type="text"
         className="global-search-input"
-        placeholder="Appareil ou CVE (ex. CVE-2024-3400)…"
+        placeholder={t("search.placeholder")}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        aria-label="Recherche globale — nom d'appareil ou CVE"
+        aria-label={t("search.aria")}
       />
     </form>
   );

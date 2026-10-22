@@ -8,6 +8,8 @@ import { IconRefresh } from "../components/icons.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
 import { resolveSearchTab, bumpSearchNav, bumpVanitasNav } from "../navigation.js";
 import { DEMO_MODE } from "../api.js";
+import { useI18n } from "../i18n/I18nContext.jsx";
+import { formatStamp } from "../i18n/core.js";
 
 // Code-splitting (2026-09-12) — chaque page d'onglet est chargée à la demande (`React.lazy`)
 // plutôt qu'empaquetée dans le bundle initial : le premier chargement ne télécharge plus que
@@ -76,6 +78,7 @@ const TABS = {
   "app-deployed": DeployedAppsTab,
 };
 
+// Masthead texts are translation keys (i18n/{fr,en}.js), resolved with `t()` at render time.
 const TAB_TITLES = {
   // Titre "Dashboard" (2026-08-28, demande de Nicolas), ex-"Endpoint exposure score".
   // Accroche "La boîte est ouverte." (2026-09-09, clin d'œil au nom "Pandore" — déjà validée
@@ -83,32 +86,32 @@ const TAB_TITLES = {
   // "<organisation> · ..." : Nicolas avait déjà demandé de retirer toute référence au
   // nom de l'organisation ("on est à part maintenant dans cette solution"), retirée sur la
   // proposition mais jamais reportée dans le vrai masthead jusqu'ici — oubli corrigé.
-  overview: { eyebrow: "La boîte est ouverte.", title: "Dashboard" },
+  overview: { eyebrow: "eyebrow.overview", title: "page.overview" },
   // "Inventaire" (2026-09-02, demande de Nicolas — maquette "Inventaire des appareils") : table
   // fleet-wide Intune + Defender réconciliés par nom, voir DeviceInventoryTab.jsx.
-  "device-inventory": { eyebrow: "Pandore · Defender for Endpoint & Intune", title: "Inventaire des appareils" },
-  "device-overview": { eyebrow: "Pandore · Defender for Endpoint & Intune", title: "Appareil (vue 360°)" },
+  "device-inventory": { eyebrow: "eyebrow.defenderIntune", title: "page.device-inventory" },
+  "device-overview": { eyebrow: "eyebrow.defenderIntune", title: "page.device-overview" },
   // Titre "Sécurité" (2026-08-28, demande de Nicolas), ex-"Defender" — miroir du renommage
   // Sidebar.jsx, clé de routage "defender" inchangée.
-  defender: { eyebrow: "Pandore · Microsoft Defender for Endpoint", title: "Sécurité" },
+  defender: { eyebrow: "eyebrow.defender", title: "page.defender" },
   // Titre "Conformité" (2026-08-28, demande de Nicolas), ex-"Conformité Intune".
-  intune: { eyebrow: "Pandore · Microsoft Defender › Intune", title: "Conformité" },
-  vulnerabilities: { eyebrow: "Pandore · Microsoft Defender › Vulnérabilités", title: "Vulnérabilités" },
-  "cve-watch": { eyebrow: "Pandore · Microsoft Defender › Vulnérabilités › Suivi CVE", title: "Suivi CVE" },
-  "secure-score": { eyebrow: "Pandore · Microsoft Defender › Secure Score", title: "Secure score" },
+  intune: { eyebrow: "eyebrow.intune", title: "page.intune" },
+  vulnerabilities: { eyebrow: "eyebrow.vulnerabilities", title: "page.vulnerabilities" },
+  "cve-watch": { eyebrow: "eyebrow.cveWatch", title: "page.cve-watch" },
+  "secure-score": { eyebrow: "eyebrow.secureScore", title: "page.secure-score" },
   // Titre corrigé le 2026-08-17 (demande explicite de Nicolas : "pas widget de test mais
   // Alerte") — la page a de toute façon graduée hors du groupe "Test" le même jour (voir
   // Sidebar.jsx et la mémoire de projet, V44) ; clé de routage "widgets-test" inchangée.
   // Titre "Alertes" (2026-08-28, demande de Nicolas), ex-"Alertes Defender".
-  "widgets-test": { eyebrow: "Pandore · Microsoft Defender › Alertes", title: "Alertes" },
+  "widgets-test": { eyebrow: "eyebrow.alerts", title: "page.widgets-test" },
   // "Bibliothèque d'application" (titre du 2026-08-26 matin) redevient "Catalogue
   // d'application" le même jour, après-midi : la page a été scindée en deux onglets
   // (Administration > "Ajouter une application" / "Catalogue d'application") — celle-ci ne
   // garde plus que la liste, "Catalogue" redevient le mot juste.
-  "app-catalog": { eyebrow: "Pandore · Microsoft Intune › Applications", title: "Catalogue d'application" },
-  "app-add": { eyebrow: "Pandore · Microsoft Intune › Applications", title: "Ajouter une application" },
-  "app-edit": { eyebrow: "Pandore · Microsoft Intune › Applications", title: "Modifier une application" },
-  "app-deployed": { eyebrow: "Pandore · Microsoft Intune › Applications", title: "Application déployée" },
+  "app-catalog": { eyebrow: "eyebrow.apps", title: "page.app-catalog" },
+  "app-add": { eyebrow: "eyebrow.apps", title: "page.app-add" },
+  "app-edit": { eyebrow: "eyebrow.apps", title: "page.app-edit" },
+  "app-deployed": { eyebrow: "eyebrow.apps", title: "page.app-deployed" },
 };
 
 // Catégorie "Vanitas" (2026-09-04, jalon 5) — projet personnel séparé endpoint-agent/, voir
@@ -136,36 +139,33 @@ const VANITAS_TABS = {
 const VANITAS_TAB_TITLES = {
   // Accroche "Rien n'échappe." (2026-09-09, ton cyberpunk sobre — déjà validée sur la
   // proposition de sidebar interactive, jamais reportée jusqu'ici dans le vrai masthead).
-  "vanitas-overview": { eyebrow: "Rien n'échappe.", title: "Vue d'ensemble" },
-  "vanitas-suspicious-activity": { eyebrow: "Vanitas · Détection", title: "Activités suspectes" },
-  "vanitas-app-catalog": { eyebrow: "Vanitas · Supervision de poste", title: "Catalogue d'application" },
-  "vanitas-devices": { eyebrow: "Vanitas · Supervision de poste", title: "Postes" },
-  "vanitas-groups": { eyebrow: "Vanitas · Supervision de poste", title: "Groupes" },
-  "vanitas-deployed-apps": { eyebrow: "Vanitas · Supervision de poste", title: "Applications déployées" },
-  "vanitas-patch": { eyebrow: "Vanitas · Sécurité", title: "Mises à jour Vanitas" },
-  "vanitas-commands": { eyebrow: "Vanitas · Supervision de poste", title: "Journal" },
-  "vanitas-enroll": { eyebrow: "Vanitas · Administration", title: "Ajouter un poste" },
-  "vanitas-compliance": { eyebrow: "Vanitas · Supervision de poste", title: "Conformité" },
-  "vanitas-vulnerabilities": { eyebrow: "Vanitas · Supervision de poste", title: "Vulnérabilités" },
-  "vanitas-eol": { eyebrow: "Vanitas · Supervision de poste", title: "Logiciels obsolètes" },
-  "vanitas-installers": { eyebrow: "Vanitas · Supervision de poste", title: "Applications" },
-  "vanitas-profiles": { eyebrow: "Vanitas · Administration", title: "Profils" },
-  "vanitas-docs": { eyebrow: "Vanitas", title: "Documentation" },
+  "vanitas-overview": { eyebrow: "eyebrow.vanitasOverview", title: "page.vanitas-overview" },
+  "vanitas-suspicious-activity": { eyebrow: "eyebrow.vanitasDetection", title: "page.vanitas-suspicious-activity" },
+  "vanitas-app-catalog": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-app-catalog" },
+  "vanitas-devices": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-devices" },
+  "vanitas-groups": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-groups" },
+  "vanitas-deployed-apps": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-deployed-apps" },
+  "vanitas-patch": { eyebrow: "eyebrow.vanitasSecurity", title: "page.vanitas-patch" },
+  "vanitas-commands": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-commands" },
+  "vanitas-enroll": { eyebrow: "eyebrow.vanitasAdmin", title: "page.vanitas-enroll" },
+  "vanitas-compliance": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-compliance" },
+  "vanitas-vulnerabilities": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-vulnerabilities" },
+  "vanitas-eol": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-eol" },
+  "vanitas-installers": { eyebrow: "eyebrow.vanitasEndpoint", title: "page.vanitas-installers" },
+  "vanitas-profiles": { eyebrow: "eyebrow.vanitasAdmin", title: "page.vanitas-profiles" },
+  "vanitas-docs": { eyebrow: "eyebrow.vanitas", title: "page.vanitas-docs" },
 };
 
 // Fallback affiché pendant le chargement du chunk d'une page (code-splitting, voir les imports
 // `lazy` en haut) — réutilise `.loading-panel` déjà stylé, cohérent avec l'écran de connexion
-// à l'API. Élément stable défini une fois au niveau module.
-const TAB_FALLBACK = (
-  <div className="loading-panel">
-    <p>&gt; Chargement…</p>
-  </div>
-);
-
-function formatStamp(date) {
-  const d = date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const t = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  return `généré le ${d} à ${t}`;
+// à l'API. A component (not a module-level element) so its text follows the interface language.
+function TabFallback() {
+  const { t } = useI18n();
+  return (
+    <div className="loading-panel">
+      <p>{t("shell.loadingTab")}</p>
+    </div>
+  );
 }
 
 /**
@@ -189,7 +189,10 @@ export default function Dashboard() {
   // chacun leur propre position, pas de conflit d'un côté si on va-et-vient de l'autre.
   const [source, setSource] = useState(() => (demoPage && VANITAS_TABS[demoPage] ? "vanitas" : "intune"));
   const [vanitasTab, setVanitasTab] = useState(() => (demoPage && VANITAS_TABS[demoPage] ? demoPage : "vanitas-overview"));
-  const [stamp, setStamp] = useState(() => formatStamp(new Date()));
+  const { lang, t } = useI18n();
+  // The instant is kept, not its text: the stamp is re-formatted when the language changes.
+  const [stampDate, setStampDate] = useState(() => new Date());
+  const stamp = formatStamp(lang, stampDate);
   const data = useDashboardData();
   // Recherche globale (2026-08-20, voir GlobalSearch.jsx) : `token` incrémente à CHAQUE
   // recherche, y compris si le texte tapé est identique au précédent (ex. deux clics de
@@ -206,7 +209,7 @@ export default function Dashboard() {
   const [vanitasNav, setVanitasNav] = useState(null);
 
   useEffect(() => {
-    const id = setInterval(() => setStamp(formatStamp(new Date())), 60_000);
+    const id = setInterval(() => setStampDate(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -269,7 +272,7 @@ export default function Dashboard() {
 
   async function handleRefresh() {
     await data.refresh();
-    setStamp(formatStamp(new Date()));
+    setStampDate(new Date());
   }
 
   let content;
@@ -280,7 +283,7 @@ export default function Dashboard() {
     const VanitasActiveTab = VANITAS_TABS[vanitasTab] ?? VanitasOverviewTab;
     content = (
       <ErrorBoundary resetKey={vanitasTab}>
-        <Suspense fallback={TAB_FALLBACK}>
+        <Suspense fallback={<TabFallback />}>
           <VanitasActiveTab
             onNavigate={handleNavigate}
             onNavigateVanitas={handleNavigateVanitas}
@@ -292,8 +295,8 @@ export default function Dashboard() {
   } else if (data.loading) {
     content = (
       <div className="loading-panel">
-        <p>&gt; Connexion à l'API locale…</p>
-        <p className="hint">GET http://localhost:8000/api/… — voir la console de `python api_server.py` en cas d'attente longue.</p>
+        <p>{t("shell.connecting")}</p>
+        <p className="hint">{t("shell.connectingHint")}</p>
       </div>
     );
   } else if (data.error) {
@@ -303,9 +306,9 @@ export default function Dashboard() {
     const { text, raw } = friendlyErrorMessage(data.error);
     content = (
       <div className="fatal-error-panel">
-        <p>&gt; Impossible de joindre l'API locale : {text}</p>
-        {raw !== text && <p className="hint">Détail technique : {raw}</p>}
-        <p className="hint">Vérifie que `python api_server.py` tourne bien sur le port 8000.</p>
+        <p>{t("shell.apiError", { text })}</p>
+        {raw !== text && <p className="hint">{t("shell.technicalDetail", { raw })}</p>}
+        <p className="hint">{t("shell.apiHint")}</p>
       </div>
     );
   } else {
@@ -324,7 +327,7 @@ export default function Dashboard() {
     // l'ancienne recherche ne doit pas se redéclencher au retour sur cet onglet.
     content = (
       <ErrorBoundary resetKey={activeTab}>
-        <Suspense fallback={TAB_FALLBACK}>
+        <Suspense fallback={<TabFallback />}>
           <ActiveTab
             data={data}
             onNavigate={handleNavigate}
@@ -407,9 +410,9 @@ export default function Dashboard() {
                   cet `.eyebrow` avant (resté un simple texte gris depuis sa création). Ambre
                   pour Pandore (`--amber`, l'accent déjà en place partout côté Intune),
                   bleu/teal pour Vanitas (`--hud-accent`, cohérent avec le rail replié). */}
-              <p className={`eyebrow${source === "vanitas" ? " eyebrow-vanitas" : " eyebrow-pandore"}`}>{titles.eyebrow}</p>
-              {DEMO_MODE && <span className="demo-badge">Mode démo · données fictives</span>}
-              <h1>{titles.title}</h1>
+              <p className={`eyebrow${source === "vanitas" ? " eyebrow-vanitas" : " eyebrow-pandore"}`}>{t(titles.eyebrow)}</p>
+              {DEMO_MODE && <span className="demo-badge">{t("masthead.demo")}</span>}
+              <h1>{t(titles.title)}</h1>
             </div>
             {/* La recherche globale a été essayée en plein milieu du masthead, puis collée
                 au titre à gauche — Nicolas voulait en fait qu'elle reste avec l'horodatage
@@ -433,10 +436,10 @@ export default function Dashboard() {
                   className="masthead-refresh-btn"
                   onClick={handleRefresh}
                   disabled={data.refreshing}
-                  aria-label="Rafraîchir les données du dashboard"
+                  aria-label={t("masthead.refreshAria")}
                 >
                   <IconRefresh />
-                  {data.refreshing ? "Rafraîchissement…" : "Rafraîchir"}
+                  {data.refreshing ? t("masthead.refreshing") : t("masthead.refresh")}
                 </button>
               </div>
               <div className="meta">

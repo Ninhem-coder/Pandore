@@ -15,7 +15,8 @@ are all welcome. By participating you agree to follow the [Code of Conduct](CODE
 - **Report a bug** with the bug report template. Include versions, the page or API route, and
   what you expected. Never paste secrets, tenant IDs, device names or user names.
 - **Suggest a feature** with the feature request template; explain the problem first.
-- **Improve the documentation**, including translating the user interface (currently French).
+- **Improve the documentation**, or help translate the user interface (French and English;
+  page content is still being migrated to English).
 - **Report a vulnerability privately** — see [SECURITY.md](SECURITY.md), not a public issue.
 
 ## Development setup
@@ -83,6 +84,10 @@ The most important rules; the architecture page explains the reasons.
 - Plain JavaScript and React function components; no TypeScript.
 - Expensive data gets its own on-demand hook; never add it to `useDashboardData`.
 - Check API responses with `isErrorPayload` / `listPayloadError` (errors arrive with HTTP 200).
+- Interface text goes through `t("key")` from `useI18n()` (`frontend/src/i18n/`), with the key
+  added to both `fr.js` and `en.js` — the tests fail if a key is missing from one of them. Format
+  dates and numbers with the `locale` from `useI18n()`, never a hard-coded `"fr-FR"`. Parts of
+  the interface are still French-only and are being migrated.
 - `styles.css` is large: search for a selector before adding a rule, and scope new rules to the
   page or component so they cannot override other pages.
 - Colours, fonts and radii come from tokens (`:root` in `styles.css`, `theme.js`); follow the

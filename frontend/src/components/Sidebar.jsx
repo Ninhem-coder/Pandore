@@ -1,5 +1,7 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
+import { useI18n } from "../i18n/I18nContext.jsx";
+import { LANGUAGES } from "../i18n/core.js";
 import {
   IconGrid,
   IconShield,
@@ -15,6 +17,8 @@ import {
   IconLogout,
   IconBell,
   IconPencil,
+  IconGlobe,
+  IconCheck,
 } from "./icons.jsx";
 import { VANITAS_NAV, VanitasMark, VanitasNavFooter, isVanitasNavItemVisible } from "./VanitasSidebar.jsx";
 
@@ -30,38 +34,40 @@ import { VANITAS_NAV, VanitasMark, VanitasNavFooter, isVanitasNavItemVisible } f
  *  - "Application" → groupe "Applications", "Catalogue d'application" → "Catalogue",
  *    "Application déployée" → "Applications déployées".
  * `widgets-test` reste la clé de "Alertes" (ex-"Widgets (test)", voir WidgetsTestTab.jsx).
+ *
+ * Labels are not stored here: `nav.item.<key>` and `nav.group.<group>` in i18n/{fr,en}.js.
  */
 export const NAV_TREE = [
-  { key: "overview", label: "Dashboard", icon: <IconGrid /> },
+  { key: "overview", icon: <IconGrid /> },
   {
-    group: "Appareils",
+    group: "devices",
     items: [
-      { key: "device-inventory", label: "Inventaire", icon: <IconLaptop /> },
-      { key: "device-overview", label: "Fiche appareil", icon: <IconSearch /> },
+      { key: "device-inventory", icon: <IconLaptop /> },
+      { key: "device-overview", icon: <IconSearch /> },
     ],
   },
   {
-    group: "Sécurité",
+    group: "security",
     items: [
-      { key: "intune", label: "Conformité", icon: <IconShield /> },
-      { key: "secure-score", label: "Secure Score", icon: <IconGauge /> },
-      { key: "widgets-test", label: "Alertes", icon: <IconBell /> },
+      { key: "intune", icon: <IconShield /> },
+      { key: "secure-score", icon: <IconGauge /> },
+      { key: "widgets-test", icon: <IconBell /> },
     ],
   },
   {
-    group: "Vulnérabilités",
+    group: "vulnerabilities",
     items: [
-      { key: "vulnerabilities", label: "Vulnérabilités", icon: <IconAlertTriangle /> },
-      { key: "cve-watch", label: "Suivi CVE", icon: <IconBookmark /> },
+      { key: "vulnerabilities", icon: <IconAlertTriangle /> },
+      { key: "cve-watch", icon: <IconBookmark /> },
     ],
   },
   {
-    group: "Applications",
+    group: "applications",
     items: [
-      { key: "app-catalog", label: "Catalogue", icon: <IconLibrary /> },
-      { key: "app-deployed", label: "Applications déployées", icon: <IconPackage /> },
-      { key: "app-add", label: "Ajouter une application", icon: <IconUpload /> },
-      { key: "app-edit", label: "Modifier une application", icon: <IconPencil /> },
+      { key: "app-catalog", icon: <IconLibrary /> },
+      { key: "app-deployed", icon: <IconPackage /> },
+      { key: "app-add", icon: <IconUpload /> },
+      { key: "app-edit", icon: <IconPencil /> },
     ],
   },
 ];
@@ -88,6 +94,7 @@ function LogoMark({ size = 20 }) {
 }
 
 function NavRow({ item, active, onSelect }) {
+  const { t } = useI18n();
   const isActive = active === item.key;
   return (
     <button
@@ -97,7 +104,7 @@ function NavRow({ item, active, onSelect }) {
       aria-current={isActive ? "page" : undefined}
     >
       <span className="asb-item-icon">{item.icon}</span>
-      <span className="asb-item-label">{item.label}</span>
+      <span className="asb-item-label">{t(`nav.item.${item.key}`)}</span>
     </button>
   );
 }
@@ -106,13 +113,14 @@ function NavRow({ item, active, onSelect }) {
  * items selon les permissions (Vanitas) ; un groupe dont plus aucun item n'est visible disparaît
  * avec son en-tête. */
 function NavList({ tree, active, onSelect, isVisible = () => true }) {
+  const { t } = useI18n();
   return tree.map((entry) => {
     if (entry.group) {
       const items = entry.items.filter(isVisible);
       if (!items.length) return null;
       return (
         <Fragment key={`g-${entry.group}`}>
-          <p className="asb-group">{entry.group}</p>
+          <p className="asb-group">{t(`nav.group.${entry.group}`)}</p>
           {items.map((item) => (
             <NavRow key={item.key} item={item} active={active} onSelect={onSelect} />
           ))}
@@ -141,9 +149,104 @@ function RailButton({ label, current, onClick, children }) {
 }
 
 const WORLDS = {
-  intune: { label: "Pandore", sub: "Intune · Defender" },
-  vanitas: { label: "Vanitas", sub: "Rien n'échappe." },
+  intune: { label: "Pandore", subKey: "world.pandore.sub" },
+  vanitas: { label: "Vanitas", subKey: "world.vanitas.sub" },
 };
+
+/**
+ * Interface language (mockup validated on 2026-10-22, option B): globe button in the rail,
+ * badged with the current language, opening a small menu. Lives in the rail rather than the
+ * column so it stays reachable when the column is collapsed, and the menu scales to more
+ * languages. Closes on a choice, an outside click or Escape (focus goes back to the button).
+ */
+function LanguageMenu() {
+  const { lang, setLang, t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const buttonRef = useRef(null);
+  const current = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    rootRef.current?.querySelector('[aria-checked="true"]')?.focus();
+    function handlePointerDown(event) {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    }
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  function choose(code) {
+    setLang(code);
+    setOpen(false);
+    buttonRef.current?.focus();
+  }
+
+  function handleMenuKeyDown(event) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const items = [...rootRef.current.querySelectorAll('[role="menuitemradio"]')];
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    const index = items.indexOf(document.activeElement);
+    items[(index + step + items.length) % items.length].focus();
+  }
+
+  const label = t("nav.language", { language: current.label });
+  return (
+    <div className="asb-lang" ref={rootRef}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`asb-rail-btn${open ? " current" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-tip={label}
+      >
+        <IconGlobe />
+        <span className="asb-lang-badge" aria-hidden="true">
+          {current.code.toUpperCase()}
+        </span>
+      </button>
+      {open && (
+        <div className="asb-lang-menu" role="menu" aria-label={t("nav.languageMenu")} onKeyDown={handleMenuKeyDown}>
+          <p className="asb-lang-title" aria-hidden="true">
+            {t("nav.languageMenu")}
+          </p>
+          {LANGUAGES.map((l) => {
+            const selected = l.code === lang;
+            return (
+              <button
+                key={l.code}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                lang={l.code}
+                className={`asb-lang-item${selected ? " active" : ""}`}
+                onClick={() => choose(l.code)}
+              >
+                <span className="asb-lang-code">{l.code.toUpperCase()}</span>
+                <span className="asb-lang-name">{l.label}</span>
+                {selected && <IconCheck />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Sidebar unifiée Pandore + Vanitas (refonte du 2026-10-21, maquette approuvée par Nicolas :
@@ -152,7 +255,7 @@ const WORLDS = {
  * par la structure Lumis :
  *  - un RAIL d'icônes fixe (56px) : marque, un bouton par « monde » (Pandore/Vanitas — c'est
  *    le SEUL à basculer `source` depuis le retrait du sélecteur du masthead), recherche (Ctrl K),
- *    Paramètres, déconnexion, avatar ;
+ *    langue de l'interface (`LanguageMenu`), Paramètres, déconnexion, avatar ;
  *  - une COLONNE de navigation (248px) propre au monde actif, repliable — re-cliquer le monde
  *    actif dans le rail ou le bouton de repli ; état persisté dans `sidebarCollapsed` (même clé
  *    que l'ancien rail, la préférence d'un utilisateur est conservée).
@@ -161,6 +264,7 @@ const WORLDS = {
  */
 export default function Sidebar({ source, onSourceChange, active, vanitasActive, onSelect, onSelectVanitas, onOpenSettings, onOpenSearch, stamp }) {
   const { user, logout } = useAuth();
+  const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem("sidebarCollapsed") === "1";
@@ -202,11 +306,11 @@ export default function Sidebar({ source, onSourceChange, active, vanitasActive,
   const world = WORLDS[source] ?? WORLDS.intune;
   const isVanitas = source === "vanitas";
   const initials = (user.username || "?").slice(0, 2).toUpperCase();
-  const roleLabel = user.role === "admin" ? "Admin" : "Lecture seule";
+  const roleLabel = t(user.role === "admin" ? "nav.role.admin" : "nav.role.readonly");
 
   return (
     <aside className={`app-sidebar${collapsed ? " collapsed" : ""}`} data-world={isVanitas ? "vanitas" : "pandore"}>
-      <div className="asb-rail" aria-label="Mondes">
+      <div className="asb-rail" aria-label={t("nav.worlds")}>
         <span className="asb-logo" aria-hidden="true">
           <LogoMark size={22} />
         </span>
@@ -217,14 +321,15 @@ export default function Sidebar({ source, onSourceChange, active, vanitasActive,
           <VanitasMark size={19} />
         </RailButton>
         <span className="asb-rail-sep" />
-        <RailButton label="Rechercher (Ctrl K)" onClick={onOpenSearch}>
+        <RailButton label={t("nav.search")} onClick={onOpenSearch}>
           <IconSearch />
         </RailButton>
         <span className="asb-rail-spacer" />
-        <RailButton label="Paramètres" onClick={onOpenSettings}>
+        <LanguageMenu />
+        <RailButton label={t("nav.settings")} onClick={onOpenSettings}>
           <IconSettings />
         </RailButton>
-        <RailButton label="Se déconnecter" onClick={logout}>
+        <RailButton label={t("nav.logout")} onClick={logout}>
           <IconLogout />
         </RailButton>
         <span className="asb-avatar" title={`${user.username} · ${roleLabel}`}>
@@ -232,13 +337,13 @@ export default function Sidebar({ source, onSourceChange, active, vanitasActive,
         </span>
       </div>
 
-      <nav className="asb-col" aria-label={`Navigation ${world.label}`}>
+      <nav className="asb-col" aria-label={t("nav.navigation", { world: world.label })}>
         <div className="asb-col-head">
           <span className="asb-col-title">
             {isVanitas ? <VanitasMark size={18} /> : <LogoMark size={18} />}
             {world.label}
           </span>
-          <span className="asb-col-sub">{world.sub}</span>
+          <span className="asb-col-sub">{t(world.subKey)}</span>
         </div>
         <div className="asb-nav">
           {isVanitas ? (
@@ -258,7 +363,7 @@ export default function Sidebar({ source, onSourceChange, active, vanitasActive,
           ) : (
             <span className="asb-sync">
               <span className="asb-dot" />
-              Graph · {stamp}
+              {t("nav.sync.graph", { stamp })}
             </span>
           )}
         </div>

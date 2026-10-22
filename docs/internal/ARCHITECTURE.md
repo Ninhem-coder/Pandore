@@ -163,6 +163,16 @@ flowchart LR
 - **`NAV_TREE`** (structure sidebar) vit dans `components/Sidebar.jsx` (Pandore) /
   `components/VanitasSidebar.jsx` (Vanitas), PAS dans `navigation.js` (qui n'a que
   `resolveSearchTab`/`bumpSearchNav`/`bumpVanitasNav`).
+- **Langue de l'interface (FR/EN, 2026-10-22)** : `frontend/src/i18n/` — dictionnaires plats
+  `fr.js` (référence) / `en.js`, `core.js` (fonctions pures `translate`, `formatStamp`,
+  `LANGUAGES`), `I18nContext.jsx` (`useI18n()` → `{ lang, locale, setLang, t }`, choix gardé en
+  `localStorage` `pandore.lang` + reflété sur `<html lang>`). Tout NOUVEAU texte affiché passe par
+  `t("clé")` avec la clé ajoutée dans LES DEUX dictionnaires (`i18n.test.js` échoue sinon) ;
+  pluriels via `<clé>.one`/`<clé>.other` + `{count}` ; dates/nombres via `locale` (`Intl`), jamais
+  `"fr-FR"` en dur. Libellés de nav = `nav.item.<key>` / `nav.group.<group>` (plus de `label` dans
+  `NAV_TREE`/`VANITAS_NAV`). Sélecteur = bouton globe du rail (`LanguageMenu`, Sidebar.jsx).
+  Traduit à ce jour : sidebar, masthead, coquille ; le contenu des pages reste en français
+  (étapes suivantes : pages Pandore, pages Vanitas, codes d'erreur backend).
 - **Ne jamais reproduire un logo de marque réelle** sans asset officiel dans le repo — glyphes
   abstraits/neutres.
 
@@ -276,7 +286,7 @@ cd backend && .venv/Scripts/python.exe -m pytest tests/ -q          # 86 tests
 
 # Frontend
 cd frontend && npx vite build                                       # build
-cd frontend && npx vitest run                                       # 131 tests
+cd frontend && npx vitest run                                       # 138 tests
 
 # Serveur Vanitas
 cd endpoint-agent/server && .venv/Scripts/python.exe -m pytest tests/ -q   # 65 tests

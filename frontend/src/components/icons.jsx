@@ -356,3 +356,23 @@ export function IconPencil() {
     </svg>
   );
 }
+
+/** Globe — interface language menu in the sidebar rail. */
+export function IconGlobe() {
+  return (
+    <svg {...common}>
+      <circle cx="10" cy="10" r="7" />
+      <path d="M3 10h14" />
+      <path d="M10 3c1.9 2 2.9 4.3 2.9 7s-1 5-2.9 7c-1.9-2-2.9-4.3-2.9-7s1-5 2.9-7Z" />
+    </svg>
+  );
+}
+
+/** Check mark — selected entry of a menu. */
+export function IconCheck() {
+  return (
+    <svg {...common}>
+      <path d="M4.5 10.5 8.2 14l7.3-8" />
+    </svg>
+  );
+}

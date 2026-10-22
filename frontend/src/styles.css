@@ -18375,6 +18375,106 @@ tr.compliance-detail-row > td {
   flex: 1;
 }
 
+/* Interface language (validated mockup, option B): globe button in the rail with the current
+   language as a badge, and a small menu opening to the right, over the navigation column. */
+.asb-lang {
+  position: relative;
+  z-index: 25;
+}
+
+.asb-lang-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--sb-accent);
+  color: var(--sb-bg);
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 13px;
+  letter-spacing: 0.04em;
+}
+
+/* No tooltip while the menu is open: it would sit on top of the menu. */
+.asb-rail-btn[aria-expanded="true"]::after {
+  display: none;
+}
+
+.asb-lang-menu {
+  position: absolute;
+  left: 46px;
+  bottom: 0;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--sb-int);
+  background: var(--sb-bg);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+.asb-lang-title {
+  margin: 0;
+  padding: 8px 10px 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sb-ink3);
+}
+
+.asb-lang-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sb-ink2);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.asb-lang-item:hover,
+.asb-lang-item:focus-visible {
+  background: var(--sb-hover);
+  color: var(--sb-ink);
+  outline: none;
+}
+
+.asb-lang-item.active {
+  background: var(--sb-int);
+  color: var(--sb-ink);
+}
+
+.asb-lang-code {
+  width: 24px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--sb-ink3);
+}
+
+.asb-lang-item.active .asb-lang-code,
+.asb-lang-item svg {
+  color: var(--sb-accent);
+}
+
+.asb-lang-name {
+  flex: 1;
+}
+
+.asb-lang-item svg {
+  width: 15px;
+  height: 15px;
+}
+
 .asb-avatar {
   width: 30px;
   height: 30px;
@@ -18588,6 +18688,14 @@ tr.compliance-detail-row > td {
 
   .asb-rail-btn:hover::after {
     display: none;
+  }
+
+  /* Horizontal rail: the language menu drops below its button, right-aligned to it. */
+  .asb-lang-menu {
+    top: 44px;
+    right: 0;
+    bottom: auto;
+    left: auto;
   }
 
   .asb-col,

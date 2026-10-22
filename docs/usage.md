@@ -1,7 +1,8 @@
 # Usage
 
-A tour of the dashboard and the MCP integration. The interface is currently in **French**; each
-page is listed with its French label and an English description.
+A tour of the dashboard and the MCP integration. The interface defaults to **French**; the globe
+button in the sidebar rail switches it to English (sidebar and page headers today, page content
+is being translated). Each page is listed with its French label and an English description.
 
 - [Navigation](#navigation)
 - [Pandore pages](#pandore-pages)
