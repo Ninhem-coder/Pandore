@@ -272,14 +272,14 @@ design** (couleur, police, rayon, surface, icône) — ne rien improviser si la 
 
 ```bash
 # Backend Pandore
-cd backend && .venv/Scripts/python.exe -m pytest tests/ -q          # 45 tests
+cd backend && .venv/Scripts/python.exe -m pytest tests/ -q          # 86 tests
 
 # Frontend
 cd frontend && npx vite build                                       # build
-cd frontend && npx vitest run                                       # 103 tests
+cd frontend && npx vitest run                                       # 131 tests
 
 # Serveur Vanitas
-cd endpoint-agent/server && .venv/Scripts/python.exe -m pytest tests/ -q   # 27 tests
+cd endpoint-agent/server && .venv/Scripts/python.exe -m pytest tests/ -q   # 65 tests
 cd endpoint-agent/server && .venv/Scripts/python.exe scripts/run_server.py # lancer (TLS/mTLS)
 
 # Agent .NET
