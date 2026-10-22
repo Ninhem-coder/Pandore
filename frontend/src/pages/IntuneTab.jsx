@@ -12,8 +12,11 @@ import {
   POLICY_STATUS_COLORS,
   secureScoreLevel,
   formatRelativeDays,
+  categoryLabel,
 } from "../theme.js";
 import { groupComplianceDetailByOS, computeHistoryTrend } from "../selectors.js";
+import { currentLocale, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Onglet "Conformité" — refonte du 2026-08-28 (skill frontend-design, maquette HTML validée
@@ -112,7 +115,7 @@ export default function IntuneTab({ data }) {
         if (Array.isArray(result)) {
           setDetailCache((prev) => ({ ...prev, [key]: { settings: result } }));
         } else {
-          setDetailCache((prev) => ({ ...prev, [key]: { error: result?.message || "erreur inconnue" } }));
+          setDetailCache((prev) => ({ ...prev, [key]: { error: result?.message || tr("common.unknownError") } }));
         }
       })
       .catch((err) => setDetailCache((prev) => ({ ...prev, [key]: { error: err.message } })));
@@ -241,7 +244,7 @@ export default function IntuneTab({ data }) {
     return (
       <div className="card">
         <div className="card-head">
-          <h2>Conformité</h2>
+          <h2>{tr("compliance.title")}</h2>
         </div>
         <p className="error-note">{intuneError.message}</p>
       </div>
@@ -309,26 +312,25 @@ export default function IntuneTab({ data }) {
               )}
             </svg>
             <div className="gauge-center">
-              <span className="num">{complianceRatePct != null ? complianceRatePct.toFixed(1).replace(".", ",") : "—"}</span>
-              <span className="pct">% conforme</span>
+              <span className="num">{complianceRatePct != null ? complianceRatePct.toLocaleString(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "—"}</span>
+              <span className="pct">{tr("compliance.pctCompliant")}</span>
             </div>
           </div>
           <div className="posture-detail">
-            <p className="lbl">Taux de conformité — parc entier</p>
+            <p className="lbl">{tr("compliance.rateWholeFleet")}</p>
             <div className="posture-trend">
               <TrendArrowBadge delta={historyTrend.intune.delta30} goodWhenUp suffix=" pt" />
-              <span className="period">vs il y a 30 j</span>
+              <span className="period">{tr("compliance.vs30")}</span>
             </div>
             <p className="posture-sub">
               {compliantCount != null && totalDevices != null ? (
                 <>
-                  <strong>{compliantCount}</strong> appareils conformes sur <strong>{totalDevices}</strong> suivis.{" "}
+                  {trRich("compliance.compliantOfTracked", { compliant: <strong>{compliantCount}</strong>, total: <strong>{totalDevices}</strong> })}{" "}
                 </>
               ) : null}
               {!compliance.loading && !compliance.error && (
                 <>
-                  <strong>{liveStats.total}</strong> en situation de non-conformité réelle (détail nominatif, tous OS
-                  confondus).
+                  {trRich("compliance.realNonCompliance", { n: <strong>{liveStats.total}</strong> })}
                 </>
               )}
             </p>
@@ -338,7 +340,7 @@ export default function IntuneTab({ data }) {
         <div className="card kpi-card">
           <div className="kpi-top">
             <div>
-              <p className="kpi-label">Non conformes</p>
+              <p className="kpi-label">{tr("compliance.nonCompliant")}</p>
               <div className="kpi-value tone-high">{compliance.loading ? "—" : liveStats.total}</div>
             </div>
             <TrendArrowBadge delta={historyTrend.intuneNonCompliant.delta7} goodWhenUp={false} />
@@ -371,25 +373,24 @@ export default function IntuneTab({ data }) {
         <div className="card kpi-card">
           <div className="kpi-top">
             <div>
-              <p className="kpi-label">Politiques suivies</p>
+              <p className="kpi-label">{tr("compliance.trackedPolicies")}</p>
               <div className="kpi-value">{policiesTotal ?? "—"}</div>
             </div>
-            {scannedPolicies != null && <span className="kpi-delta-neutral">{scannedPolicies} en échec</span>}
+            {scannedPolicies != null && <span className="kpi-delta-neutral">{tr("compliance.failingCount", { count: scannedPolicies })}</span>}
           </div>
           {policiesTotal != null && scannedPolicies != null && (
             <>
               <p className="kpi-sub">
-                {Math.round(((policiesTotal - scannedPolicies) / Math.max(policiesTotal, 1)) * 100)} % du catalogue sans
-                aucun échec actif
+                {tr("compliance.catalogNoFailure", { pct: Math.round(((policiesTotal - scannedPolicies) / Math.max(policiesTotal, 1)) * 100) })}
               </p>
               <div className="policies-mini-bar">
                 <span
                   style={{ width: `${((policiesTotal - scannedPolicies) / Math.max(policiesTotal, 1)) * 100}%`, background: "var(--low)" }}
-                  title={`${policiesTotal - scannedPolicies} politiques sans aucun échec actif`}
+                  title={tr("compliance.policiesNoFailure", { count: policiesTotal - scannedPolicies })}
                 />
                 <span
                   style={{ width: `${(scannedPolicies / Math.max(policiesTotal, 1)) * 100}%`, background: "var(--high)" }}
-                  title={`${scannedPolicies} politiques avec au moins un échec actif`}
+                  title={tr("compliance.policiesWithFailure", { count: scannedPolicies })}
                 />
               </div>
               {/* Légende TOUJOURS visible (2026-08-31, retour de Nicolas : "j'ai rien quand je
@@ -397,9 +398,9 @@ export default function IntuneTab({ data }) {
                   fiable dans son navigateur) : les deux chiffres sont maintenant écrits en
                   toutes lettres sous la barre plutôt que de dépendre d'un survol. */}
               <p className="policies-mini-bar-legend">
-                <span style={{ color: "var(--low)" }}>{policiesTotal - scannedPolicies} sans échec</span>
+                <span style={{ color: "var(--low)" }}>{tr("compliance.noFailureCount", { count: policiesTotal - scannedPolicies })}</span>
                 {" · "}
-                <span style={{ color: "var(--high)" }}>{scannedPolicies} en échec</span>
+                <span style={{ color: "var(--high)" }}>{tr("compliance.failingCount", { count: scannedPolicies })}</span>
               </p>
             </>
           )}
@@ -426,8 +427,8 @@ export default function IntuneTab({ data }) {
           {priorityQueue.length > 0 && (
             <section className="priority-section">
               <div className="priority-head">
-                <h2>À traiter en priorité</h2>
-                <span className="note">Postes en échec depuis le plus longtemps, tous OS confondus</span>
+                <h2>{tr("compliance.priority")}</h2>
+                <span className="note">{tr("compliance.priorityNote")}</span>
               </div>
               <div className="priority-row">
                 {priorityQueue.map((entry) => {
@@ -466,18 +467,15 @@ export default function IntuneTab({ data }) {
             <div className="main-col">
               <div className="card policy-card">
                 <div className="card-head">
-                  <h2>Politiques en échec — classées par impact</h2>
+                  <h2>{tr("compliance.rankedPolicies")}</h2>
                 </div>
                 <p className="card-note" style={{ marginTop: 8 }}>
-                  {rankedPolicies.length} politique{rankedPolicies.length > 1 ? "s" : ""} concernée
-                  {rankedPolicies.length > 1 ? "s" : ""}, triée{rankedPolicies.length > 1 ? "s" : ""} par nombre
-                  d'occurrences en échec. Cliquer une ligne affiche un aperçu, « voir la table complète » filtre le
-                  tableau ci-dessous.
+                  {tr("compliance.rankedPoliciesNote", { count: rankedPolicies.length })}
                 </p>
 
                 {rankedPolicies.length === 0 ? (
                   <p className="empty" style={{ marginTop: 14 }}>
-                    Aucune politique en échec parmi les politiques suivies.
+                    {tr("compliance.noFailingPolicy")}
                   </p>
                 ) : (
                   <div className="policy-list">
@@ -511,7 +509,7 @@ export default function IntuneTab({ data }) {
                             </span>
                             <span className="policy-count">
                               {p.count}
-                              <span className="unit">poste{p.count > 1 ? "s" : ""}</span>
+                              <span className="unit">{tr("compliance.devicesUnit", { count: p.count })}</span>
                             </span>
                             <svg className="policy-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                               <path d="M7 4l6 6-6 6" />
@@ -523,23 +521,23 @@ export default function IntuneTab({ data }) {
                                 <span
                                   className="policy-bar-seg-ok"
                                   style={{ width: `${100 - pctOfOs}%` }}
-                                  title={`${total - p.count} appareils ${p.os} conformes à cette politique`}
+                                  title={tr("compliance.osCompliantWithPolicy", { count: total - p.count, os: p.os })}
                                 />
                                 <span
                                   className="policy-bar-seg-bad"
                                   style={{ width: `${pctOfOs}%` }}
-                                  title={`${p.count} appareils ${p.os} en échec sur cette politique`}
+                                  title={tr("compliance.osFailingPolicy", { count: p.count, os: p.os })}
                                 />
                               </div>
                               <p className="policy-bar-label">
-                                {p.count} / {total} appareils {p.os} assignés en échec
+                                {tr("compliance.assignedFailing", { count: p.count, total, os: p.os })}
                               </p>
                             </>
                           )}
                           {open && (
                             <div className="policy-detail">
                               {previewDevices.length === 0 ? (
-                                <p className="policy-detail-empty">Détail non disponible pour cette politique.</p>
+                                <p className="policy-detail-empty">{tr("compliance.noPolicyDetail")}</p>
                               ) : (
                                 previewDevices.map((d, di) => (
                                   <div className="policy-detail-row" key={di}>
@@ -553,14 +551,15 @@ export default function IntuneTab({ data }) {
                                       }}
                                     >
                                       <span className="dot" style={{ background: POLICY_STATUS_COLORS[d.status] || POLICY_STATUS_COLORS.unknown }} />
-                                      {d.complianceCategory}
+                                      {categoryLabel(d.complianceCategory)}
                                     </span>
                                     <span className="duetime">{formatRelativeDays(d.lastReportedDateTime)}</span>
                                   </div>
                                 ))
                               )}
                               <button type="button" className="policy-detail-link" onClick={() => focusTable(p.os, p.id)}>
-                                {remaining > 0 ? `+ ${remaining} autres postes — ` : ""}voir la table complète ↓
+                                {remaining > 0 ? tr("compliance.moreDevices", { count: remaining }) : ""}
+                                {tr("compliance.seeFullTable")}
                               </button>
                             </div>
                           )}
@@ -576,7 +575,7 @@ export default function IntuneTab({ data }) {
               {osSplitRows.length > 0 && (
                 <div className="card">
                   <div className="card-head">
-                    <h2>Répartition par OS</h2>
+                    <h2>{tr("compliance.byOs")}</h2>
                     {/* Légende TOUJOURS visible (2026-08-31, retour de Nicolas : "j'ai rien
                         quand je survole" — le `title` posé sur chaque segment ci-dessous ne
                         s'affichait pas de façon fiable dans son navigateur) : plutôt que de
@@ -584,8 +583,8 @@ export default function IntuneTab({ data }) {
                         carte — les comptes eux-mêmes restent affichés en clair à droite de
                         chaque barre (`.os-split-count`, déjà présent avant ce correctif). */}
                     <span className="card-note">
-                      <span style={{ color: "var(--low)" }}>vert</span> = conforme ·{" "}
-                      <span style={{ color: "var(--high)" }}>rouge</span> = non conforme
+                      <span style={{ color: "var(--low)" }}>{tr("compliance.legendGreen")}</span> {tr("compliance.legendCompliant")}{" "}
+                      <span style={{ color: "var(--high)" }}>{tr("compliance.legendRed")}</span> {tr("compliance.legendNonCompliant")}
                     </span>
                   </div>
                   {osSplitRows.map(({ os, total, nonCompliant }) => {
@@ -602,8 +601,8 @@ export default function IntuneTab({ data }) {
                               tooltip construit en CSS `::after` s'affiche, lui, immédiatement
                               et de façon garantie, sans dépendre du comportement du
                               navigateur). */}
-                          <span className="seg-ok" style={{ width: `${okPct}%` }} data-tip={`${total - nonCompliant} appareils ${os} conformes`} />
-                          <span className="seg-bad" style={{ width: `${badPct}%` }} data-tip={`${nonCompliant} appareils ${os} non conformes`} />
+                          <span className="seg-ok" style={{ width: `${okPct}%` }} data-tip={tr("compliance.osCompliant", { count: total - nonCompliant, os })} />
+                          <span className="seg-bad" style={{ width: `${badPct}%` }} data-tip={tr("compliance.osNonCompliant", { count: nonCompliant, os })} />
                         </div>
                         <span className="os-split-count">
                           {nonCompliant}/{total}
@@ -617,7 +616,7 @@ export default function IntuneTab({ data }) {
               {trendChart && (
                 <div className="card">
                   <div className="card-head">
-                    <h2>Tendance 90 jours</h2>
+                    <h2>{tr("compliance.trend90")}</h2>
                   </div>
                   <div className="trend-chart-wrap">
                     <svg viewBox="0 0 300 92" preserveAspectRatio="none">
@@ -636,10 +635,12 @@ export default function IntuneTab({ data }) {
                   </div>
                   <div className="trend-legend">
                     <span>
-                      {historyTrend.intune.series[0] != null ? `${historyTrend.intune.series[0].toFixed(1)} %` : "—"} il y a{" "}
-                      {historyTrend.intune.series.length} j
+                      {tr("compliance.daysAgo", {
+                        value: historyTrend.intune.series[0] != null ? `${historyTrend.intune.series[0].toFixed(1)} %` : "—",
+                        days: historyTrend.intune.series.length,
+                      })}
                     </span>
-                    <span style={{ color: "var(--low)" }}>{complianceRatePct != null ? `${complianceRatePct.toFixed(1)} %` : "—"} aujourd'hui</span>
+                    <span style={{ color: "var(--low)" }}>{tr("compliance.today", { value: complianceRatePct != null ? `${complianceRatePct.toFixed(1)} %` : "—" })}</span>
                   </div>
                 </div>
               )}
@@ -653,17 +654,16 @@ export default function IntuneTab({ data }) {
                     </svg>
                   </div>
                   <p>
-                    <strong>Correctif recommandé</strong>
+                    <strong>{tr("compliance.recommendedFix")}</strong>
                   </p>
                   <p>
-                    {topPolicy.count} occurrences en échec sur « {shortPolicyName(topPolicy.displayName)} » ({topPolicy.os}).
+                    {tr("compliance.fixOccurrences", { count: topPolicy.count, policy: shortPolicyName(topPolicy.displayName), os: topPolicy.os })}
                   </p>
                   <p className="impact">
-                    Potentiel : {Math.round((topPolicy.count / aggregateTotal) * 100)} % des {aggregateTotal} occurrences en
-                    échec recensées
+                    {tr("compliance.fixPotential", { pct: Math.round((topPolicy.count / aggregateTotal) * 100), total: aggregateTotal })}
                   </p>
                   <button type="button" className="quickwin-link" onClick={() => focusTable(topPolicy.os, topPolicy.id)}>
-                    Voir les {topPolicy.count} postes concernés
+                    {tr("compliance.seeDevices", { count: topPolicy.count })}
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M7 4l6 6-6 6" />
                     </svg>
@@ -673,65 +673,63 @@ export default function IntuneTab({ data }) {
 
               <div className="card">
                 <details className="reconcile">
-                  <summary>Lecture des chiffres</summary>
+                  <summary>{tr("compliance.readingFigures")}</summary>
                   <p>
-                    <strong>Conformité par état</strong> compte des <em>appareils</em> (
-                    {totalDevices ?? "?"}, tout le parc). Les cartes par OS comptent elles aussi des{" "}
-                    <em>appareils distincts</em> : <strong>{distinctDevices}</strong> appareils sont réellement en faute
-                    (non conformes ou en erreur), chacun compté une seule fois même s'il échoue plusieurs politiques,
-                    dans sa situation la plus grave. Les tableaux restent détaillés par politique ({retrievedTotal}{" "}
-                    lignes appareil × politique au total).
+                    {trRich("compliance.reconcileIntro", {
+                      byState: <strong>{tr("compliance.byStateLabel")}</strong>,
+                      devicesEm: <em>{tr("compliance.devicesWord")}</em>,
+                      total: totalDevices ?? "?",
+                      distinctEm: <em>{tr("compliance.distinctDevicesWord")}</em>,
+                      distinct: <strong>{distinctDevices}</strong>,
+                      rows: retrievedTotal,
+                    })}
                     {aggregateTotal > 0 && (
                       <>
                         {" "}
-                        Seul le sous-ensemble réellement en faute est comparable à l'agrégat Graph, qui annonce{" "}
-                        {aggregateTotal} occurrences —{" "}
+                        {tr("compliance.aggregateIntro", { total: aggregateTotal })}
                         {aggregateTotal === (byCategory["Non conforme"] || 0) + (byCategory["Erreur"] || 0)
-                          ? "exactement le même compte."
-                          : `un écart avec les ${
-                              (byCategory["Non conforme"] || 0) + (byCategory["Erreur"] || 0)
-                            } appareils réellement identifiés nommément. L'agrégat est un compteur mis en cache côté Microsoft ; le détail nominatif, lui, est vérifiable appareil par appareil.`}
+                          ? tr("compliance.aggregateSame")
+                          : tr("compliance.aggregateGap", { count: (byCategory["Non conforme"] || 0) + (byCategory["Erreur"] || 0) })}
                       </>
                     )}
                     {reclassifiedByDeviceState > 0 && (
                       <>
                         {" "}
-                        <strong>{reclassifiedByDeviceState}</strong> ligne{reclassifiedByDeviceState > 1 ? "s" : ""}{" "}
-                        annonçant un problème sur une politique {reclassifiedByDeviceState > 1 ? "ont" : "a"} été écartée
-                        {reclassifiedByDeviceState > 1 ? "s" : ""} parce qu'Intune considère l'appareil concerné comme{" "}
-                        <em>conforme</em> au niveau appareil.
+                        {trRich("compliance.reclassified", {
+                          count: reclassifiedByDeviceState,
+                          n: <strong>{reclassifiedByDeviceState}</strong>,
+                          compliantEm: <em>{tr("compliance.compliantWord")}</em>,
+                        })}
                       </>
                     )}
                     {platformMismatchCount > 0 && (
                       <>
                         {" "}
-                        <strong>{platformMismatchCount}</strong> ligne{platformMismatchCount > 1 ? "s" : ""}{" "}
-                        {platformMismatchCount > 1 ? "ont" : "a"} été écartée{platformMismatchCount > 1 ? "s" : ""} car
-                        l'appareil réel identifié n'est pas de la <em>plateforme</em> de la politique.
+                        {trRich("compliance.platformMismatch", {
+                          count: platformMismatchCount,
+                          n: <strong>{platformMismatchCount}</strong>,
+                          platformEm: <em>{tr("compliance.platformWord")}</em>,
+                        })}
                       </>
                     )}
                     {unverifiedCandidates > 0 && (
                       <>
                         {" "}
-                        <strong>{unverifiedCandidates}</strong> appareil{unverifiedCandidates > 1 ? "s" : ""} candidat
-                        {unverifiedCandidates > 1 ? "s" : ""} à une reprise de ligne d'affectation{" "}
-                        {unverifiedCandidates > 1 ? "n'ont" : "n'a"} pas pu être vérifié{unverifiedCandidates > 1 ? "s" : ""}.
+                        {trRich("compliance.unverified", { count: unverifiedCandidates, n: <strong>{unverifiedCandidates}</strong> })}
                       </>
                     )}
                     {placeholderRows > 0 && (
                       <>
                         {" "}
-                        <strong>{placeholderRows}</strong> ligne{placeholderRows > 1 ? "s" : ""} d'affectation renvoyée
-                        {placeholderRows > 1 ? "s" : ""} par Graph sans nom d'appareil {placeholderRows > 1 ? "ont" : "a"}{" "}
-                        été rattachée{placeholderRows > 1 ? "s" : ""} à leur appareil réel via l'utilisateur, ajoutant{" "}
-                        <strong>{resolvedFromPlaceholders}</strong> appareil{resolvedFromPlaceholders > 1 ? "s" : ""}{" "}
-                        distinct{resolvedFromPlaceholders > 1 ? "s" : ""} à la répartition ci-dessus.
+                        {trRich("compliance.placeholders", {
+                          count: placeholderRows,
+                          n: <strong>{placeholderRows}</strong>,
+                          resolved: <strong>{resolvedFromPlaceholders}</strong>,
+                        })}
                         {unresolvedPlaceholderRows > 0 && (
                           <>
                             {" "}
-                            <strong>{unresolvedPlaceholderRows}</strong> ligne{unresolvedPlaceholderRows > 1 ? "s" : ""} n'
-                            {unresolvedPlaceholderRows > 1 ? "ont" : "a"} pu être rattachée
-                            {unresolvedPlaceholderRows > 1 ? "s" : ""} à aucun appareil.
+                            {trRich("compliance.unresolved", { count: unresolvedPlaceholderRows, n: <strong>{unresolvedPlaceholderRows}</strong> })}
                           </>
                         )}
                       </>
@@ -742,16 +740,14 @@ export default function IntuneTab({ data }) {
 
               {(unavailablePolicies.length > 0 || placeholderOnlyPolicies.length > 0 || missingPolicies.length > 0) && (
                 <div className="card">
-                  <p className="rail-warning-title">À vérifier</p>
+                  <p className="rail-warning-title">{tr("compliance.toCheck")}</p>
                   {unavailablePolicies.length > 0 && (
                     <p className="error-note compliance-unavailable-note">
-                      {unavailablePolicies.length} politique{unavailablePolicies.length > 1 ? "s" : ""} compt
-                      {unavailablePolicies.length > 1 ? "ées" : "ée"} dans l'agrégat mais dont le détail nominatif n'a
-                      pas pu être récupéré :{" "}
+                      {tr("compliance.unavailablePolicies", { count: unavailablePolicies.length })}{" "}
                       {unavailablePolicies.map((p, i) => (
                         <span key={p.id ?? i}>
                           {i > 0 ? ", " : ""}
-                          <strong>{p.displayName}</strong> ({p.failedCount} devices)
+                          <strong>{p.displayName}</strong> ({tr("compliance.devicesCount", { count: p.failedCount })})
                         </span>
                       ))}
                       .
@@ -759,12 +755,11 @@ export default function IntuneTab({ data }) {
                   )}
                   {placeholderOnlyPolicies.length > 0 && (
                     <p className="error-note compliance-unavailable-note">
-                      {placeholderOnlyPolicies.length} politique{placeholderOnlyPolicies.length > 1 ? "s" : ""} annoncée
-                      {placeholderOnlyPolicies.length > 1 ? "s" : ""} en échec par l'agrégat mais sans ligne exploitable :{" "}
+                      {tr("compliance.placeholderOnly", { count: placeholderOnlyPolicies.length })}{" "}
                       {placeholderOnlyPolicies.map((p, i) => (
                         <span key={p.id ?? i}>
                           {i > 0 ? ", " : ""}
-                          <strong>{p.displayName}</strong> ({p.aggregateFailedCount} annoncés)
+                          <strong>{p.displayName}</strong> ({tr("compliance.announced", { count: p.aggregateFailedCount })})
                         </span>
                       ))}
                       .
@@ -772,13 +767,11 @@ export default function IntuneTab({ data }) {
                   )}
                   {missingPolicies.length > 0 && (
                     <p className="error-note compliance-unavailable-note">
-                      {missingPolicies.length} politique{missingPolicies.length > 1 ? "s" : ""} annoncée
-                      {missingPolicies.length > 1 ? "s" : ""} par l'agrégat mais absente de cette page — anomalie à
-                      signaler :{" "}
+                      {tr("compliance.missingPolicies", { count: missingPolicies.length })}{" "}
                       {missingPolicies.map((p, i) => (
                         <span key={p.id ?? i}>
                           {i > 0 ? ", " : ""}
-                          <strong>{p.displayName}</strong> ({p.failedCount} annoncés)
+                          <strong>{p.displayName}</strong> ({tr("compliance.announced", { count: p.failedCount })})
                         </span>
                       ))}
                       .

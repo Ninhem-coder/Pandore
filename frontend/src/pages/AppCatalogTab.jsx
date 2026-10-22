@@ -5,6 +5,8 @@ import CopyButton from "../components/CopyButton.jsx";
 import SummaryCard from "../components/SummaryCard.jsx";
 import { GENERIC_PALETTE } from "../theme.js";
 import { IconBookmark, IconDownload, IconLibrary, IconPackage, IconSearch } from "../components/icons.jsx";
+import { currentLocale, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Onglet "Application" > Administration > "Catalogue d'application" (2026-08-26, demande de
@@ -83,17 +85,14 @@ import { IconBookmark, IconDownload, IconLibrary, IconPackage, IconSearch } from
  * "Repackager avec une autre version" pour choisir l'asset à la main.
  */
 
-const SOURCE_FILTERS = [
-  { key: "all", label: "Toutes" },
-  { key: "manual", label: "Manuelle" },
-  { key: "packaged", label: "Packagée" },
-];
+// `key` doubles as the translation suffix (apps.source.<key>).
+const SOURCE_FILTERS = [{ key: "all" }, { key: "manual" }, { key: "packaged" }];
 
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 /** Hash de nom → index de palette déterministe — même mécanisme que `hashString` dans
@@ -177,18 +176,18 @@ function LibraryDetailModal({ entry, onClose, onNavigate }) {
                 {entry.displayName}
                 <span className="library-detail-modified">
                   {" "}
-                  - Éditeur : {entry.publisher || "non renseigné"} - modifiée le {formatDate(entry.updatedAt || entry.addedAt)}
+                  {tr("apps.detailMeta", { publisher: entry.publisher || tr("apps.notSet"), date: formatDate(entry.updatedAt || entry.addedAt) })}
                 </span>
               </h2>
               <div className="library-detail-title-tags">
                 <span className={`library-source-badge${isPackaged ? " packaged" : ""}`}>
-                  {isPackaged ? "Packagée" : "Manuelle"}
+                  {tr(isPackaged ? "apps.source.packaged" : "apps.source.manual")}
                 </span>
                 {entry.version && <span className="library-version-badge">v{entry.version}</span>}
               </div>
             </div>
           </div>
-          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer le détail">
+          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("apps.closeDetail")}>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
@@ -200,7 +199,7 @@ function LibraryDetailModal({ entry, onClose, onNavigate }) {
             <div className="wizard-field-group">
               <p className="error-note">{updateWarning.message}</p>
               <button type="button" className="library-inline-link" onClick={() => onNavigate?.("app-edit")}>
-                Ouvrir "Modifier une application"
+                {tr("apps.openEdit")}
               </button>
             </div>
           )}
@@ -212,7 +211,7 @@ function LibraryDetailModal({ entry, onClose, onNavigate }) {
           )}
 
           {!isPackaged && (
-            <p className="card-note">Ajout manuel — aucun livrable technique associé, rien à copier-coller ici.</p>
+            <p className="card-note">{tr("apps.manualNoDeliverable")}</p>
           )}
 
           {isPackaged && (
@@ -221,7 +220,7 @@ function LibraryDetailModal({ entry, onClose, onNavigate }) {
                 <div className="wizard-result-col">
                   <div className="wizard-field-group">
                     <div className="wizard-result-row">
-                      <p className="filter-chip-group-label">Commande d'installation</p>
+                      <p className="filter-chip-group-label">{tr("apps.installCommand")}</p>
                       <CopyButton text={entry.package.installCommand} />
                     </div>
                     <pre className="wizard-code-block">{entry.package.installCommand}</pre>
@@ -229,14 +228,14 @@ function LibraryDetailModal({ entry, onClose, onNavigate }) {
 
                   <div className="wizard-field-group">
                     <div className="wizard-result-row">
-                      <p className="filter-chip-group-label">Commande de désinstallation</p>
+                      <p className="filter-chip-group-label">{tr("apps.uninstallCommand")}</p>
                       <CopyButton text={entry.package.uninstallCommand} />
                     </div>
                     <pre className="wizard-code-block">{entry.package.uninstallCommand}</pre>
                   </div>
 
                   <div className="wizard-field-group">
-                    <p className="filter-chip-group-label">Configuration requise</p>
+                    <p className="filter-chip-group-label">{tr("apps.requirements")}</p>
                     <div className="wizard-requirements">
                       {entry.package.requirements?.operatingSystem && (
                         <span className="wizard-requirement-badge">{entry.package.requirements.operatingSystem}</span>
@@ -251,7 +250,7 @@ function LibraryDetailModal({ entry, onClose, onNavigate }) {
                 <div className="wizard-result-col">
                   <div className="wizard-field-group">
                     <div className="wizard-result-row">
-                      <p className="filter-chip-group-label">Script de détection</p>
+                      <p className="filter-chip-group-label">{tr("apps.detectionScript")}</p>
                       <CopyButton text={entry.package.detectionScript} />
                     </div>
                     <pre className="wizard-code-block wizard-code-block-tall">{entry.package.detectionScript}</pre>
@@ -264,10 +263,10 @@ function LibraryDetailModal({ entry, onClose, onNavigate }) {
                   className="library-download-btn"
                   href={api.appLibrary.downloadUrl(entry.id)}
                   download
-                  title="Télécharger le .intunewin et les instructions"
+                  title={tr("apps.downloadTitle")}
                 >
                   <IconDownload />
-                  Télécharger le package
+                  {tr("apps.downloadPackage")}
                 </a>
               </div>
             </>
@@ -305,7 +304,7 @@ function LibraryCard({ entry, onRemove, removing, onOpenDetail }) {
             <span className="library-card-name" title={entry.displayName}>
               {entry.displayName}
             </span>
-            <span className="library-card-meta">{entry.publisher || "Éditeur non renseigné"}</span>
+            <span className="library-card-meta">{entry.publisher || tr("apps.publisherNotSet")}</span>
           </div>
           {entry.version && <span className="library-version-badge">v{entry.version}</span>}
         </div>
@@ -313,12 +312,12 @@ function LibraryCard({ entry, onRemove, removing, onOpenDetail }) {
         <div className="library-card-body">
           <div className="library-card-tags">
             <span className={`library-source-badge${isPackaged ? " packaged" : ""}`}>
-              {isPackaged ? "Packagée" : "Manuelle"}
+              {tr(isPackaged ? "apps.source.packaged" : "apps.source.manual")}
             </span>
-            <span className="library-card-date">modifiée le {formatDate(entry.updatedAt || entry.addedAt)}</span>
+            <span className="library-card-date">{tr("apps.modifiedOn", { date: formatDate(entry.updatedAt || entry.addedAt) })}</span>
             {entry.package?.updateWarning && (
               <span className="library-update-warning-badge" title={entry.package.updateWarning.message}>
-                Mise à jour {entry.package.updateWarning.latestTag} disponible
+                {tr("apps.updateAvailable", { tag: entry.package.updateWarning.latestTag })}
               </span>
             )}
           </div>
@@ -333,7 +332,7 @@ function LibraryCard({ entry, onRemove, removing, onOpenDetail }) {
           onClick={() => onRemove(entry.id)}
           disabled={removing}
         >
-          {removing ? "…" : "Retirer"}
+          {removing ? "…" : tr("apps.remove")}
         </button>
       </div>
     </div>
@@ -401,7 +400,7 @@ export default function AppCatalogTab({ onNavigate }) {
         await load();
       }
     } catch (err) {
-      setCheckError(err.message || "Échec de la vérification des mises à jour.");
+      setCheckError(err.message || tr("apps.checkFailed"));
     } finally {
       setChecking(false);
     }
@@ -430,30 +429,30 @@ export default function AppCatalogTab({ onNavigate }) {
       <div className="strip">
         <SummaryCard
           icon={<IconLibrary />}
-          title="Applications en bibliothèque"
+          title={tr("apps.inLibrary")}
           value={state.status === "loading" ? "—" : state.entries.length}
-          hint="ajout manuel ou via packaging"
+          hint={tr("apps.inLibraryHint")}
         />
         <SummaryCard
           icon={<IconPackage />}
-          title="Packagées via l'assistant"
+          title={tr("apps.packagedViaWizard")}
           value={state.status === "loading" ? "—" : packagedCount}
-          hint="livrable .intunewin re-téléchargeable"
+          hint={tr("apps.packagedHint")}
         />
       </div>
 
       <div className="card">
         <div className="card-head">
-          <h2>Catalogue d'application</h2>
+          <h2>{tr("apps.catalog")}</h2>
           <div className="library-card-head-actions">
             <span className="card-note">
               {filteredEntries.length !== state.entries.length
-                ? `${filteredEntries.length} / ${state.entries.length} entrée${state.entries.length > 1 ? "s" : ""}`
-                : `${state.entries.length} entrée${state.entries.length > 1 ? "s" : ""}`}
+                ? tr("apps.entriesOf", { shown: filteredEntries.length, count: state.entries.length })
+                : tr("apps.entries", { count: state.entries.length })}
             </span>
             {state.status === "done" && packagedCount > 0 && (
               <button type="button" className="wizard-secondary-btn" onClick={handleCheckUpdates} disabled={checking}>
-                {checking ? "Vérification…" : "Vérifier les mises à jour"}
+                {checking ? tr("apps.checking") : tr("apps.checkUpdates")}
               </button>
             )}
           </div>
@@ -464,12 +463,12 @@ export default function AppCatalogTab({ onNavigate }) {
         {checkSummary && (
           <p className="card-note">
             {checkSummary.results.length === 0
-              ? "Aucune application avec un dépôt GitHub connu à vérifier."
+              ? tr("apps.noGithubApp")
               : [
-                  checkSummary.counts.updated > 0 && `${checkSummary.counts.updated} mise${checkSummary.counts.updated > 1 ? "s" : ""} à jour appliquée${checkSummary.counts.updated > 1 ? "s" : ""}`,
-                  checkSummary.counts.needs_review > 0 && `${checkSummary.counts.needs_review} à vérifier manuellement`,
-                  checkSummary.counts.up_to_date > 0 && `${checkSummary.counts.up_to_date} déjà à jour`,
-                  checkSummary.counts.error > 0 && `${checkSummary.counts.error} erreur${checkSummary.counts.error > 1 ? "s" : ""}`,
+                  checkSummary.counts.updated > 0 && tr("apps.updated", { count: checkSummary.counts.updated }),
+                  checkSummary.counts.needs_review > 0 && tr("apps.needsReview", { count: checkSummary.counts.needs_review }),
+                  checkSummary.counts.up_to_date > 0 && tr("apps.upToDate", { count: checkSummary.counts.up_to_date }),
+                  checkSummary.counts.error > 0 && tr("apps.errors", { count: checkSummary.counts.error }),
                 ]
                   .filter(Boolean)
                   .join(" — ")}
@@ -483,13 +482,13 @@ export default function AppCatalogTab({ onNavigate }) {
               <input
                 type="text"
                 className="filter-input library-search-input"
-                placeholder="Rechercher par nom d'application ou éditeur…"
+                placeholder={tr("apps.searchPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                aria-label="Rechercher dans le catalogue"
+                aria-label={tr("apps.searchAria")}
               />
             </div>
-            <div className="library-source-filter" role="group" aria-label="Filtrer par source">
+            <div className="library-source-filter" role="group" aria-label={tr("apps.filterSourceAria")}>
               {SOURCE_FILTERS.map((f) => (
                 <button
                   key={f.key}
@@ -497,25 +496,21 @@ export default function AppCatalogTab({ onNavigate }) {
                   className={`library-source-chip${sourceFilter === f.key ? " active" : ""}`}
                   onClick={() => setSourceFilter(f.key)}
                 >
-                  {f.label} <span className="chip-count">{sourceCounts[f.key] ?? 0}</span>
+                  {tr(`apps.source.${f.key}`)} <span className="chip-count">{sourceCounts[f.key] ?? 0}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {state.status === "loading" && <p className="card-note">Chargement de la bibliothèque…</p>}
+        {state.status === "loading" && <p className="card-note">{tr("apps.loadingLibrary")}</p>}
         {state.status === "error" && <p className="error-note">{state.error}</p>}
 
         {state.status === "done" && state.entries.length === 0 && (
           <div className="vuln-idle-note">
             <IconBookmark />
             <p>
-              Aucune application dans la bibliothèque pour l'instant —{" "}
-              <button type="button" className="library-inline-link" onClick={() => onNavigate?.("app-add")}>
-                ajoutes-en une
-              </button>
-              .
+              {trRich("apps.emptyLibrary", { link: <button type="button" className="library-inline-link" onClick={() => onNavigate?.("app-add")}>{tr("apps.addOne")}</button> })}
             </p>
           </div>
         )}
@@ -524,18 +519,20 @@ export default function AppCatalogTab({ onNavigate }) {
           <div className="vuln-idle-note">
             <IconSearch />
             <p>
-              Aucun résultat{hasActiveFilters ? " pour ce filtre" : ""} —{" "}
-              <button
-                type="button"
-                className="library-inline-link"
-                onClick={() => {
-                  setQuery("");
-                  setSourceFilter("all");
-                }}
-              >
-                réinitialiser
-              </button>
-              .
+              {trRich(hasActiveFilters ? "apps.noResultFilter" : "apps.noResult", {
+                link: (
+                  <button
+                    type="button"
+                    className="library-inline-link"
+                    onClick={() => {
+                      setQuery("");
+                      setSourceFilter("all");
+                    }}
+                  >
+                    {tr("apps.resetLink")}
+                  </button>
+                ),
+              })}
             </p>
           </div>
         )}

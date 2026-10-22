@@ -1,4 +1,5 @@
 import { Component } from "react";
+import { tr } from "../i18n/core.js";
 
 /**
  * Error Boundary React — ajouté suite à la revue de code du 2026-08-17 : avant ce composant,
@@ -45,9 +46,9 @@ export default class ErrorBoundary extends Component {
     if (this.state.error) {
       return (
         <div className="fatal-error-panel">
-          <p>&gt; Cet onglet a rencontré une erreur inattendue et n'a pas pu s'afficher.</p>
+          <p>{tr("errorBoundary.message")}</p>
           <p className="hint">Détail technique : {this.state.error.message || String(this.state.error)}</p>
-          <p className="hint">Essaie un autre onglet dans la barre latérale, ou recharge la page si le problème persiste.</p>
+          <p className="hint">{tr("errorBoundary.hint")}</p>
         </div>
       );
     }

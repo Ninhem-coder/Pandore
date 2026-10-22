@@ -7,20 +7,22 @@ import { CveDetailModal, SeverityBadge, SoftwareIcon } from "./VulnerabilitiesTa
 import {
   COMPLIANCE_COLORS,
   COMPLIANCE_DEFAULT_COLOR,
-  COMPLIANCE_LABEL_FR,
+  COMPLIANCE_LABEL,
   POLICY_STATUS_COLORS,
   policyStatusLabel,
   policyStatusSeverity,
-  EXPOSURE_LEVEL_LABEL_FR,
+  EXPOSURE_LEVEL_LABEL,
   ALERT_SEVERITY_COLORS,
   ALERT_STATUS_COLORS,
-  ALERT_STATUS_LABEL_FR,
+  ALERT_STATUS_LABEL,
   ALERT_CLASSIFICATION_COLORS,
-  ALERT_CLASSIFICATION_LABEL_FR,
+  ALERT_CLASSIFICATION_LABEL,
   CVE_SEVERITY_COLORS,
 } from "../theme.js";
 import { IconLaptop, IconShield, IconGauge, IconAlertTriangle, IconTarget, IconWrench, IconLayers, IconPackage } from "../components/icons.jsx";
 import { DeviceSettingsPanel, computeSettingsState } from "../components/ComplianceOsGrid.jsx";
+import { currentLocale, localizedTable, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Onglet "Appareil" (2026-08-18, demande de Nicolas) : vue "360°" d'un appareil précis,
@@ -65,7 +67,7 @@ const POSTURE_ICON = { good: "✓", warning: "!", danger: "✕" };
 const ALERT_SEVERITY_ORDER = ["High", "Medium", "Low", "Informational", "UnSpecified"];
 
 function fmtDate(value) {
-  return value ? new Date(value).toLocaleString("fr-FR") : "—";
+  return value ? new Date(value).toLocaleString(currentLocale()) : "—";
 }
 
 function fmtRelative(value) {
@@ -74,9 +76,9 @@ function fmtRelative(value) {
   if (Number.isNaN(then)) return null;
   const diffMs = Date.now() - then;
   const diffH = diffMs / 3_600_000;
-  if (diffH < 1) return "à l'instant";
-  if (diffH < 24) return `il y a ${Math.round(diffH)} h`;
-  return `il y a ${Math.round(diffH / 24)} j`;
+  if (diffH < 1) return tr("rel.justNow");
+  if (diffH < 24) return tr("rel.hours", { n: Math.round(diffH) });
+  return tr("rel.days", { n: Math.round(diffH / 24) });
 }
 
 /** Octets -> Go, une décimale, virgule FR — `totalStorageSpaceInBytes`/`freeStorageSpaceInBytes`/
@@ -86,15 +88,16 @@ function fmtBytes(bytes) {
   const n = Number(bytes);
   if (!bytes || Number.isNaN(n) || n <= 0) return "—";
   const gb = n / 1024 ** 3;
-  return `${gb < 0.1 ? "< 0,1" : gb.toFixed(1).replace(".", ",")} Go`;
+  const fmt = (v) => v.toLocaleString(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return tr("dev.gb", { n: gb < 0.1 ? `< ${fmt(0.1)}` : fmt(gb) });
 }
 
 /** Oui/Non/Inconnu coloré (vert/rouge/gris) — réutilise les teintes `COMPLIANCE_COLORS`
  * (mêmes verts/rouges "bon/mauvais" que le reste du dashboard) plutôt que d'introduire une
  * nouvelle paire de couleurs juste pour ce badge. `goodWhenTrue=false` inverse le sens
  * (ex. jailbreak : "Oui" est le cas GRAVE, pas le cas sain). */
-function boolBadge(value, { trueLabel = "Oui", falseLabel = "Non", goodWhenTrue = true } = {}) {
-  if (value == null) return { label: "Inconnu", color: COMPLIANCE_DEFAULT_COLOR };
+function boolBadge(value, { trueLabel = tr("common.yes"), falseLabel = tr("common.no"), goodWhenTrue = true } = {}) {
+  if (value == null) return { label: tr("common.unknown"), color: COMPLIANCE_DEFAULT_COLOR };
   const isTrue = value === true || String(value).toLowerCase() === "true";
   const isFalse = value === false || String(value).toLowerCase() === "false";
   if (!isTrue && !isFalse) return { label: String(value), color: COMPLIANCE_DEFAULT_COLOR };
@@ -128,12 +131,12 @@ function DeviceHero({ deviceName, user, posture, intuneSync, defenderSeen }) {
         <IconLaptop />
       </div>
       <div className="device-hero-body">
-        <p className="device-hero-eyebrow">Fiche appareil · Intune + Defender</p>
+        <p className="device-hero-eyebrow">{tr("dev.heroEyebrow")}</p>
         <h2 className="device-hero-name">{deviceName}</h2>
         <div className="device-hero-facts">
-          {user && <span className="device-hero-fact">Utilisateur : {user}</span>}
-          {intuneSync && <span className="device-hero-fact">Intune : vu {fmtRelative(intuneSync)}</span>}
-          {defenderSeen && <span className="device-hero-fact">Defender : vu {fmtRelative(defenderSeen)}</span>}
+          {user && <span className="device-hero-fact">{tr("dev.userFact", { user })}</span>}
+          {intuneSync && <span className="device-hero-fact">{tr("dev.intuneSeen", { when: fmtRelative(intuneSync) })}</span>}
+          {defenderSeen && <span className="device-hero-fact">{tr("dev.defenderSeen", { when: fmtRelative(defenderSeen) })}</span>}
         </div>
       </div>
       {posture && (
@@ -144,7 +147,7 @@ function DeviceHero({ deviceName, user, posture, intuneSync, defenderSeen }) {
             </span>
             <span className="device-posture-label">{posture.label}</span>
           </span>
-          {posture.partial && <span className="device-posture-partial">vue partielle</span>}
+          {posture.partial && <span className="device-posture-partial">{tr("dev.partialView")}</span>}
           {posture.reasons.length > 0 && (
             <span className="device-posture-reasons">{posture.reasons.join(" · ")}</span>
           )}
@@ -195,7 +198,7 @@ function MissingPane({ system, icon, error }) {
         <span className="device-missing-icon" aria-hidden="true">
           {icon}
         </span>
-        <p>{error || `Aucun appareil ${system} trouvé avec ce nom.`}</p>
+        <p>{error || tr("dev.notFoundIn", { system })}</p>
       </div>
     </div>
   );
@@ -234,7 +237,7 @@ function PolicyRow({ status: s, deviceId }) {
         .deviceComplianceStatus(deviceId, s.id)
         .then((data) => {
           if (Array.isArray(data)) setDetail({ settings: data });
-          else setDetail({ error: data?.message || "erreur inconnue" });
+          else setDetail({ error: data?.message || tr("common.unknownError") });
         })
         .catch((err) => setDetail({ error: err.message }));
     }
@@ -260,8 +263,8 @@ function PolicyRow({ status: s, deviceId }) {
       >
         <span className="device-row-accent" aria-hidden="true" />
         <span className="device-row-label">
-          {s.displayName || s.id || "Politique inconnue"}
-          {s.lastReportedDateTime && <span className="device-row-sublabel"> · vu {fmtDate(s.lastReportedDateTime)}</span>}
+          {s.displayName || s.id || tr("dev.unknownPolicy")}
+          {s.lastReportedDateTime && <span className="device-row-sublabel">{tr("dev.seenOn", { date: fmtDate(s.lastReportedDateTime) })}</span>}
         </span>
         <ColorBadge label={policyStatusLabel(effectiveState)} color={color} />
       </div>
@@ -299,7 +302,7 @@ function PolicyGroups({ statuses, deviceId }) {
           <div className="device-pgroup-head">
             <span className="device-pgroup-dot" style={{ background: COMPLIANCE_COLORS.noncompliant }} />
             <span className="device-pgroup-title" style={{ color: COMPLIANCE_COLORS.noncompliant }}>
-              À traiter
+              {tr("dev.toFix")}
             </span>
             <span className="device-pgroup-count">({urgent.length})</span>
           </div>
@@ -315,12 +318,12 @@ function PolicyGroups({ statuses, deviceId }) {
         <div className="device-pgroup-head">
           <span className="device-pgroup-dot" style={{ background: COMPLIANCE_COLORS.compliant }} />
           <span className="device-pgroup-title" style={{ color: COMPLIANCE_COLORS.compliant }}>
-            Conforme
+            {tr("dev.compliant")}
           </span>
           <span className="device-pgroup-count">({good.length})</span>
         </div>
         {good.length === 0 ? (
-          <p className="empty">Aucune politique conforme.</p>
+          <p className="empty">{tr("dev.noCompliantPolicy")}</p>
         ) : (
           <ul className="device-overview-status-list">
             {good.map((s, i) => (
@@ -333,12 +336,7 @@ function PolicyGroups({ statuses, deviceId }) {
       {na.length > 0 && (
         <Disclosure
           summary={
-            <>
-              <strong>
-                {na.length} politique{na.length > 1 ? "s" : ""} non applicable{na.length > 1 ? "s" : ""}
-              </strong>{" "}
-              à cet appareil (hors périmètre du check) · aucune action requise
-            </>
+            <>{trRich("dev.naPolicies", { count: na.length, strong: <strong>{tr("dev.naPoliciesCount", { count: na.length })}</strong> })}</>
           }
         >
           <ul className="device-overview-status-list">
@@ -378,8 +376,8 @@ function Disclosure({ summary, children }) {
  * l'alerte de la liste et des champs qui n'existent QUE sur `GET /api/alerts/{id}`
  * (détermination, état d'investigation, techniques MITRE ATT&CK). Inchangé. */
 function AlertDetail({ alert: a, state }) {
-  if (state.loading) return <p className="empty cve-small">Chargement du détail…</p>;
-  if (state.error) return <p className="empty cve-small">Impossible de récupérer le détail : {state.error}</p>;
+  if (state.loading) return <p className="empty cve-small">{tr("alerts.detailLoading")}</p>;
+  if (state.error) return <p className="empty cve-small">{tr("compliance.settingsError", { error: state.error })}</p>;
   const d = state.data || {};
   const classification = a.classification || "Non classifiée";
   const classifColor = ALERT_CLASSIFICATION_COLORS[classification] || ALERT_CLASSIFICATION_COLORS["Non classifiée"];
@@ -388,40 +386,40 @@ function AlertDetail({ alert: a, state }) {
   return (
     <div className="alert-detail-meta">
       <div className="alert-detail-meta-item">
-        <span className="alert-detail-meta-label">Catégorie</span>
+        <span className="alert-detail-meta-label">{tr("dev.category")}</span>
         <span>{a.category || "—"}</span>
       </div>
       <div className="alert-detail-meta-item">
-        <span className="alert-detail-meta-label">Classification</span>
-        <ColorBadge label={ALERT_CLASSIFICATION_LABEL_FR[classification] || classification} color={classifColor} />
+        <span className="alert-detail-meta-label">{tr("alerts.classification")}</span>
+        <ColorBadge label={ALERT_CLASSIFICATION_LABEL[classification] || classification} color={classifColor} />
       </div>
       <div className="alert-detail-meta-item">
-        <span className="alert-detail-meta-label">Détermination</span>
+        <span className="alert-detail-meta-label">{tr("alerts.determination")}</span>
         <span>{d.determination || "—"}</span>
       </div>
       <div className="alert-detail-meta-item">
-        <span className="alert-detail-meta-label">État investigation</span>
+        <span className="alert-detail-meta-label">{tr("alerts.investigationState")}</span>
         <span>{d.investigationState || "—"}</span>
       </div>
       <div className="alert-detail-meta-item">
-        <span className="alert-detail-meta-label">Famille de menace</span>
+        <span className="alert-detail-meta-label">{tr("dev.threatFamily")}</span>
         <span>{a.threatFamilyName || "—"}</span>
       </div>
       <div className="alert-detail-meta-item">
-        <span className="alert-detail-meta-label">Assigné à</span>
+        <span className="alert-detail-meta-label">{tr("alerts.col.assignedTo")}</span>
         <span>{a.assignedTo || "—"}</span>
       </div>
       <div className="alert-detail-meta-item">
-        <span className="alert-detail-meta-label">Créée le</span>
+        <span className="alert-detail-meta-label">{tr("alerts.col.created")}</span>
         <span>{fmtDate(a.alertCreationTime)}</span>
       </div>
       <div className="alert-detail-meta-item">
-        <span className="alert-detail-meta-label">Dernier événement</span>
+        <span className="alert-detail-meta-label">{tr("dev.lastEvent")}</span>
         <span>{fmtDate(a.lastEventTime)}</span>
       </div>
       {mitre.length > 0 && (
         <div className="alert-detail-meta-item">
-          <span className="alert-detail-meta-label">Techniques MITRE ATT&CK</span>
+          <span className="alert-detail-meta-label">{tr("alerts.mitre")}</span>
           <span>{mitre.map((t) => (typeof t === "string" ? t : t.techniqueId || t.technique || "?")).join(", ")}</span>
         </div>
       )}
@@ -473,12 +471,12 @@ function AlertRow({ alert: a }) {
       >
         <span className="device-row-accent" aria-hidden="true" />
         <span className="device-row-label">
-          {a.title || "Alerte sans titre"}
+          {a.title || tr("overview.untitledAlert")}
           {a.category && <span className="device-row-sublabel"> · {a.category}</span>}
         </span>
         <span className="device-overview-alert-badges">
           <ColorBadge label={a.severity || "?"} color={sevColor} />
-          <ColorBadge label={ALERT_STATUS_LABEL_FR[a.status] || a.status || "?"} color={statusColor} />
+          <ColorBadge label={ALERT_STATUS_LABEL[a.status] || a.status || "?"} color={statusColor} />
         </span>
       </div>
       {open && (
@@ -502,7 +500,7 @@ function worstAlertSeverity(alerts) {
 // Ordre de gravité (pire en premier) pour le tri par défaut de la table ci-dessous — même
 // vocabulaire que CVE_SEVERITY_COLORS/SeverityBadge (VulnerabilitiesTab.jsx).
 const DEVICE_VULN_SEVERITY_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, Unknown: 4 };
-const DEVICE_VULN_SEVERITY_LABEL_FR = { Critical: "Critique", High: "Élevée", Medium: "Moyenne", Low: "Faible" };
+const DEVICE_VULN_SEVERITY_LABEL = localizedTable("dev.sev", ["Critical", "High", "Medium", "Low"]);
 const DEVICE_VULN_SEVERITIES = ["Critical", "High", "Medium", "Low"];
 
 /** Bandeau KPI par criticité (2026-09-02, maquette validée — "avec des couleurs et la
@@ -522,7 +520,7 @@ function DeviceVulnKpiStrip({ vulns }) {
     <div className="device-vuln-kpi-strip">
       {DEVICE_VULN_SEVERITIES.map((sev) => (
         <div key={sev} className="device-vuln-kpi-card" style={{ "--kpi-accent": CVE_SEVERITY_COLORS[sev] }}>
-          <span className="device-vuln-kpi-label">{DEVICE_VULN_SEVERITY_LABEL_FR[sev]}</span>
+          <span className="device-vuln-kpi-label">{DEVICE_VULN_SEVERITY_LABEL[sev]}</span>
           <span className="device-vuln-kpi-value">{counts[sev]}</span>
         </div>
       ))}
@@ -582,18 +580,18 @@ function DeviceVulnTable({ vulns, onSelectCve }) {
         <input
           type="text"
           className="filter-input"
-          placeholder="Filtrer par CVE, éditeur ou logiciel…"
+          placeholder={tr("dev.vulnFilter")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="Filtrer les vulnérabilités de cet appareil"
+          aria-label={tr("dev.vulnFilterAria")}
         />
-        <div className="device-vuln-sev-filter" role="group" aria-label="Filtrer par sévérité">
+        <div className="device-vuln-sev-filter" role="group" aria-label={tr("dev.sevFilterAria")}>
           <button
             type="button"
             className={`device-vuln-sev-chip all${severityFilter === "all" ? " active" : ""}`}
             onClick={() => setSeverityFilter("all")}
           >
-            Toutes <span className="chip-count">{severityCounts.all}</span>
+            {tr("inv.allF")} <span className="chip-count">{severityCounts.all}</span>
           </button>
           {DEVICE_VULN_SEVERITIES.map((sev) => (
             <button
@@ -604,21 +602,21 @@ function DeviceVulnTable({ vulns, onSelectCve }) {
               onClick={() => setSeverityFilter(sev)}
             >
               <span className="dot" />
-              {DEVICE_VULN_SEVERITY_LABEL_FR[sev]} <span className="chip-count">{severityCounts[sev]}</span>
+              {DEVICE_VULN_SEVERITY_LABEL[sev]} <span className="chip-count">{severityCounts[sev]}</span>
             </button>
           ))}
         </div>
         <span className="card-note">
-          {filtered.length} / {vulns.length} CVE
+          {tr("dev.cveCount", { shown: filtered.length, total: vulns.length })}
         </span>
       </div>
       <div className="cve-table-wrap">
         <table className="cve-device-table">
           <thead>
             <tr>
-              <th>Sévérité</th>
-              <th>CVE</th>
-              <th>Logiciel</th>
+              <th>{tr("vuln.severity")}</th>
+              <th>{tr("vuln.col.cve")}</th>
+              <th>{tr("vuln.col.software")}</th>
             </tr>
           </thead>
           <tbody>
@@ -646,7 +644,7 @@ function DeviceVulnTable({ vulns, onSelectCve }) {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && <p className="empty">Aucune CVE ne correspond à ce filtre.</p>}
+        {filtered.length === 0 && <p className="empty">{tr("dev.noCveMatch")}</p>}
       </div>
     </>
   );
@@ -665,7 +663,7 @@ function AlertGroups({ alerts }) {
           <div className="device-pgroup-head">
             <span className="device-pgroup-dot" style={{ background: worstColor }} />
             <span className="device-pgroup-title" style={{ color: worstColor }}>
-              Actives
+              {tr("dev.active")}
             </span>
             <span className="device-pgroup-count">({active.length})</span>
           </div>
@@ -680,12 +678,7 @@ function AlertGroups({ alerts }) {
       {resolved.length > 0 && (
         <Disclosure
           summary={
-            <>
-              <strong>
-                {resolved.length} alerte{resolved.length > 1 ? "s" : ""} résolue{resolved.length > 1 ? "s" : ""}
-              </strong>{" "}
-              · pour mémoire, aucune action requise
-            </>
+            <>{trRich("dev.resolvedSummary", { strong: <strong>{tr("dev.resolvedCount", { count: resolved.length })}</strong> })}</>
           }
         >
           <ul className="device-overview-status-list">
@@ -693,7 +686,7 @@ function AlertGroups({ alerts }) {
               <AlertRow key={a.id} alert={a} />
             ))}
           </ul>
-          {resolved.length > 15 && <p className="card-note">+{resolved.length - 15} autre(s) alerte(s) résolue(s) non affichée(s).</p>}
+          {resolved.length > 15 && <p className="card-note">{tr("dev.moreResolved", { count: resolved.length - 15 })}</p>}
         </Disclosure>
       )}
     </>
@@ -723,11 +716,11 @@ function computeConformiteKpi(intune) {
   const failing = statuses.filter((s) => policyStatusSeverity(s.state) <= 3).length;
   return {
     tone,
-    label: COMPLIANCE_LABEL_FR[state] || state || "Inconnu",
+    label: COMPLIANCE_LABEL[state] || state || tr("common.unknown"),
     sub:
       statuses.length > 0
-        ? `${statuses.length} politique${statuses.length > 1 ? "s" : ""}${failing > 0 ? `, ${failing} en échec` : ""}`
-        : "aucune politique",
+        ? tr("dev.kpi.policies", { count: statuses.length }) + (failing > 0 ? tr("dev.kpi.failing", { count: failing }) : "")
+        : tr("dev.kpi.noPolicy"),
   };
 }
 
@@ -736,7 +729,7 @@ function computeExpositionKpi(defender) {
   if (!defender?.found) return null;
   const level = defender.machine?.exposureLevel;
   const tone = level === "Low" ? "ok" : level === "High" ? "bad" : level === "Medium" ? "warn" : "warn";
-  return { tone, label: EXPOSURE_LEVEL_LABEL_FR[level] || level || "Inconnue", sub: "Defender for Endpoint" };
+  return { tone, label: EXPOSURE_LEVEL_LABEL[level] || level || tr("inv.unknownF"), sub: "Defender for Endpoint" };
 }
 
 /** KPI "Alertes actives" — compte des alertes New/InProgress, teinté par la pire sévérité. */
@@ -747,9 +740,9 @@ function computeAlertesKpi(defender) {
   const worst = active.length > 0 ? worstAlertSeverity(active) : null;
   const tone = worst === "High" ? "bad" : active.length > 0 ? "warn" : "ok";
   let sub;
-  if (active.length === 0) sub = "aucune alerte active";
-  else if (worst === "High") sub = `dont ${active.filter((a) => a.severity === "High").length} de sévérité élevée`;
-  else sub = "sévérité moyenne ou informationnelle";
+  if (active.length === 0) sub = tr("dev.kpi.noActiveAlert");
+  else if (worst === "High") sub = tr("dev.kpi.highAlerts", { count: active.filter((a) => a.severity === "High").length });
+  else sub = tr("dev.kpi.mediumAlerts");
   return { tone, value: active.length, sub };
 }
 
@@ -769,8 +762,9 @@ function computeVulnKpi(defender) {
   const tone = critical > 0 ? "bad" : list.length > 0 ? "warn" : "ok";
   const sub =
     list.length === 0
-      ? "aucun logiciel vulnérable détecté"
-      : `${list.length} CVE au total${critical > 0 ? `, ${critical} logiciel${critical > 1 ? "s" : ""} critique${critical > 1 ? "s" : ""}` : ", aucun logiciel critique"}`;
+      ? tr("dev.kpi.noVulnSoftware")
+      : tr("dev.kpi.totalCves", { count: list.length }) +
+        (critical > 0 ? tr("dev.kpi.criticalSoftware", { count: critical }) : tr("dev.kpi.noCriticalSoftware"));
   return { tone, value: bySoftware.size, sub };
 }
 
@@ -782,7 +776,7 @@ function computeCriticiteKpi(defender) {
   if (!defender?.found) return null;
   const value = defender.machine?.deviceValue;
   const tone = value === "High" ? "warn" : value === "Low" ? "ok" : "ok";
-  const label = { High: "Élevée", Low: "Faible", Normal: "Normale" }[value] || value || "Inconnue";
+  const label = ["High", "Low", "Normal"].includes(value) ? tr(`dev.value.${value}`) : value || tr("inv.unknownF");
   return { tone, label, sub: "Defender for Endpoint" };
 }
 
@@ -822,7 +816,7 @@ function primaryIpAddress(machine) {
 function AppsPane({ apps }) {
   const [query, setQuery] = useState("");
   if (!Array.isArray(apps) || apps.length === 0) {
-    return <p className="empty">Aucune application détectée sur cet appareil.</p>;
+    return <p className="empty">{tr("dev.noApps")}</p>;
   }
   const needle = query.trim().toLowerCase();
   const filtered = needle
@@ -836,23 +830,23 @@ function AppsPane({ apps }) {
         <input
           type="text"
           className="filter-input"
-          placeholder="Filtrer par nom d'application…"
+          placeholder={tr("dev.appsFilter")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="Filtrer les applications"
+          aria-label={tr("dev.appsFilterAria")}
         />
         <span className="card-note">
-          {filtered.length} / {apps.length} application{apps.length > 1 ? "s" : ""}
+          {tr("dev.appsCount", { shown: filtered.length, count: apps.length })}
         </span>
       </div>
       <div className="cve-table-wrap">
         <table className="cve-device-table">
           <thead>
             <tr>
-              <th>Application</th>
-              <th>Version</th>
-              <th>Plateforme</th>
-              <th>Taille</th>
+              <th>{tr("dev.col.application")}</th>
+              <th>{tr("dev.col.version")}</th>
+              <th>{tr("dev.col.platform")}</th>
+              <th>{tr("dev.col.size")}</th>
             </tr>
           </thead>
           <tbody>
@@ -869,7 +863,7 @@ function AppsPane({ apps }) {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && <p className="empty">Aucune application ne correspond à « {query} ».</p>}
+        {filtered.length === 0 && <p className="empty">{tr("dev.noAppMatch", { query })}</p>}
       </div>
     </>
   );
@@ -877,23 +871,76 @@ function AppsPane({ apps }) {
 
 const MAX_RECENT = 5;
 
+// Labels and group names are getters, read in the current interface language.
 const NAV_SECTIONS = [
-  { key: "overview", label: "Vue d'ensemble", icon: <IconGauge /> },
   {
-    group: "Matériel",
+    key: "overview",
+    get label() {
+      return tr("dev.nav.overview");
+    },
+    icon: <IconGauge />,
+  },
+  {
+    get group() {
+      return tr("dev.nav.hardwareGroup");
+    },
     items: [
-      { key: "os", label: "Système d'exploitation", icon: <IconLaptop /> },
-      { key: "hw", label: "Matériel", icon: <IconWrench /> },
-      { key: "identity", label: "Identité & réseau", icon: <IconLayers /> },
-      { key: "apps", label: "Applications", icon: <IconPackage /> },
+      {
+        key: "os",
+        get label() {
+          return tr("dev.nav.os");
+        },
+        icon: <IconLaptop />,
+      },
+      {
+        key: "hw",
+        get label() {
+          return tr("dev.nav.hw");
+        },
+        icon: <IconWrench />,
+      },
+      {
+        key: "identity",
+        get label() {
+          return tr("dev.nav.identity");
+        },
+        icon: <IconLayers />,
+      },
+      {
+        key: "apps",
+        get label() {
+          return tr("dev.nav.apps");
+        },
+        icon: <IconPackage />,
+      },
     ],
   },
   {
-    group: "Sécurité",
+    get group() {
+      return tr("dev.nav.securityGroup");
+    },
     items: [
-      { key: "compliance", label: "Conformité", icon: <IconShield /> },
-      { key: "vulns", label: "Vulnérabilités", icon: <IconTarget /> },
-      { key: "alerts", label: "Alertes", icon: <IconAlertTriangle /> },
+      {
+        key: "compliance",
+        get label() {
+          return tr("dev.nav.compliance");
+        },
+        icon: <IconShield />,
+      },
+      {
+        key: "vulns",
+        get label() {
+          return tr("dev.nav.vulns");
+        },
+        icon: <IconTarget />,
+      },
+      {
+        key: "alerts",
+        get label() {
+          return tr("dev.nav.alerts");
+        },
+        icon: <IconAlertTriangle />,
+      },
     ],
   },
 ];
@@ -989,31 +1036,30 @@ export default function DeviceOverviewTab({ initialQuery }) {
           <span className="device-card-icon device-card-icon-amber">
             <IconGauge />
           </span>
-          <h2>Rechercher un appareil</h2>
+          <h2>{tr("dev.searchTitle")}</h2>
           <span className="card-note device-card-headline-note">
-            nom Intune (deviceName) ou nom DNS Defender (computerDnsName)
+            {tr("dev.searchNote")}
           </span>
         </div>
         <form className="vuln-search-form" onSubmit={handleSubmit}>
           <input
             type="text"
             className="vuln-search-input"
-            placeholder="Nom de l'appareil (ex. DEMO-WKS-107)…"
+            placeholder={tr("dev.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Nom de l'appareil"
+            aria-label={tr("dev.searchAria")}
           />
           <button type="submit" className="vuln-search-button" disabled={state.loading || !query.trim()}>
-            {state.loading ? "Recherche…" : "Rechercher"}
+            {state.loading ? tr("dev.searching") : tr("dev.search")}
           </button>
         </form>
         <p className="card-note vuln-search-hint">
-          Un appareil absent de l'un des deux systèmes n'est pas une erreur — la section correspondante l'indique
-          simplement, le reste de la fiche reste disponible.
+          {tr("dev.searchHint")}
         </p>
         {recentSearches.length > 0 && (
           <div className="device-recent-chips">
-            <span className="device-recent-label">Récent :</span>
+            <span className="device-recent-label">{tr("dev.recent")}</span>
             {recentSearches.map((name) => (
               <button key={name} type="button" className="device-recent-chip" onClick={() => handleChipClick(name)}>
                 {name}
@@ -1029,7 +1075,7 @@ export default function DeviceOverviewTab({ initialQuery }) {
         <div className="card">
           <div className="vuln-idle-note">
             <IconAlertTriangle />
-            <p>Tape le nom d'un appareil ci-dessus pour voir sa fiche combinée Intune + Defender.</p>
+            <p>{tr("dev.idle")}</p>
           </div>
         </div>
       )}
@@ -1041,9 +1087,7 @@ export default function DeviceOverviewTab({ initialQuery }) {
               <IconAlertTriangle />
             </span>
             <p>
-              Aucun appareil nommé « {result.deviceName} » trouvé, ni dans Intune ni dans Defender. Vérifie
-              l'orthographe exacte du nom (deviceName Intune / computerDnsName Defender peuvent différer d'un
-              suffixe de domaine).
+              {tr("dev.bothMissing", { name: result.deviceName })}
             </p>
           </div>
         </div>
@@ -1064,7 +1108,7 @@ export default function DeviceOverviewTab({ initialQuery }) {
               tone={conformiteKpi?.tone || "neutral"}
               icon={<IconShield />}
               value={conformiteKpi?.label}
-              label="Conformité (Intune)"
+              label={tr("dev.tile.compliance")}
               active={activePane === "compliance"}
               onClick={() => setActivePane("compliance")}
             />
@@ -1072,7 +1116,7 @@ export default function DeviceOverviewTab({ initialQuery }) {
               tone={vulnKpi?.tone || "neutral"}
               icon={<IconTarget />}
               value={vulnKpi ? vulnKpi.value : null}
-              label="Logiciels vulnérables"
+              label={tr("dev.tile.vulnSoftware")}
               active={activePane === "vulns"}
               onClick={() => setActivePane("vulns")}
             />
@@ -1080,7 +1124,7 @@ export default function DeviceOverviewTab({ initialQuery }) {
               tone={alertesKpi?.tone || "neutral"}
               icon={<IconAlertTriangle />}
               value={alertesKpi ? alertesKpi.value : null}
-              label="Alertes actives"
+              label={tr("dev.tile.activeAlerts")}
               active={activePane === "alerts"}
               onClick={() => setActivePane("alerts")}
             />
@@ -1088,7 +1132,7 @@ export default function DeviceOverviewTab({ initialQuery }) {
               tone={expositionKpi?.tone || "neutral"}
               icon={<IconGauge />}
               value={expositionKpi?.label}
-              label="Exposition (Defender)"
+              label={tr("dev.tile.exposure")}
               active={activePane === "identity"}
               onClick={() => setActivePane("identity")}
             />
@@ -1096,7 +1140,7 @@ export default function DeviceOverviewTab({ initialQuery }) {
               tone={criticiteKpi?.tone || "neutral"}
               icon={<IconShield />}
               value={criticiteKpi?.label}
-              label="Criticité de l'actif"
+              label={tr("dev.tile.criticality")}
               active={activePane === "identity"}
               onClick={() => setActivePane("identity")}
             />
@@ -1167,17 +1211,17 @@ export default function DeviceOverviewTab({ initialQuery }) {
                 ) : (
                   <div className="card device-content-card">
                     <div className="card-head">
-                      <h2>Statuts par politique</h2>
+                      <h2>{tr("dev.policyStatuses")}</h2>
                       <span className="card-note">
-                        {Array.isArray(intune.complianceStatuses) ? intune.complianceStatuses.length : 0} politique(s)
+                        {tr("dev.kpi.policies", { count: Array.isArray(intune.complianceStatuses) ? intune.complianceStatuses.length : 0 })}
                       </span>
                     </div>
                     {!Array.isArray(intune.complianceStatuses) || intune.complianceStatuses.length === 0 ? (
-                      <p className="empty">Aucun statut de conformité par politique disponible pour cet appareil.</p>
+                      <p className="empty">{tr("dev.noPolicyStatus")}</p>
                     ) : (
                       <>
                         <PolicyGroups statuses={intune.complianceStatuses} deviceId={d?.id} />
-                        <p className="card-note vuln-search-hint">Clique une ligne pour voir le détail par réglage.</p>
+                        <p className="card-note vuln-search-hint">{tr("dev.clickRowSettings")}</p>
                       </>
                     )}
                   </div>
@@ -1189,12 +1233,12 @@ export default function DeviceOverviewTab({ initialQuery }) {
                 ) : (
                   <div className="card device-content-card">
                     <div className="card-head">
-                      <h2>Vulnérabilités</h2>
+                      <h2>{tr("vuln.title")}</h2>
                     </div>
                     {(() => {
                       const { list, error } = cleanVulnerabilities(defender);
                       if (error) return <p className="error-note">{error}</p>;
-                      if (list.length === 0) return <p className="empty">Aucune CVE détectée sur cet appareil.</p>;
+                      if (list.length === 0) return <p className="empty">{tr("dev.noCveOnDevice")}</p>;
                       return <DeviceVulnTable vulns={list} onSelectCve={setSelectedCve} />;
                     })()}
                   </div>
@@ -1207,15 +1251,15 @@ export default function DeviceOverviewTab({ initialQuery }) {
                   <>
                     <div className="card device-content-card">
                       <div className="card-head">
-                        <h2>Alertes</h2>
+                        <h2>{tr("dev.alerts")}</h2>
                       </div>
                       {(() => {
                         const alerts = cleanAlerts(defender);
-                        if (alerts.length === 0) return <p className="empty">Aucune alerte sur cette machine.</p>;
+                        if (alerts.length === 0) return <p className="empty">{tr("dev.noAlertOnMachine")}</p>;
                         return (
                           <>
                             <AlertGroups alerts={alerts} />
-                            <p className="card-note vuln-search-hint">Clique une alerte pour voir le détail complet.</p>
+                            <p className="card-note vuln-search-hint">{tr("dev.clickAlert")}</p>
                           </>
                         );
                       })()}
@@ -1228,16 +1272,16 @@ export default function DeviceOverviewTab({ initialQuery }) {
                     {!vanitasSuspiciousEvents.state.error && (
                       <div className="card device-content-card" style={{ marginTop: "16px" }}>
                         <div className="card-head">
-                          <h2>Événements suspects (Vanitas)</h2>
+                          <h2>{tr("dev.vanitasEvents")}</h2>
                           <span className="card-note">
-                            Télémétrie comportementale de l'agent Vanitas pour ce poste, si enrôlé
+                            {tr("dev.vanitasEventsNote")}
                           </span>
                         </div>
                         {vanitasSuspiciousEvents.state.status === "loading" ? (
-                          <p className="empty">Chargement…</p>
+                          <p className="empty">{tr("common.loading")}</p>
                         ) : deviceSuspiciousEvents.length === 0 ? (
                           <p className="empty">
-                            Aucun événement suspect Vanitas pour ce poste (ou poste non enrôlé Vanitas).
+                            {tr("dev.noVanitasEvent")}
                           </p>
                         ) : (
                           <SuspiciousEventsTable
@@ -1257,8 +1301,8 @@ export default function DeviceOverviewTab({ initialQuery }) {
                 ) : (
                   <div className="card device-content-card">
                     <div className="card-head">
-                      <h2>Applications détectées</h2>
-                      <span className="card-note">Inventaire logiciel de l'appareil, pas le statut de déploiement par app</span>
+                      <h2>{tr("dev.detectedApps")}</h2>
+                      <span className="card-note">{tr("dev.detectedAppsNote")}</span>
                     </div>
                     <AppsPane apps={intune.detectedApps} />
                   </div>
@@ -1303,28 +1347,28 @@ function OsCard({ intune, defender }) {
         <span className="device-spec-icon tone-star">
           <IconLaptop />
         </span>
-        <span className="device-spec-card-title">Système d'exploitation</span>
+        <span className="device-spec-card-title">{tr("dev.os")}</span>
       </div>
       <div className="device-spec-mini-grid">
         <div className="device-spec-mini">
-          <span className="k">Famille</span>
+          <span className="k">{tr("dev.family")}</span>
           <span className="v">{d?.operatingSystem || m?.osPlatform || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Version</span>
+          <span className="k">{tr("dev.version")}</span>
           <span className="v">{d?.osVersion || m?.osVersion || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Build</span>
+          <span className="k">{tr("dev.build")}</span>
           <span className="v mono">{m?.osBuild || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Architecture</span>
+          <span className="k">{tr("dev.architecture")}</span>
           <span className="v">{m?.osArchitecture || "—"}</span>
         </div>
       </div>
-      {!intune.found && <p className="card-note" style={{ marginTop: 10 }}>Intune non trouvé pour cet appareil — champs Defender uniquement.</p>}
-      {!defender.found && <p className="card-note" style={{ marginTop: 10 }}>Defender non trouvé pour cet appareil — champs Intune uniquement.</p>}
+      {!intune.found && <p className="card-note" style={{ marginTop: 10 }}>{tr("dev.intuneMissing")}</p>}
+      {!defender.found && <p className="card-note" style={{ marginTop: 10 }}>{tr("dev.defenderMissing")}</p>}
     </div>
   );
 }
@@ -1335,8 +1379,8 @@ function HwCard({ intune }) {
   if (!intune.found) return <MissingPane system="Intune" icon={<IconLaptop />} error={intune.error} />;
   const d = intune.device;
   const encrypted = boolBadge(d.isEncrypted);
-  const jailbroken = boolBadge(d.jailBroken, { trueLabel: "Oui (root/jailbreak détecté)", goodWhenTrue: false });
-  const ownerLabel = { company: "Entreprise", personal: "Personnel" }[d.ownerType] || d.ownerType || "—";
+  const jailbroken = boolBadge(d.jailBroken, { trueLabel: tr("dev.jailbreakYes"), goodWhenTrue: false });
+  const ownerLabel = ["company", "personal"].includes(d.ownerType) ? tr(`dev.owner.${d.ownerType}`) : d.ownerType || "—";
   const hasStorage = Boolean(d.totalStorageSpaceInBytes);
   const usedPct = hasStorage
     ? Math.max(0, Math.min(100, Math.round(((d.totalStorageSpaceInBytes - (d.freeStorageSpaceInBytes || 0)) / d.totalStorageSpaceInBytes) * 100)))
@@ -1348,46 +1392,46 @@ function HwCard({ intune }) {
         <span className="device-spec-icon tone-neutral">
           <IconLaptop />
         </span>
-        <span className="device-spec-card-title">Matériel</span>
+        <span className="device-spec-card-title">{tr("dev.hardware")}</span>
       </div>
       <div className="device-spec-mini-grid">
         <div className="device-spec-mini">
-          <span className="k">Modèle</span>
+          <span className="k">{tr("dev.model")}</span>
           <span className="v">{[d.manufacturer, d.model].filter(Boolean).join(" ") || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">N° série</span>
+          <span className="k">{tr("dev.serial")}</span>
           <span className="v mono">{d.serialNumber || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Mémoire</span>
+          <span className="k">{tr("dev.memory")}</span>
           <span className="v">{fmtBytes(d.physicalMemoryInBytes)}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Type de propriété</span>
+          <span className="k">{tr("dev.ownership")}</span>
           <span className="v">{ownerLabel}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Chiffrement</span>
+          <span className="k">{tr("dev.encryption")}</span>
           <span className="v" style={{ color: encrypted.color }}>{encrypted.label}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Root / jailbreak</span>
+          <span className="k">{tr("dev.rootJailbreak")}</span>
           <span className="v" style={{ color: jailbroken.color }}>{jailbroken.label}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Inscrit le</span>
+          <span className="k">{tr("dev.enrolledOn")}</span>
           <span className="v mono" style={{ fontSize: 12 }}>{fmtDate(d.enrolledDateTime)}</span>
         </div>
         {hasStorage && (
           <div className="device-spec-mini full">
-            <span className="k">Stockage</span>
+            <span className="k">{tr("dev.storage")}</span>
             <div className="device-bar-track">
               <div className="device-bar-fill" style={{ width: `${usedPct}%` }} />
             </div>
             <div className="device-bar-caption">
-              <span>{fmtBytes(d.totalStorageSpaceInBytes - (d.freeStorageSpaceInBytes || 0))} utilisés</span>
-              <span>{fmtBytes(d.freeStorageSpaceInBytes)} libres / {fmtBytes(d.totalStorageSpaceInBytes)}</span>
+              <span>{tr("dev.used", { size: fmtBytes(d.totalStorageSpaceInBytes - (d.freeStorageSpaceInBytes || 0)) })}</span>
+              <span>{tr("dev.free", { free: fmtBytes(d.freeStorageSpaceInBytes), total: fmtBytes(d.totalStorageSpaceInBytes) })}</span>
             </div>
           </div>
         )}
@@ -1413,31 +1457,31 @@ function IdentityCard({ intune, defender }) {
         <span className="device-spec-icon tone-low">
           <IconGauge />
         </span>
-        <span className="device-spec-card-title">Identité &amp; réseau</span>
+        <span className="device-spec-card-title">{tr("dev.identity")}</span>
       </div>
       <div className="device-spec-mini-grid">
         <div className="device-spec-mini">
-          <span className="k">Sync. Intune</span>
+          <span className="k">{tr("dev.intuneSync")}</span>
           <span className="v">{d?.lastSyncDateTime ? fmtRelative(d.lastSyncDateTime) : "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Contact Defender</span>
+          <span className="k">{tr("dev.defenderContact")}</span>
           <span className="v">{m?.lastSeen ? fmtRelative(m.lastSeen) : "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Adresse IP</span>
+          <span className="k">{tr("dev.ip")}</span>
           <span className="v mono">{ip || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Groupe RBAC</span>
+          <span className="k">{tr("dev.rbacGroup")}</span>
           <span className="v">{m?.rbacGroupName || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Jonction Entra</span>
+          <span className="k">{tr("dev.entraJoin")}</span>
           <span className="v" style={isAadJoined ? { color: isAadJoined.color } : undefined}>{isAadJoined?.label || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Gestion</span>
+          <span className="k">{tr("dev.management")}</span>
           <span className="v">{d?.managementAgent || d?.managementState || m?.managedBy || "—"}</span>
         </div>
         {/* Santé capteur/Onboarding/Niveau de risque/Identifiant AAD (2026-09-02, retour de
@@ -1447,24 +1491,24 @@ function IdentityCard({ intune, defender }) {
             un appareil Defender-seul (Intune non trouvé), c'était la SEULE info manquante entre
             "Exposition"/"Criticité" (déjà en tuile) et rien du tout. */}
         <div className="device-spec-mini">
-          <span className="k">Santé capteur</span>
+          <span className="k">{tr("dev.sensorHealth")}</span>
           <span className="v">{m?.healthStatus || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Onboarding</span>
+          <span className="k">{tr("dev.onboarding")}</span>
           <span className="v">{m?.onboardingStatus || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Niveau de risque</span>
+          <span className="k">{tr("dev.riskLevel")}</span>
           <span className="v">{m?.riskScore || "—"}</span>
         </div>
         <div className="device-spec-mini">
-          <span className="k">Identifiant AAD</span>
+          <span className="k">{tr("dev.aadId")}</span>
           <span className="v mono" style={{ fontSize: 11 }}>{m?.aadDeviceId || d?.azureADDeviceId || "—"}</span>
         </div>
         {tags.length > 0 && (
           <div className="device-spec-mini full">
-            <span className="k">Tags Defender</span>
+            <span className="k">{tr("dev.defenderTags")}</span>
             <div className="device-tag-row">
               {tags.map((t) => (
                 <span key={t} className="device-tag">{t}</span>

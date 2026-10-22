@@ -1,5 +1,6 @@
 import MedallionGauge from "./MedallionGauge.jsx";
 import { IconShield, IconLaptop, IconAlertTriangle, IconTarget } from "./icons.jsx";
+import { tr } from "../i18n/core.js";
 
 /**
  * Bandeau compact de tête de la Vue d'ensemble (v2, 2026-08-10) : remplace l'ancien
@@ -31,9 +32,9 @@ export default function TopStrip({
         <>
           <MedallionGauge score={score} />
           <div className="medallion-label">
-            <p className="eyebrow">Score global</p>
+            <p className="eyebrow">{tr("overview.globalScore")}</p>
             <p className="title">Exposure score</p>
-            <p className="stamp">{measuredAt ? `màj ${measuredAt}` : "date inconnue"}</p>
+            <p className="stamp">{measuredAt ? tr("overview.updatedAt", { time: measuredAt }) : tr("common.unknownDate")}</p>
           </div>
         </>
       )}
@@ -45,7 +46,7 @@ export default function TopStrip({
           </span>
           <div className="chip-text">
             <div className="chip-value">{defenderError ? "—" : totalMachines ?? "—"}</div>
-            <div className="chip-title">Machines Defender</div>
+            <div className="chip-title">{tr("overview.defenderMachines")}</div>
           </div>
         </div>
 
@@ -55,7 +56,7 @@ export default function TopStrip({
           </span>
           <div className="chip-text">
             <div className="chip-value">{intuneError ? "—" : totalDevices ?? "—"}</div>
-            <div className="chip-title">Appareils Intune{complianceRate ? ` · ${complianceRate}` : ""}</div>
+            <div className="chip-title">{tr("overview.intuneDevices")}{complianceRate ? ` · ${complianceRate}` : ""}</div>
           </div>
         </div>
 
@@ -65,7 +66,7 @@ export default function TopStrip({
           </span>
           <div className="chip-text">
             <div className="chip-value">{intuneError ? "—" : nonCompliantCount ?? "—"}</div>
-            <div className="chip-title">Non conformes</div>
+            <div className="chip-title">{tr("overview.nonCompliant")}</div>
           </div>
         </div>
 
@@ -75,7 +76,7 @@ export default function TopStrip({
           </span>
           <div className="chip-text">
             <div className="chip-value">{defenderError ? "—" : nonOnboardedCount ?? "—"}</div>
-            <div className="chip-title">Non onboardées</div>
+            <div className="chip-title">{tr("overview.notOnboarded")}</div>
           </div>
         </div>
 
@@ -85,7 +86,7 @@ export default function TopStrip({
           </span>
           <div className="chip-text">
             <div className="chip-value">{defenderError ? "—" : activeAlertsCount ?? "—"}</div>
-            <div className="chip-title">Alertes actives</div>
+            <div className="chip-title">{tr("overview.activeAlerts")}</div>
           </div>
         </div>
       </div>

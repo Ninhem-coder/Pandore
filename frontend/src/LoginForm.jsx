@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { tr } from "./i18n/core.js";
 
 /** Pictogramme bouclier + serrure — repris à l'identique de `Design/pandore-icon.svg` (charte
  * graphique Pandore & Vanitas), même tracé/dégradé que `LogoMark` dans `Sidebar.jsx`. Dupliqué
@@ -48,7 +49,7 @@ export default function LoginForm({ onLogin }) {
       // postJSON (api.js) lève sur tout HTTP non-2xx, y compris le 401 "identifiants
       // incorrects" — un seul message générique, ne jamais préciser si c'est l'identifiant
       // ou le mot de passe qui est faux (éviter de confirmer l'existence d'un compte).
-      setError("Identifiant ou mot de passe incorrect.");
+      setError(tr("login.failed"));
       setBusy(false);
     }
   }
@@ -58,9 +59,9 @@ export default function LoginForm({ onLogin }) {
       <form className="login-card" onSubmit={handleSubmit}>
         <LoginMark />
         <p className="login-brand">Pandore</p>
-        <h1>Connexion</h1>
+        <h1>{tr("login.title")}</h1>
         <label className="login-field">
-          Identifiant
+          {tr("login.username")}
           <input
             type="text"
             value={username}
@@ -71,7 +72,7 @@ export default function LoginForm({ onLogin }) {
           />
         </label>
         <label className="login-field">
-          Mot de passe
+          {tr("login.password")}
           <input
             type="password"
             value={password}
@@ -82,7 +83,7 @@ export default function LoginForm({ onLogin }) {
         </label>
         {error ? <p className="login-error">{error}</p> : null}
         <button type="submit" className="login-submit" disabled={busy}>
-          {busy ? "Connexion…" : "Se connecter"}
+          {busy ? tr("login.signingIn") : tr("login.submit")}
         </button>
       </form>
     </div>

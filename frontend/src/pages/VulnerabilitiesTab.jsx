@@ -5,6 +5,8 @@ import { CVE_SEVERITY_COLORS, GENERIC_PALETTE } from "../theme.js";
 import { IconDownload } from "../components/icons.jsx";
 import AnssiCard from "../components/AnssiCard.jsx";
 import { exportCveToExcel } from "../export.js";
+import { currentLocale, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Onglet "Vulnérabilités" (sous-catégorie Sécurité, à côté de "Conformité").
@@ -57,10 +59,11 @@ import { exportCveToExcel } from "../export.js";
  */
 
 const CVE_PATTERN = /^cve[\s-]?\d{4}[\s-]?\d+$/i;
+// [key, translation key]
 const TABLE_COLUMNS = [
-  ["cve", "CVE"],
-  ["software", "Logiciel"],
-  ["devices", "Appareils"],
+  ["cve", "vuln.col.cve"],
+  ["software", "vuln.col.software"],
+  ["devices", "vuln.col.devices"],
 ];
 // Nombre de <tr> RENDUS par palier — les données sont TOUJOURS chargées/filtrées/triées en
 // entier, seul le nombre de lignes effectivement dans le DOM est borné et extensible via
@@ -71,7 +74,7 @@ function formatDateTime(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(currentLocale(), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function formatEpss(epss) {
@@ -118,7 +121,7 @@ export function SeverityBadge({ severity }) {
   const color = CVE_SEVERITY_COLORS[severity] || CVE_SEVERITY_COLORS.Unknown;
   return (
     <span className="cve-badge" style={{ borderColor: `${color}66`, color }}>
-      {severity || "Inconnu"}
+      {severity || tr("common.unknown")}
     </span>
   );
 }
@@ -127,7 +130,7 @@ export function SeverityBadge({ severity }) {
  * (voir VulnDeviceTable plus bas), donc un chemin peut prendre toute la largeur disponible et
  * passer à la ligne au besoin. */
 function PathList({ paths }) {
-  if (!paths || paths.length === 0) return <span className="cve-small">Aucune évidence</span>;
+  if (!paths || paths.length === 0) return <span className="cve-small">{tr("vuln.noEvidence")}</span>;
   return (
     <div className="vuln-path-list">
       {paths.map((p, i) => (
@@ -150,20 +153,20 @@ function VulnDeviceTable({ devices, query }) {
   }, [devices, query]);
 
   if (!devices || devices.length === 0) {
-    return <p className="empty">Aucun device exposé listé.</p>;
+    return <p className="empty">{tr("vuln.noExposedDevice")}</p>;
   }
   if (filtered.length === 0) {
-    return <p className="empty">Aucun device ne correspond à « {query} ».</p>;
+    return <p className="empty">{tr("vuln.noDeviceMatch", { query })}</p>;
   }
   return (
     <div className="cve-table-wrap vuln-device-table-wrap">
       <table className="cve-device-table vuln-device-table">
         <thead>
           <tr>
-            <th>Device</th>
-            <th>Groupe RBAC</th>
-            <th>Chemin(s) disque</th>
-            <th>Chemin(s) registre</th>
+            <th>{tr("vuln.col.device")}</th>
+            <th>{tr("vuln.col.rbacGroup")}</th>
+            <th>{tr("vuln.col.diskPaths")}</th>
+            <th>{tr("vuln.col.registryPaths")}</th>
           </tr>
         </thead>
         <tbody>
@@ -200,7 +203,7 @@ function useExportExcel(v) {
       // qui bloque les téléchargements déclenchés par script — affiché tel quel plutôt que
       // silencieusement ignoré (même philosophie "jamais disparaître en silence" que le
       // reste de l'app, voir compliance_detail.py côté backend).
-      setState({ status: "idle", error: err.message || "Échec de l'export Excel." });
+      setState({ status: "idle", error: err.message || tr("vuln.exportFailed") });
     }
   }
 
@@ -233,28 +236,28 @@ function KpiStrip({ data }) {
   return (
     <div className="vuln-kpi-strip">
       <div className="vuln-kpi">
-        <span className="lbl">CVE au total</span>
-        <span className="val">{stats.total.toLocaleString("fr-FR")}</span>
-        <span className="note">Aucun plafond — inventaire complet</span>
+        <span className="lbl">{tr("vuln.kpi.total")}</span>
+        <span className="val">{stats.total.toLocaleString(currentLocale())}</span>
+        <span className="note">{tr("vuln.kpi.noCap")}</span>
       </div>
       <div className="vuln-kpi accent-star">
-        <span className="lbl">Logiciel le + exposé</span>
+        <span className="lbl">{tr("vuln.kpi.topSoftware")}</span>
         <span className="val" style={{ fontSize: "16px" }}>
           {stats.topName}
         </span>
         <span className="note">
-          <b>{stats.topCount}</b> appareils
+          {trRich("vuln.kpi.devices", { n: <b>{stats.topCount}</b> })}
         </span>
       </div>
       <div className="vuln-kpi accent-low">
-        <span className="lbl">Appareils / CVE (moy.)</span>
-        <span className="val">{stats.avgPerCve.toFixed(1).replace(".", ",")}</span>
-        <span className="note">sur l'ensemble du parc</span>
+        <span className="lbl">{tr("vuln.kpi.avg")}</span>
+        <span className="val">{stats.avgPerCve.toLocaleString(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+        <span className="note">{tr("vuln.kpi.wholeFleet")}</span>
       </div>
       <div className="vuln-kpi accent-amber">
-        <span className="lbl">Logiciels distincts</span>
-        <span className="val">{stats.distinctCount.toLocaleString("fr-FR")}</span>
-        <span className="note">porteurs d'au moins 1 CVE</span>
+        <span className="lbl">{tr("vuln.kpi.distinct")}</span>
+        <span className="val">{stats.distinctCount.toLocaleString(currentLocale())}</span>
+        <span className="note">{tr("vuln.kpi.withCve")}</span>
       </div>
     </div>
   );
@@ -332,7 +335,7 @@ function CveInventoryTable({ inventory, search, onSearchChange, onSelectCve }) {
     return (
       <div className="vuln-table-card">
         <p className="card-note" style={{ padding: "22px" }}>
-          Chargement de l'inventaire complet…
+          {tr("vuln.loadingInventory")}
         </p>
       </div>
     );
@@ -350,7 +353,7 @@ function CveInventoryTable({ inventory, search, onSearchChange, onSelectCve }) {
     return (
       <div className="vuln-table-card">
         <p className="empty" style={{ padding: "22px" }}>
-          Aucune CVE détectée sur le parc.
+          {tr("vuln.noCve")}
         </p>
       </div>
     );
@@ -369,19 +372,19 @@ function CveInventoryTable({ inventory, search, onSearchChange, onSelectCve }) {
           <input
             className="filter-input vuln-table-search-main"
             type="text"
-            placeholder="Rechercher une CVE (ex. CVE-2024-3400) ou un logiciel (ex. 7-zip)…"
+            placeholder={tr("vuln.searchPlaceholder")}
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
         {search.trim() && (
           <p className="card-note vuln-table-result-count">
-            {filteredSorted.length} résultat{filteredSorted.length > 1 ? "s" : ""} pour « {search} »
+            {tr("vuln.results", { count: filteredSorted.length, search })}
           </p>
         )}
         {!search.trim() && suggested.length > 0 && (
           <div className="vuln-chip-row">
-            <span className="lbl">Recherches suggérées</span>
+            <span className="lbl">{tr("vuln.suggested")}</span>
             {suggested.map((name) => (
               <button key={name} type="button" className="vuln-sugg-chip" onClick={() => onSearchChange(name)}>
                 <SoftwareIcon name={name} />
@@ -394,17 +397,17 @@ function CveInventoryTable({ inventory, search, onSearchChange, onSelectCve }) {
 
       <div className="vuln-table-card">
         <div className="card-head">
-          <h2>Vulnérabilités</h2>
-          <span className="card-note">triées par appareils exposés</span>
+          <h2>{tr("vuln.title")}</h2>
+          <span className="card-note">{tr("vuln.sortedByDevices")}</span>
         </div>
 
         <div className="vuln-table-wrap">
           <table className="vuln-inventory-table">
             <thead>
               <tr>
-                {TABLE_COLUMNS.map(([key, label]) => (
+                {TABLE_COLUMNS.map(([key, labelKey]) => (
                   <th key={key} className={sort.key === key ? "sorted" : ""} onClick={() => toggleSort(key)}>
-                    {label}
+                    {tr(labelKey)}
                     {sort.key === key && <span className="vuln-table-sort-arrow">{sort.dir === 1 ? "↑" : "↓"}</span>}
                   </th>
                 ))}
@@ -415,7 +418,7 @@ function CveInventoryTable({ inventory, search, onSearchChange, onSelectCve }) {
               {visibleRows.length === 0 ? (
                 <tr>
                   <td colSpan={TABLE_COLUMNS.length + 1} className="empty">
-                    Aucune CVE pour ce filtre.
+                    {tr("vuln.noCveForFilter")}
                   </td>
                 </tr>
               ) : (
@@ -456,7 +459,7 @@ function CveInventoryTable({ inventory, search, onSearchChange, onSelectCve }) {
 
         {remaining > 0 && (
           <button type="button" className="vuln-show-more-btn" onClick={() => setVisibleCount((c) => c + REVEAL_STEP)}>
-            Afficher {Math.min(REVEAL_STEP, remaining)} de plus (sur {remaining} restantes)
+            {tr("vuln.showMore", { step: Math.min(REVEAL_STEP, remaining), remaining })}
           </button>
         )}
       </div>
@@ -464,10 +467,11 @@ function CveInventoryTable({ inventory, search, onSearchChange, onSelectCve }) {
   );
 }
 
+// [key, translation key]
 const DETAIL_TABS = [
-  ["desc", "Description"],
-  ["details", "Détails techniques"],
-  ["devices", "Appareils exposés"],
+  ["desc", "vuln.tab.desc"],
+  ["details", "vuln.tab.details"],
+  ["devices", "vuln.tab.devices"],
 ];
 
 /** 3ᵉ onglet SCOPÉ à un appareil (2026-09-02, maquette validée — DeviceOverviewTab.jsx) — juste
@@ -480,7 +484,7 @@ const DETAIL_TABS = [
  * classes DIFFÉRENTES par convention, pas de couplage entre ces deux pages). */
 function DeviceScopedPaths({ entry }) {
   if (!entry) {
-    return <p className="empty cve-small">Aucune évidence de chemin retrouvée pour cet appareil.</p>;
+    return <p className="empty cve-small">{tr("vuln.noPathForDevice")}</p>;
   }
   const disk = entry.disk_paths || [];
   const registry = entry.registry_paths || [];
@@ -489,7 +493,7 @@ function DeviceScopedPaths({ entry }) {
       <div className="vuln-modal-path-col">
         <span className="vuln-modal-path-col-label disk">
           <span className="dot" />
-          Chemin(s) disque
+          {tr("vuln.col.diskPaths")}
         </span>
         {disk.length > 0 ? (
           disk.map((p, i) => (
@@ -498,13 +502,13 @@ function DeviceScopedPaths({ entry }) {
             </div>
           ))
         ) : (
-          <p className="vuln-modal-path-empty">Aucun chemin disque détecté.</p>
+          <p className="vuln-modal-path-empty">{tr("vuln.noDiskPath")}</p>
         )}
       </div>
       <div className="vuln-modal-path-col">
         <span className="vuln-modal-path-col-label registry">
           <span className="dot" />
-          Chemin(s) registre
+          {tr("vuln.col.registryPaths")}
         </span>
         {registry.length > 0 ? (
           registry.map((p, i) => (
@@ -513,7 +517,7 @@ function DeviceScopedPaths({ entry }) {
             </div>
           ))
         ) : (
-          <p className="vuln-modal-path-empty">Aucun chemin registre détecté.</p>
+          <p className="vuln-modal-path-empty">{tr("vuln.noRegistryPath")}</p>
         )}
       </div>
     </div>
@@ -555,7 +559,7 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
         if (list.length === 1 && list[0]?.error) {
           setState({ status: "error", data: null, error: list[0].message });
         } else if (list.length === 0) {
-          setState({ status: "error", data: null, error: "Aucun détail retrouvé pour cette CVE." });
+          setState({ status: "error", data: null, error: tr("vuln.noDetail") });
         } else {
           setState({ status: "done", data: list[0], error: null });
         }
@@ -626,11 +630,11 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
               ) : null}
             </div>
             <p className="card-note">
-              Logiciel concerné — <b>{row.software_name || "non identifié"}</b>
+              {trRich("vuln.affectedSoftware", { name: <b>{row.software_name || tr("vuln.unidentified")}</b> })}
               {row.software_vendor ? ` · ${row.software_vendor}` : ""}
             </p>
           </div>
-          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label="Fermer">
+          <button type="button" className="deployed-detail-close" onClick={onClose} aria-label={tr("common.closeAria")}>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
@@ -638,14 +642,14 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
         </div>
 
         <div className="vuln-modal-tabbar">
-          {DETAIL_TABS.map(([key, label]) => (
+          {DETAIL_TABS.map(([key, labelKey]) => (
             <button
               key={key}
               type="button"
               className={`vuln-modal-tab${activeTab === key ? " active" : ""}`}
               onClick={() => setActiveTab(key)}
             >
-              {key === "devices" ? (deviceScope ? "Chemins" : label) : label}
+              {tr(key === "devices" && deviceScope ? "vuln.tab.paths" : labelKey)}
               {key === "devices" && <span className="count">{deviceScope ? deviceScopedPathCount : row.affected_count}</span>}
             </button>
           ))}
@@ -653,7 +657,7 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
 
         <div className="wizard-step-body vuln-modal-tab-body">
           {state.status === "loading" ? (
-            <p className="card-note vuln-modal-loading">Chargement du détail complet…</p>
+            <p className="card-note vuln-modal-loading">{tr("vuln.loadingDetail")}</p>
           ) : state.status === "error" ? (
             <p className="error-note vuln-modal-loading">{state.error}</p>
           ) : activeTab === "desc" ? (
@@ -663,10 +667,10 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
                   <p className="vuln-modal-description">{v.description}</p>
                 </div>
               ) : (
-                <p className="empty cve-small">Aucune description disponible pour cette CVE.</p>
+                <p className="empty cve-small">{tr("vuln.noDescription")}</p>
               )}
 
-              <p className="vuln-modal-section-title">Renseignement externe</p>
+              <p className="vuln-modal-section-title">{tr("vuln.externalIntel")}</p>
               <div className="vuln-intel-grid">
                 <div className="vuln-intel-card anssi">
                   <div className="vuln-intel-card-head">
@@ -677,9 +681,9 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
                       </svg>
                     </span>
                     <div>
-                      <span className="vuln-intel-title">Avis CERT-FR rapproché</span>
+                      <span className="vuln-intel-title">{tr("vuln.certfrMatch")}</span>
                       <span className="vuln-intel-ref">
-                        {anssiState?.status === "loading" ? "Recherche en cours…" : "Fenêtre glissante de 14 jours"}
+                        {anssiState?.status === "loading" ? tr("vuln.searching") : tr("vuln.window14")}
                       </span>
                     </div>
                   </div>
@@ -687,13 +691,13 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
                     <>
                       <p className="vuln-intel-desc">
                         <span className="cve-mono">{anssiMatch.certfr_ref}</span>
-                        {anssiMatch.published ? ` · publié le ${anssiMatch.published}` : ""}
-                        <br />« {anssiMatch.title} » — rapproché par nom de logiciel, pas nécessairement en citant
-                        cette CVE précise.
+                        {anssiMatch.published ? tr("vuln.publishedOn", { date: anssiMatch.published }) : ""}
+                        <br />
+                        {tr("vuln.matchedByName", { title: anssiMatch.title })}
                       </p>
                       {isSafeHttpUrl(anssiMatch.url) && (
                         <a className="vuln-intel-link" href={anssiMatch.url} target="_blank" rel="noreferrer">
-                          Voir l'avis d'origine ↗
+                          {tr("vuln.seeAdvisory")}
                         </a>
                       )}
                     </>
@@ -701,7 +705,7 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
                     <p className="vuln-intel-desc">
                       {anssiState?.status === "loading"
                         ? "…"
-                        : "Aucun avis CERT-FR rapproché sur les 14 derniers jours."}
+                        : tr("vuln.noAdvisory14")}
                     </p>
                   )}
                 </div>
@@ -715,35 +719,34 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
                       </svg>
                     </span>
                     <div>
-                      <span className="vuln-intel-title">Signaux d'exploitation</span>
-                      <span className="vuln-intel-ref">Catalogue Microsoft TVM</span>
+                      <span className="vuln-intel-title">{tr("vuln.exploitSignals")}</span>
+                      <span className="vuln-intel-ref">{tr("vuln.tvmCatalog")}</span>
                     </div>
                   </div>
                   <div className="vuln-threat-rows">
                     <div className="vuln-threat-row">
-                      <span>Probabilité d'exploitation (EPSS)</span>
+                      <span>{tr("vuln.epss")}</span>
                       <b>{formatEpss(v.epss)}</b>
                     </div>
                     <div className="vuln-threat-row">
-                      <span>Exploit détecté dans la nature</span>
-                      <b className={v.exploit_in_wild ? "v-bad" : "v-ok"}>{v.exploit_in_wild ? "Oui" : "Non"}</b>
+                      <span>{tr("vuln.exploitInWild")}</span>
+                      <b className={v.exploit_in_wild ? "v-bad" : "v-ok"}>{tr(v.exploit_in_wild ? "common.yes" : "common.no")}</b>
                     </div>
                     <div className="vuln-threat-row">
-                      <span>Kit d'exploitation public connu</span>
-                      <b className={v.exploit_kit ? "v-bad" : "v-ok"}>{v.exploit_kit ? "Oui" : "Non"}</b>
+                      <span>{tr("vuln.exploitKit")}</span>
+                      <b className={v.exploit_kit ? "v-bad" : "v-ok"}>{tr(v.exploit_kit ? "common.yes" : "common.no")}</b>
                     </div>
                   </div>
                 </div>
               </div>
               <p className="vuln-intel-footnote">
-                Rapprochement ANSSI par nom de logiciel (même mécanisme que le rail "Avis CERT-FR / ANSSI" ci-contre),
-                pas une recherche texte-intégral sur cette CVE précise — vérifier via le lien de l'avis avant action.
+                {tr("vuln.anssiFootnote")}
               </p>
             </>
           ) : activeTab === "details" ? (
             <div className="vuln-modal-meta-grid">
               <div className="vuln-modal-meta-tile">
-                <span className="lbl">Sévérité</span>
+                <span className="lbl">{tr("vuln.severity")}</span>
                 <span className="v">
                   <SeverityBadge severity={v.severity} />
                 </span>
@@ -753,21 +756,21 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
                 <span className="v mono">{typeof v.cvss_score === "number" ? v.cvss_score.toFixed(1) : "—"}</span>
               </div>
               <div className="vuln-modal-meta-tile">
-                <span className="lbl">Exploitabilité</span>
+                <span className="lbl">{tr("vuln.exploitability")}</span>
                 <span className="v">{v.exploitability_level || "—"}</span>
               </div>
               <div className={`vuln-modal-meta-tile${v.security_update_available ? " ok" : " warn"}`}>
-                <span className="lbl">Correctif dispo.</span>
-                <span className="v">{v.security_update_available ? "Oui" : "Non connu"}</span>
+                <span className="lbl">{tr("vuln.patchAvailable")}</span>
+                <span className="v">{v.security_update_available ? tr("common.yes") : tr("vuln.notKnown")}</span>
               </div>
               <div className="vuln-modal-meta-tile">
-                <span className="lbl">1ère détection</span>
+                <span className="lbl">{tr("vuln.firstSeen")}</span>
                 <span className="v mono" style={{ fontSize: "12.5px" }}>
                   {formatDateTime(v.first_seen)}
                 </span>
               </div>
               <div className="vuln-modal-meta-tile">
-                <span className="lbl">Dernière détection</span>
+                <span className="lbl">{tr("vuln.lastSeen")}</span>
                 <span className="v mono" style={{ fontSize: "12.5px" }}>
                   {formatDateTime(v.last_seen)}
                 </span>
@@ -785,7 +788,7 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
                 <input
                   className="filter-input"
                   type="text"
-                  placeholder="Filtrer par device ou groupe RBAC…"
+                  placeholder={tr("vuln.filterDevices")}
                   value={deviceQuery}
                   onChange={(e) => setDeviceQuery(e.target.value)}
                 />
@@ -797,17 +800,17 @@ export function CveDetailModal({ row, onClose, anssiState, deviceScope }) {
 
         {state.status === "done" && (
           <div className="vuln-modal-foot">
-            <span className="vuln-modal-foot-hint">Échap ou clic en dehors pour fermer</span>
+            <span className="vuln-modal-foot-hint">{tr("vuln.escHint")}</span>
             <div>
               <button
                 type="button"
                 className="vuln-export-button"
                 onClick={handleExport}
                 disabled={exportStatus === "exporting"}
-                aria-label={`Exporter ${v.cve_code} en Excel`}
+                aria-label={tr("vuln.exportAria", { cve: v.cve_code })}
               >
                 <IconDownload />
-                {exportStatus === "exporting" ? "Export…" : "Exporter Excel"}
+                {exportStatus === "exporting" ? tr("vuln.exporting") : tr("vuln.exportExcel")}
               </button>
               {exportError && <p className="error-note vuln-export-error">{exportError}</p>}
             </div>
@@ -903,14 +906,14 @@ export default function VulnerabilitiesTab({ initialQuery }) {
       <div className="vuln-main">
         {selectedMatch && (
           <p className="vuln-anssi-context">
-            Filtré depuis l'avis <span className="cve-mono">{selectedMatch.certfr_ref}</span> — {selectedMatch.title}
+            {trRich("vuln.filteredFrom", { ref: <span className="cve-mono">{selectedMatch.certfr_ref}</span>, title: selectedMatch.title })}
           </p>
         )}
         <CveInventoryTable inventory={inventory} search={search} onSearchChange={handleSearchChange} onSelectCve={setDetailCve} />
       </div>
 
       <div className="vuln-rail">
-        <div className="vuln-rail-title">Avis CERT-FR / ANSSI</div>
+        <div className="vuln-rail-title">{tr("vuln.railTitle")}</div>
         <AnssiCard onSelectMatch={handleSelectMatch} selectedRef={selectedMatch?.certfr_ref} />
       </div>
 

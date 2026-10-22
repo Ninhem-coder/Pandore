@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { IconUpload } from "./icons.jsx";
+import { tr } from "../i18n/core.js";
 
 /**
  * Sélecteur de logo d'application (2026-08-26, demande de Nicolas : "mettre un logo à
@@ -28,7 +29,7 @@ export function fileToIconPayload(file) {
         iconContentType: file.type || "image/png",
       });
     };
-    reader.onerror = () => reject(reader.error || new Error("Échec de lecture du logo."));
+    reader.onerror = () => reject(reader.error || new Error(tr("icon.readFailed")));
     reader.readAsDataURL(file);
   });
 }
@@ -38,14 +39,14 @@ export function fileToIconPayload(file) {
  * que l'appelant n'ait qu'un seul callback à câbler. `clearLabel` personnalisable
  * ("Retirer le logo" par défaut, "Retirer le nouveau logo" dans `EditAppTab.jsx` où un logo
  * existant reste en toile de fond tant qu'aucun nouveau fichier n'est choisi). */
-export function IconPicker({ icon, iconContentType, onPick, onClear, error, clearLabel = "Retirer le logo" }) {
+export function IconPicker({ icon, iconContentType, onPick, onClear, error, clearLabel = tr("icon.remove") }) {
   const inputRef = useRef(null);
 
   async function handleChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_ICON_BYTES) {
-      onPick(null, null, `Logo trop volumineux (${Math.round(file.size / 1024)} Ko, 750 Ko max).`);
+      onPick(null, null, tr("icon.tooBig", { size: Math.round(file.size / 1024) }));
       e.target.value = "";
       return;
     }
@@ -53,7 +54,7 @@ export function IconPicker({ icon, iconContentType, onPick, onClear, error, clea
       const payload = await fileToIconPayload(file);
       onPick(payload.icon, payload.iconContentType, null);
     } catch (err) {
-      onPick(null, null, err.message || "Échec de lecture du logo.");
+      onPick(null, null, err.message || tr("icon.readFailed"));
     }
     e.target.value = "";
   }
@@ -70,7 +71,7 @@ export function IconPicker({ icon, iconContentType, onPick, onClear, error, clea
       ) : (
         <button type="button" className="library-icon-picker-drop" onClick={() => inputRef.current?.click()}>
           <IconUpload />
-          <span>Logo (optionnel, image, 750 Ko max)</span>
+          <span>{tr("icon.drop")}</span>
         </button>
       )}
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={handleChange} />

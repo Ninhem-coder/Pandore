@@ -1,3 +1,4 @@
+import { localizedTable, tr } from "./i18n/core.js";
 /**
  * Design tokens purs du dashboard : seuils, couleurs, libellés FR et petites fonctions de
  * mise en forme qui n'opèrent QUE sur ces tables (bucketing d'un score dans un palier, choix
@@ -50,15 +51,16 @@ export function secureScoreLevel(percentage) {
   return SECURE_SCORE_THRESHOLDS.find((t) => p >= t.lo && p <= t.hi) ?? SECURE_SCORE_THRESHOLDS[0];
 }
 
-// Traduction FR de controlCategory (Identity/Data/Device/Apps/Infrastructure), vocabulaire
+// Libellé de controlCategory (Identity/Data/Device/Apps/Infrastructure), vocabulaire
 // Graph /security/secureScoreControlProfiles — distinct du vocabulaire de conformité Intune.
-export const SECURE_SCORE_CATEGORY_LABEL_FR = {
-  Identity: "Identité",
-  Data: "Données",
-  Device: "Appareils",
-  Apps: "Applications",
-  Infrastructure: "Infrastructure",
-};
+// Label tables below are `localizedTable`s: values are read in the current interface language.
+export const SECURE_SCORE_CATEGORY_LABEL = localizedTable("secureScore.category", [
+  "Identity",
+  "Data",
+  "Device",
+  "Apps",
+  "Infrastructure",
+]);
 
 // Traduction FR des valeurs `threats` de secureScoreControlProfiles (Graph) — liste fermée
 // aux valeurs officiellement documentées par Microsoft ; toute valeur absente de cette table
@@ -66,19 +68,19 @@ export const SECURE_SCORE_CATEGORY_LABEL_FR = {
 // inventée, pour ne jamais afficher un libellé FR non vérifié. Ajoutée le 2026-08-12 (demande
 // de Nicolas — cybersécurité junior cherchant à comprendre CE QUE chaque contrôle protège, pas
 // seulement combien de points il rapporte).
-export const SECURE_SCORE_THREAT_LABEL_FR = {
-  accountBreach: "Compromission de compte",
-  dataExfiltration: "Exfiltration de données",
-  dataSpillage: "Fuite de données",
-  elevationOfPrivilege: "Élévation de privilèges",
-  maliciousInsider: "Menace interne malveillante",
-  malware: "Malware",
-  phishing: "Hameçonnage",
-  ransomware: "Rançongiciel",
-  passwordSpray: "Password spraying",
-  denialOfService: "Déni de service",
-  unknown: "Menace non catégorisée",
-};
+export const SECURE_SCORE_THREAT_LABEL = localizedTable("secureScore.threat", [
+  "accountBreach",
+  "dataExfiltration",
+  "dataSpillage",
+  "elevationOfPrivilege",
+  "maliciousInsider",
+  "malware",
+  "phishing",
+  "ransomware",
+  "passwordSpray",
+  "denialOfService",
+  "unknown",
+]);
 
 /** "TitleCase" générique pour un identifiant camelCase Graph sans traduction FR connue —
  * plutôt que d'afficher la valeur brute (`elevationOfPrivilege`) ou de deviner une
@@ -90,10 +92,10 @@ function humanizeThreat(value) {
 }
 
 export function translateThreat(value) {
-  return SECURE_SCORE_THREAT_LABEL_FR[value] || humanizeThreat(value);
+  return SECURE_SCORE_THREAT_LABEL[value] || humanizeThreat(value);
 }
 
-// Mêmes couleurs que COMPLIANCE_COLORS / COMPLIANCE_LABEL_FR du skill
+// Mêmes couleurs que COMPLIANCE_COLORS / COMPLIANCE_LABEL du skill
 export const COMPLIANCE_COLORS = {
   compliant: "#48C98A",
   noncompliant: "#EA5C5C",
@@ -101,16 +103,16 @@ export const COMPLIANCE_COLORS = {
 };
 export const COMPLIANCE_DEFAULT_COLOR = "#6B6E76";
 
-export const COMPLIANCE_LABEL_FR = {
-  compliant: "Conforme",
-  noncompliant: "Non conforme",
-  inGracePeriod: "En période de grâce",
-  unknown: "Inconnu",
-  conflict: "Conflit",
-  error: "Erreur",
-  configManager: "Config Manager",
-  notApplicable: "Non applicable",
-};
+export const COMPLIANCE_LABEL = localizedTable("compliance.state", [
+  "compliant",
+  "noncompliant",
+  "inGracePeriod",
+  "unknown",
+  "conflict",
+  "error",
+  "configManager",
+  "notApplicable",
+]);
 
 /**
  * Couleurs des statuts BRUTS Graph par politique (`d.status`/`d.deviceComplianceState`,
@@ -140,31 +142,31 @@ export const POLICY_STATUS_COLORS = {
  * ComplianceOsGrid.jsx) après un bug signalé par Nicolas sur la Vue Appareil 360° : cette page
  * lisait `s.status` (qui n'existe pas sur ces lignes — voir `intune/compliance.py` et
  * `intune/compliance_detail.py::_device_policy_states`, le champ Graph s'appelle `state`) ET
- * cherchait ce statut dans `COMPLIANCE_LABEL_FR`, la table de l'état GLOBAL d'un appareil
+ * cherchait ce statut dans `COMPLIANCE_LABEL`, la table de l'état GLOBAL d'un appareil
  * (compliant/noncompliant/inGracePeriod, tout minuscule) plutôt que celle-ci — d'où le badge
  * "?" sur chaque ligne, jamais la vraie conformité par politique.
  */
-export const POLICY_STATUS_LABEL_FR = {
-  compliant: "Conforme",
-  nonCompliant: "Non conforme",
-  noncompliant: "Non conforme",
-  error: "Erreur",
-  conflict: "Erreur",
-  notApplicable: "Non applicable",
-  notapplicable: "Non applicable",
-  inGracePeriod: "Période de grâce",
-  unknown: "Inconnu",
-  notAssigned: "Inconnu",
-};
+export const POLICY_STATUS_LABEL = localizedTable("policyStatus", [
+  "compliant",
+  "nonCompliant",
+  "noncompliant",
+  "error",
+  "conflict",
+  "notApplicable",
+  "notapplicable",
+  "inGracePeriod",
+  "unknown",
+  "notAssigned",
+]);
 
 export function policyStatusLabel(state) {
   if (!state) return "—";
-  return POLICY_STATUS_LABEL_FR[state] || state;
+  return POLICY_STATUS_LABEL[state] || state;
 }
 
 /**
  * Ordre de gravité des mêmes états BRUTS Graph par politique — centralisé en même temps que
- * POLICY_STATUS_LABEL_FR ci-dessus (était `STATUS_SEVERITY` local à ComplianceOsGrid.jsx).
+ * POLICY_STATUS_LABEL ci-dessus (était `STATUS_SEVERITY` local à ComplianceOsGrid.jsx).
  * Sert à trier une liste de statuts pour faire remonter les échecs en tête plutôt que de les
  * laisser dans un ordre d'API non significatif — voir DeviceOverviewTab.jsx et
  * ComplianceOsGrid.jsx.
@@ -209,13 +211,13 @@ export const CVE_SEVERITY_COLORS = {
  * `raw` est toujours renvoyé, pour qu'on puisse le montrer en repli/détail technique.
  */
 export function friendlyErrorMessage(raw) {
-  const message = typeof raw === "string" ? raw : "Erreur inconnue";
+  const message = typeof raw === "string" ? raw : tr("error.unknown");
   const lower = message.toLowerCase();
   if (lower.includes("failed to fetch") || lower.includes("networkerror") || lower.includes("load failed")) {
-    return { text: "Le serveur local ne répond pas.", raw: message };
+    return { text: tr("error.serverDown"), raw: message };
   }
   if (lower.includes("econnrefused") || lower.includes("connection refused")) {
-    return { text: "Connexion refusée par le serveur local.", raw: message };
+    return { text: tr("error.connectionRefused"), raw: message };
   }
   return { text: message, raw: message };
 }
@@ -261,13 +263,7 @@ export const EXPOSURE_LEVEL_COLORS = {
   None: "#6B6E76",
   Unknown: "#7C8896",
 };
-export const EXPOSURE_LEVEL_LABEL_FR = {
-  High: "Élevée",
-  Medium: "Moyenne",
-  Low: "Faible",
-  None: "Aucune",
-  Unknown: "Inconnue",
-};
+export const EXPOSURE_LEVEL_LABEL = localizedTable("exposure", ["High", "Medium", "Low", "None", "Unknown"]);
 
 // Couleurs de sévérité des alertes MDE (`severity` de /api/alerts) — onglet
 // "Widgets (test)", tableau "Top alertes actives". Vocabulaire distinct de CVE_SEVERITY_COLORS
@@ -284,14 +280,8 @@ export const ALERT_SEVERITY_COLORS = {
 // Libellés FR (2026-08-28, refonte "Alertes Defender" — maquette validée par Nicolas) :
 // jusqu'ici la sévérité s'affichait telle quelle en anglais (badge ET légende de camembert),
 // seul champ d'alerte resté non traduit alors que statut/classification le sont déjà
-// (ALERT_STATUS_LABEL_FR/ALERT_CLASSIFICATION_LABEL_FR ci-dessous).
-export const ALERT_SEVERITY_LABEL_FR = {
-  High: "Élevée",
-  Medium: "Moyenne",
-  Low: "Faible",
-  Informational: "Informationnelle",
-  UnSpecified: "Non spécifiée",
-};
+// (ALERT_STATUS_LABEL/ALERT_CLASSIFICATION_LABEL ci-dessous).
+export const ALERT_SEVERITY_LABEL = localizedTable("alertSeverity", ["High", "Medium", "Low", "Informational", "UnSpecified"]);
 
 // V42 (2026-08-17, demande de Nicolas — onglet "Widgets (test)" refondu en dashboard
 // "Alertes Defender") : statut d'alerte MDE (`status` de /api/alerts), valeurs confirmées
@@ -306,12 +296,7 @@ export const ALERT_STATUS_COLORS = {
   Unknown: "#7C8896",
 };
 
-export const ALERT_STATUS_LABEL_FR = {
-  New: "Nouvelle",
-  InProgress: "En cours",
-  Resolved: "Résolue",
-  Unknown: "Inconnu",
-};
+export const ALERT_STATUS_LABEL = localizedTable("alertStatus", ["New", "InProgress", "Resolved", "Unknown"]);
 
 // Classification d'une alerte (`classification`, nullable tant qu'un analyste ne l'a pas
 // qualifiée) — "Informational, expected activity" est la valeur littérale renvoyée par
@@ -323,12 +308,12 @@ export const ALERT_CLASSIFICATION_COLORS = {
   "Non classifiée": "#4C4F58",
 };
 
-export const ALERT_CLASSIFICATION_LABEL_FR = {
-  TruePositive: "Vrai positif",
-  FalsePositive: "Faux positif",
-  "Informational, expected activity": "Informationnel",
-  "Non classifiée": "Non classifiée",
-};
+export const ALERT_CLASSIFICATION_LABEL = localizedTable("alertClassification", [
+  "TruePositive",
+  "FalsePositive",
+  "Informational, expected activity",
+  "Non classifiée",
+]);
 
 // Onglet "Secure Score" > "Par criticité" (2026-08-12) : les 3 blocs sont les niveaux
 // d'exposition MDE qui représentent un vrai risque à traiter — "None" (aucune exposition)
@@ -356,15 +341,31 @@ export const SEVERITY = ["Non conforme", "Erreur", "En attente", "Non applicable
  */
 export const FAILING_CATEGORIES = ["Non conforme", "Erreur"];
 
+/**
+ * The categories above are internal identifiers (French words, kept as-is in the data); this
+ * returns the label to display in the current interface language.
+ */
+const CATEGORY_KEYS = {
+  "Non conforme": "noncompliant",
+  Erreur: "error",
+  "En attente": "pending",
+  "Non applicable": "notApplicable",
+  Conforme: "compliant",
+};
+
+export function categoryLabel(category) {
+  const key = CATEGORY_KEYS[category];
+  return key ? tr(`complianceCategory.${key}`) : category;
+}
+
 /** "aujourd'hui" / "il y a 1j" / "il y a 6j" — même esprit que les horodatages mono du
  * reste du dashboard, mais relatif (plus lisible que la date ISO pour "il y a 7 jours"). */
 export function formatRelativeDays(dateStr, now = new Date()) {
   const then = new Date(dateStr);
-  if (Number.isNaN(then.getTime())) return "date inconnue";
+  if (Number.isNaN(then.getTime())) return tr("relative.unknownDate");
   const todayMidnight = new Date(now).setHours(0, 0, 0, 0);
   const thenMidnight = new Date(then).setHours(0, 0, 0, 0);
   const diffDays = Math.floor((todayMidnight - thenMidnight) / (24 * 60 * 60 * 1000));
-  if (diffDays <= 0) return "aujourd'hui";
-  if (diffDays === 1) return "il y a 1j";
-  return `il y a ${diffDays}j`;
+  if (diffDays <= 0) return tr("relative.today");
+  return tr("relative.daysAgo", { count: diffDays });
 }

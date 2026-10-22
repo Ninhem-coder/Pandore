@@ -10,7 +10,7 @@ import {
   useVanitasSuspiciousEvents,
   useVanitasSuspiciousEventsSummary,
 } from "../hooks/useDashboardData.js";
-import { ALERT_SEVERITY_COLORS, ALERT_SEVERITY_LABEL_FR } from "../theme.js";
+import { ALERT_SEVERITY_COLORS, ALERT_SEVERITY_LABEL } from "../theme.js";
 import { api } from "../api.js";
 import { ConfirmButton, fmtDateTime, fmtRelative, hasVanitasAccess, VanitasWizardShell } from "./vanitasShared.jsx";
 
@@ -227,7 +227,7 @@ export function SuspiciousEventsTable({ events, loading, error, onSelect, showHo
 
 /** Bloc de corrélation Defender — chargé en LAZY à l'ouverture du panneau de détail (jamais au
  * chargement de la liste), route Pandore native `GET .../correlation` (`device_overview.py`,
- * pas un proxy Vanitas). Réutilise `ALERT_SEVERITY_COLORS`/`ALERT_SEVERITY_LABEL_FR`
+ * pas un proxy Vanitas). Réutilise `ALERT_SEVERITY_COLORS`/`ALERT_SEVERITY_LABEL`
  * (theme.js) : vocabulaire de sévérité Defender (High/Medium/Low/Informational/UnSpecified),
  * volontairement DISTINCT du vocabulaire low/med/high de ce jalon — jamais mélangé. */
 function DefenderCorrelationBlock({ eventId }) {
@@ -274,7 +274,7 @@ function DefenderCorrelationBlock({ eventId }) {
               color: ALERT_SEVERITY_COLORS[a.severity] ?? ALERT_SEVERITY_COLORS.UnSpecified,
             }}
           >
-            {ALERT_SEVERITY_LABEL_FR[a.severity] ?? a.severity}
+            {ALERT_SEVERITY_LABEL[a.severity] ?? a.severity}
           </span>
           <span className="vanitas-hud-feed-cmd" style={{ flex: 1 }}>
             {a.title}

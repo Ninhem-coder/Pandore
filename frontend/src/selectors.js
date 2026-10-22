@@ -9,6 +9,7 @@
  * jamais rien d'ici — les tokens ne dépendent pas de la logique métier qui les consomme.
  */
 import { FAILING_CATEGORIES, GENERIC_PALETTE, SEVERITY } from "./theme.js";
+import { tr } from "./i18n/core.js";
 
 /**
  * Répartition du Secure Score par catégorie (Identité/Données/Appareils/Apps/Infra) :
@@ -596,24 +597,24 @@ export function computeDevicePosture({ intune, defender } = {}) {
 
   if (complianceState === "noncompliant") {
     tone = "danger";
-    reasons.push("appareil non conforme (Intune)");
+    reasons.push(tr("posture.reason.noncompliant"));
   } else if (complianceState === "inGracePeriod") {
     tone = "warning";
-    reasons.push("en période de grâce (Intune)");
+    reasons.push(tr("posture.reason.grace"));
   }
 
   if (exposureLevel === "High" || hasHighSeverityAlert) {
     tone = "danger";
-    if (exposureLevel === "High") reasons.push("exposition élevée (Defender)");
-    if (hasHighSeverityAlert) reasons.push("alerte active de sévérité élevée");
+    if (exposureLevel === "High") reasons.push(tr("posture.reason.highExposure"));
+    if (hasHighSeverityAlert) reasons.push(tr("posture.reason.highAlert"));
   } else if (exposureLevel === "Medium" && tone !== "danger") {
     tone = "warning";
-    reasons.push("exposition moyenne (Defender)");
+    reasons.push(tr("posture.reason.mediumExposure"));
   }
 
   if (activeAlerts.length > 0 && !hasHighSeverityAlert && tone === "good") {
     tone = "warning";
-    reasons.push(`${activeAlerts.length} alerte${activeAlerts.length > 1 ? "s" : ""} active${activeAlerts.length > 1 ? "s" : ""}`);
+    reasons.push(tr("posture.reason.activeAlerts", { count: activeAlerts.length }));
   }
 
   // Homonyme Intune/DNS Defender (2026-08-20) : `get_device`/`get_machine` renvoient la
@@ -626,14 +627,14 @@ export function computeDevicePosture({ intune, defender } = {}) {
   const defenderAmbiguous = defender?.found ? defender.machine?.ambiguousMatches : null;
   if (intuneAmbiguous > 1) {
     if (tone === "good") tone = "warning";
-    reasons.push(`${intuneAmbiguous} appareils Intune portent ce nom, celui affiché n'est pas garanti`);
+    reasons.push(tr("posture.reason.intuneAmbiguous", { count: intuneAmbiguous }));
   }
   if (defenderAmbiguous > 1) {
     if (tone === "good") tone = "warning";
-    reasons.push(`${defenderAmbiguous} machines Defender portent ce nom, celle affichée n'est pas garantie`);
+    reasons.push(tr("posture.reason.defenderAmbiguous", { count: defenderAmbiguous }));
   }
 
-  const label = { good: "Sain", warning: "À surveiller", danger: "Critique" }[tone];
+  const label = tr(`posture.${tone}`);
   const partial = !intune?.found || !defender?.found;
 
   return { tone, label, reasons, partial, activeAlertsCount: activeAlerts.length };
@@ -659,13 +660,13 @@ export function computeDevicePosture({ intune, defender } = {}) {
 export function buildCveExportData(v) {
   const summary = [
     { label: "CVE", value: v?.cve_code || "" },
-    { label: "Sévérité", value: v?.severity || "Inconnu" },
-    { label: "Score CVSS", value: typeof v?.cvss_score === "number" ? v.cvss_score : null },
-    { label: "Niveau d'exploitation", value: v?.exploitability_level || "" },
-    { label: "Correctif disponible", value: v?.security_update_available ? "Oui" : "Non connu" },
-    { label: "Devices exposés", value: v?.affected_count ?? (v?.devices?.length || 0) },
-    { label: "1ère détection (évidence logicielle)", value: v?.first_seen || null },
-    { label: "Dernière détection (évidence logicielle)", value: v?.last_seen || null },
+    { label: tr("cveExport.severity"), value: v?.severity || tr("cveExport.unknown") },
+    { label: tr("cveExport.cvss"), value: typeof v?.cvss_score === "number" ? v.cvss_score : null },
+    { label: tr("cveExport.exploitability"), value: v?.exploitability_level || "" },
+    { label: tr("cveExport.patch"), value: v?.security_update_available ? tr("cveExport.yes") : tr("cveExport.notKnown") },
+    { label: tr("cveExport.exposedDevices"), value: v?.affected_count ?? (v?.devices?.length || 0) },
+    { label: tr("cveExport.firstSeen"), value: v?.first_seen || null },
+    { label: tr("cveExport.lastSeen"), value: v?.last_seen || null },
   ];
 
   // Chemins joints par un saut de ligne (pas " | " comme le script PowerShell de référence) :
@@ -707,9 +708,10 @@ const INSTALL_STATE_EXPORT_ORDER = ["installed", "failed", "pendingInstall", "no
  */
 export function buildAppInstallExportData(app, devices) {
   const list = devices || [];
+  const noDepartment = tr("department.none");
   const byStar = {};
   for (const d of list) {
-    const star = d.department || "Non renseignée";
+    const star = d.department || noDepartment;
     (byStar[star] ||= []).push(d);
   }
 
@@ -717,8 +719,8 @@ export function buildAppInstallExportData(app, devices) {
   // technique, pas un vrai département — pas la peine qu'il remonte en tête juste parce qu'il a
   // beaucoup de devices sans utilisateur assigné).
   const starNames = Object.keys(byStar).sort((a, b) => {
-    if (a === "Non renseignée") return 1;
-    if (b === "Non renseignée") return -1;
+    if (a === noDepartment) return 1;
+    if (b === noDepartment) return -1;
     return byStar[b].length - byStar[a].length;
   });
 
@@ -740,7 +742,7 @@ export function buildAppInstallExportData(app, devices) {
   }
 
   return {
-    appName: app?.displayName || "Application inconnue",
+    appName: app?.displayName || tr("app.unknown"),
     starNames,
     overview,
     byStar,
@@ -795,7 +797,7 @@ export function buildConformiteExportData(rules) {
       detail.push({
         rule: r.name,
         hostname: d.hostname,
-        status: d.compliant === true ? "Conforme" : d.compliant === false ? "Non conforme" : "Inconnu",
+        status: tr(`vanitasCompliance.${d.compliant === true ? "compliant" : d.compliant === false ? "noncompliant" : "unknown"}`),
       });
     }
   }

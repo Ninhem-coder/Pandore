@@ -9,9 +9,10 @@ changes are listed under *Unreleased* until the first public version.
 ### Added
 
 - **Interface language (French / English)**: a globe button in the sidebar rail opens a language
-  menu; the choice is remembered per browser. The sidebar, page headers and application shell
-  are translated, with dates in the language's format; page content is still French and will
-  follow.
+  menu; the choice is remembered per browser. The application shell and every Pandore page
+  (dashboard, devices, compliance, Secure Score, alerts, vulnerabilities, CVE watch,
+  applications) are translated, as are the Excel exports; dates and numbers follow the
+  language's format. Vanitas pages are still French and will follow.
 - **Demo mode** (`npm run demo`): the dashboard runs entirely in the browser with a generated,
   fictional and deterministic dataset — no backend, tenant or secret. A "Mode démo" badge marks
   every page; writes are refused. `npm run build:demo` produces a static demo build. The README

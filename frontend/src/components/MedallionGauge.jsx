@@ -1,4 +1,5 @@
 import { levelForScore } from "../theme.js";
+import { tr } from "../i18n/core.js";
 
 /**
  * Version compacte de Gauge.jsx (voir Vue d'ensemble v2, 2026-08-10) : même logique de
@@ -45,7 +46,7 @@ export default function MedallionGauge({ score, colorForScore = levelForScore, s
 
   return (
     <div className="medallion">
-      <svg viewBox="0 0 76 76" role="img" aria-label={ariaLabel ?? `Exposure score ${clampedScore.toFixed(1)} sur 100`}>
+      <svg viewBox="0 0 76 76" role="img" aria-label={ariaLabel ?? tr("overview.gaugeAria", { score: clampedScore.toFixed(1) })}>
         <circle className="medallion-track" cx={cx} cy={cy} r={radius} fill="none" strokeWidth="6" />
         <circle
           className="medallion-arc"

@@ -1,14 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { LOCALES, STORAGE_KEY, normalizeLang, translate } from "./core.js";
+import { LOCALES, STORAGE_KEY, normalizeLang, setCurrentLang, translate } from "./core.js";
 
 const I18nContext = createContext(null);
 
 function readStoredLang() {
+  let code;
   try {
-    return normalizeLang(localStorage.getItem(STORAGE_KEY));
+    code = normalizeLang(localStorage.getItem(STORAGE_KEY));
   } catch {
-    return normalizeLang(null);
+    code = normalizeLang(null);
   }
+  setCurrentLang(code);
+  return code;
 }
 
 /**
@@ -24,6 +27,7 @@ export function I18nProvider({ children }) {
 
   const setLang = useCallback((next) => {
     const code = normalizeLang(next);
+    setCurrentLang(code);
     setLangState(code);
     try {
       localStorage.setItem(STORAGE_KEY, code);

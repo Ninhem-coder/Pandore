@@ -1,5 +1,6 @@
-import { COMPLIANCE_COLORS, COMPLIANCE_DEFAULT_COLOR, COMPLIANCE_LABEL_FR } from "../theme.js";
+import { COMPLIANCE_COLORS, COMPLIANCE_DEFAULT_COLOR, COMPLIANCE_LABEL } from "../theme.js";
 import { buildDonutEntries } from "../selectors.js";
+import { tr } from "../i18n/core.js";
 
 /**
  * Version compacte de ComplianceOverview.jsx pour la Vue d'ensemble v2 (2026-08-10) : une
@@ -10,12 +11,12 @@ import { buildDonutEntries } from "../selectors.js";
 export default function ComplianceMini({ byState, complianceRate }) {
   const { entries, total } = buildDonutEntries(byState, {
     colors: COMPLIANCE_COLORS,
-    labels: COMPLIANCE_LABEL_FR,
+    labels: COMPLIANCE_LABEL,
     defaultColor: COMPLIANCE_DEFAULT_COLOR,
   });
 
   if (entries.length === 0) {
-    return <p className="empty">Donnée de conformité Intune non disponible.</p>;
+    return <p className="empty">{tr("compliance.miniUnavailable")}</p>;
   }
 
   const compliantEntry = entries.find((e) => e.key === "compliant");
@@ -25,7 +26,7 @@ export default function ComplianceMini({ byState, complianceRate }) {
     <div className="compliance-mini">
       <div className="compliance-rate">
         {rate}
-        <span>conforme</span>
+        <span>{tr("compliance.miniCompliant")}</span>
       </div>
       <div className="compliance-bar-wrap">
         <div className="compliance-bar">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LANG, LANGUAGES, MESSAGES, formatStamp, normalizeLang, translate } from "./core.js";
+import { DEFAULT_LANG, LANGUAGES, MESSAGES, formatStamp, localizedTable, normalizeLang, setCurrentLang, tr, translate } from "./core.js";
 
 describe("dictionaries", () => {
   it("every language has exactly the keys of the reference language", () => {
@@ -49,5 +49,23 @@ describe("formatStamp", () => {
   it("formats the date in the language's conventions", () => {
     expect(formatStamp("fr", date)).toBe("généré le 22/10/2026 à 09:14");
     expect(formatStamp("en", date)).toBe("generated on 10/22/2026 at 09:14 AM");
+  });
+});
+
+describe("current language helpers", () => {
+  it("tr and localizedTable follow the current language", () => {
+    const labels = localizedTable("compliance.state", ["compliant"]);
+    setCurrentLang("en");
+    expect(tr("nav.settings")).toBe("Settings");
+    expect(labels.compliant).toBe("Compliant");
+    setCurrentLang("fr");
+    expect(tr("nav.settings")).toBe("Paramètres");
+    expect(labels.compliant).toBe("Conforme");
+  });
+
+  it("localizedTable returns undefined for an unknown value, so callers can fall back", () => {
+    const labels = localizedTable("compliance.state", ["compliant"]);
+    expect(labels.somethingElse).toBeUndefined();
+    expect(Object.keys(labels)).toEqual(["compliant"]);
   });
 });

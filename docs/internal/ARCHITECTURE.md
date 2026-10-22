@@ -171,8 +171,18 @@ flowchart LR
   pluriels via `<clé>.one`/`<clé>.other` + `{count}` ; dates/nombres via `locale` (`Intl`), jamais
   `"fr-FR"` en dur. Libellés de nav = `nav.item.<key>` / `nav.group.<group>` (plus de `label` dans
   `NAV_TREE`/`VANITAS_NAV`). Sélecteur = bouton globe du rail (`LanguageMenu`, Sidebar.jsx).
-  Traduit à ce jour : sidebar, masthead, coquille ; le contenu des pages reste en français
-  (étapes suivantes : pages Pandore, pages Vanitas, codes d'erreur backend).
+  **Hors composants de coquille** : `tr(key, vars)` (langue courante, `core.js`) — utilisable
+  partout dans le contenu des pages car `<main key={lang}>` (Dashboard.jsx) REMONTE le contenu au
+  changement de langue (pas de libellé figé dans un `useMemo`). Tables de libellés :
+  `localizedTable(prefix, keys)` (valeur lue dans la langue courante, ex. `COMPLIANCE_LABEL`,
+  `EXPOSURE_LEVEL_LABEL` — plus de suffixe `_FR`). Constantes de module (`FILTERS = [{label}]`) :
+  `get label() { return tr(...) }` ou stocker la clé et appeler `tr()` au rendu. Phrases avec
+  balisage : `trRich(key, { n: <strong>{n}</strong> })` (`i18n/rich.jsx`). Les catégories internes
+  ("Non conforme", "Erreur"… de `SEVERITY`/`FAILING_CATEGORIES`) RESTENT des identifiants en
+  français : traduire à l'affichage via `categoryLabel()` (theme.js). Dictionnaires par zone dans
+  `i18n/messages/<zone>.js` (`{ fr, en }` côte à côte), listés par `messages/index.js`.
+  Traduit à ce jour : coquille + toutes les pages Pandore + exports Excel ; reste : pages
+  Vanitas, messages d'erreur du backend, données démo.
 - **Ne jamais reproduire un logo de marque réelle** sans asset officiel dans le repo — glyphes
   abstraits/neutres.
 
@@ -286,7 +296,7 @@ cd backend && .venv/Scripts/python.exe -m pytest tests/ -q          # 86 tests
 
 # Frontend
 cd frontend && npx vite build                                       # build
-cd frontend && npx vitest run                                       # 138 tests
+cd frontend && npx vitest run                                       # 140 tests
 
 # Serveur Vanitas
 cd endpoint-agent/server && .venv/Scripts/python.exe -m pytest tests/ -q   # 65 tests

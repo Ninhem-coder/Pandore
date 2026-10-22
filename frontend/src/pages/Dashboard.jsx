@@ -469,7 +469,9 @@ export default function Dashboard() {
               Conformité Intune seulement (mockup approuvé, retour de Nicolas : "trop
               d'espace entre les blocs") — les autres onglets gardent le gap standard de
               `.dashboard-grid`, partagée par tous. */}
-          <main className={`dashboard-grid${activeTab === "intune" ? " dashboard-grid--tight" : ""}`}>
+          {/* `key={lang}`: page content is remounted when the interface language changes, so every
+              label computed with `tr()` (memoized or not) is re-read. Page data stays cached. */}
+          <main key={lang} className={`dashboard-grid${activeTab === "intune" ? " dashboard-grid--tight" : ""}`}>
             {content}
           </main>
         </div>

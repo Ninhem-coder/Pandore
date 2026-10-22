@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { tr } from "../i18n/core.js";
 
 /** Bouton "copier dans le presse-papiers" partagé (2026-09-12 — extrait des 5 copies quasi
  * identiques qui vivaient dans DeployAppWizard/AppCatalogTab/EditAppTab/VanitasActivityLogTab/
@@ -13,8 +14,8 @@ import { useState } from "react";
 export default function CopyButton({
   text,
   className = "wizard-copy-btn",
-  label = "Copier",
-  copiedLabel = "Copié",
+  label = tr("common.copy"),
+  copiedLabel = tr("common.copied"),
 }) {
   const [copied, setCopied] = useState(false);
   async function handleCopy() {

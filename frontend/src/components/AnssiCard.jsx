@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { tr } from "../i18n/core.js";
 
 // `m.url` vient de defender/anssi.py (toujours un `https://cert.ssi.gouv.fr/avis/...`
 // construit côté backend, jamais un texte scrapé tel quel) — mais ce garde-fou évite de
@@ -77,26 +78,26 @@ export default function AnssiCard({ onSelectMatch, selectedRef }) {
   return (
     <div className="card anssi-panel">
       <div className="card-head">
-        <h2>CVE ANSSI / CERT-FR correspondant au parc logiciel</h2>
+        <h2>{tr("anssi.title")}</h2>
         <button
           type="button"
           className="cve-watch-refresh"
           onClick={() => load(true)}
           disabled={refreshing || state.status === "loading"}
         >
-          {refreshing ? "Vérification…" : "Rafraîchir"}
+          {refreshing ? tr("anssi.checking") : tr("anssi.refresh")}
         </button>
       </div>
 
       {state.status === "loading" && (
-        <p className="card-note">Recherche des avis CERT-FR récents et rapprochement avec l'inventaire logiciel du parc…</p>
+        <p className="card-note">{tr("anssi.loading")}</p>
       )}
 
       {state.status === "error" && <p className="error-note">{state.error}</p>}
 
       {state.status === "done" && state.matches.length === 0 && (
         <p className="empty">
-          Aucun rapprochement plausible avec le parc logiciel sur les {state.windowDays} derniers jours d'avis CERT-FR.
+          {tr("anssi.noMatch", { days: state.windowDays })}
         </p>
       )}
 
@@ -116,24 +117,25 @@ export default function AnssiCard({ onSelectMatch, selectedRef }) {
               >
                 <div className="anssi-match-top">
                   <span className="anssi-match-ref cve-mono">{m.certfr_ref}</span>
-                  {m.published && <span className="anssi-match-date">publié le {m.published}</span>}
+                  {m.published && <span className="anssi-match-date">{tr("anssi.published", { date: m.published })}</span>}
                 </div>
                 <span className="anssi-match-title">{m.title}</span>
                 <div className="anssi-match-bottom">
                   <span className="anssi-match-software">
-                    {m.matched_software} · {m.matched_device_count ?? "?"} device
-                    {(m.matched_device_count ?? 0) > 1 ? "s" : ""} du parc
+                    {m.matched_device_count == null
+                      ? `${m.matched_software} · ?`
+                      : tr("anssi.fleetDevices", { software: m.matched_software, count: m.matched_device_count })}
                   </span>
                   {m.cve && m.cve.length > 0 ? (
-                    <span className="badge high">{m.cve.length} CVE</span>
+                    <span className="badge high">{tr("anssi.cveCount", { count: m.cve.length })}</span>
                   ) : (
-                    <span className="cve-small">pas de CVE isolée</span>
+                    <span className="cve-small">{tr("anssi.noIsolatedCve")}</span>
                   )}
                 </div>
               </button>
               {isSafeHttpUrl(m.url) && (
                 <a href={m.url} target="_blank" rel="noreferrer" className="anssi-match-link">
-                  Voir l'avis d'origine ↗
+                  {tr("vuln.seeAdvisory")}
                 </a>
               )}
             </div>
@@ -142,8 +144,7 @@ export default function AnssiCard({ onSelectMatch, selectedRef }) {
       )}
 
       <p className="scope-note">
-        Rapprochement approximatif par nature (titre d'avis ↔ inventaire logiciel) — toujours vérifier chaque
-        correspondance avant action, via le lien de l'avis d'origine ci-dessous.
+        {tr("anssi.scopeNote")}
       </p>
     </div>
   );
