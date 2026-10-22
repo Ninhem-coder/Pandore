@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { api } from "../api.js";
 import { fmtDateTime, latestCommandOf, parseCommandResult } from "./vanitasShared.jsx";
 import { IconDownload, IconPackage, IconSettings, IconShield, IconWrench } from "../components/icons.jsx";
+import { localizedTable, tr } from "../i18n/core.js";
 
 /**
  * "Journal d'événements Windows" (2026-09-16) — recherche PONCTUELLE à la demande sur ce
@@ -32,28 +33,21 @@ const CHANNEL_ICONS = {
   ForwardedEvents: IconDownload,
 };
 
+// Level labels: ev.level.<key>; common-ID group and row labels: ev.grp.<grp> / ev.id.<id>.
 const LEVEL_OPTIONS = [
-  { key: "error", label: "Erreur" },
-  { key: "warning", label: "Avertissement" },
-  { key: "information", label: "Information" },
-  { key: "audit_success", label: "Succès d'audit", tone: "good" },
-  { key: "audit_failure", label: "Échec d'audit", tone: "high" },
+  { key: "error" },
+  { key: "warning" },
+  { key: "information" },
+  { key: "audit_success", tone: "good" },
+  { key: "audit_failure", tone: "high" },
 ];
 
-const LEVEL_LABEL_FR = {
-  audit_success: "Succès d'audit",
-  audit_failure: "Échec d'audit",
-  critical: "Critique",
-  error: "Erreur",
-  warning: "Avertissement",
-  information: "Information",
-  verbose: "Détaillé",
-};
+const LEVEL_LABEL = localizedTable("ev.level", ["audit_success", "audit_failure", "critical", "error", "warning", "information", "verbose"]);
 
 const COMMON_IDS = [
-  { grp: "Connexions", rows: [["Connexion réussie", 4624], ["Échec de connexion", 4625]] },
-  { grp: "Comptes", rows: [["Compte créé", 4720], ["Ajout à un groupe", 4732]] },
-  { grp: "Processus & journal", rows: [["Processus créé", 4688], ["Journal purgé", 1102]] },
+  { grp: "logons", ids: [4624, 4625] },
+  { grp: "accounts", ids: [4720, 4732] },
+  { grp: "process", ids: [4688, 1102] },
 ];
 
 /** "4624,4625,-4634" → { include: [4624,4625], exclude: [4634] } — même syntaxe que le champ
@@ -162,7 +156,7 @@ export default function VanitasEventLogPane({ agent, commandList, onQueued, canW
   return (
     <div className="vanitas-evlog-shell">
       <div className="vanitas-evlog-tree">
-        <div className="vanitas-evlog-tree-root">Journaux Windows</div>
+        <div className="vanitas-evlog-tree-root">{tr("ev.windowsLogs")}</div>
         {CHANNELS.map((ch) => {
           const ChannelIcon = CHANNEL_ICONS[ch];
           return (
@@ -179,45 +173,45 @@ export default function VanitasEventLogPane({ agent, commandList, onQueued, canW
           );
         })}
         <button type="button" className="vanitas-evlog-select-all" onClick={selectAllChannels}>
-          Tout sélectionner
+          {tr("ev.selectAll")}
         </button>
       </div>
 
       <div className="vanitas-evlog-main">
         <div className="vanitas-evlog-filter">
-          <div className="vanitas-evlog-filter-title">Filtrer le journal — {[...channels].join(", ")}</div>
+          <div className="vanitas-evlog-filter-title">{tr("ev.filterTitle", { channels: [...channels].join(", ") })}</div>
           <div className="vanitas-evlog-filter-grid">
             <div className="vanitas-evlog-field vanitas-evlog-field-since">
-              <label>Depuis</label>
+              <label>{tr("ev.since")}</label>
               <input type="date" value={since} max={until} onChange={(e) => setSince(e.target.value)} />
             </div>
             <div className="vanitas-evlog-field vanitas-evlog-field-until">
-              <label>Jusqu'à</label>
+              <label>{tr("ev.until")}</label>
               <input type="date" value={until} min={since} max={todayStr(0)} onChange={(e) => setUntil(e.target.value)} />
             </div>
             <div className="vanitas-evlog-field vanitas-evlog-field-level">
-              <label>Niveau</label>
+              <label>{tr("ev.level")}</label>
               <div className="vanitas-evlog-lvl-checks">
                 {LEVEL_OPTIONS.map((l) => (
                   <label key={l.key} className="vanitas-evlog-lvl-check" style={l.tone ? { color: `var(--hud-${l.tone})` } : undefined}>
                     <input type="checkbox" checked={levels.has(l.key)} onChange={() => toggleLevel(l.key)} />
-                    {l.label}
+                    {LEVEL_LABEL[l.key]}
                   </label>
                 ))}
               </div>
             </div>
             <div className="vanitas-evlog-field vanitas-evlog-id-field">
               <label>
-                ID d'événement (inclure/exclure)
+                {tr("ev.eventId")}
                 <span className="vanitas-evlog-id-help">
-                  <span className="link">· IDs courants</span>
+                  <span className="link">{tr("ev.commonIds")}</span>
                   <div className="vanitas-evlog-id-help-panel">
                     {COMMON_IDS.map((g) => (
                       <div key={g.grp}>
-                        <div className="grp">{g.grp}</div>
-                        {g.rows.map(([label, id]) => (
+                        <div className="grp">{tr(`ev.grp.${g.grp}`)}</div>
+                        {g.ids.map((id) => (
                           <div className="row" key={id}>
-                            <span>{label}</span>
+                            <span>{tr(`ev.id.${id}`)}</span>
                             <b>{id}</b>
                           </div>
                         ))}
@@ -229,42 +223,41 @@ export default function VanitasEventLogPane({ agent, commandList, onQueued, canW
               <div className="vanitas-evlog-id-row">
                 <input
                   type="text"
-                  placeholder="ex. 4624,4625,-4634"
+                  placeholder={tr("ev.idsPlaceholder")}
                   value={idsText}
                   onChange={(e) => setIdsText(e.target.value)}
                 />
                 <button type="button" className="vanitas-evlog-go-btn" disabled={busy || !canWrite} onClick={() => runSearch(null)}>
-                  {busy ? "Envoi…" : "Filtrer"}
+                  {busy ? tr("ev.sending") : tr("ev.filter")}
                 </button>
               </div>
-              <div className="vanitas-evlog-hint">Tape un tiret pour exclure : « 4624,4625,-4634 »</div>
+              <div className="vanitas-evlog-hint">{tr("ev.hint")}</div>
             </div>
           </div>
-          {!canWrite && <p className="vanitas-hud-empty-note">Lecture seule sur ce poste — recherche indisponible.</p>}
+          {!canWrite && <p className="vanitas-hud-empty-note">{tr("ev.readOnly")}</p>}
           {error && <p className="vanitas-hud-error">{error}</p>}
         </div>
 
         {waiting ? (
           <p className="vanitas-hud-empty-note">
-            Recherche en file d'attente — l'agent la récupère au prochain cycle (jusqu'à ~5 min).
+            {tr("ev.queued")}
           </p>
         ) : failed ? (
-          <p className="vanitas-hud-error">{latestAny.result || "La recherche a échoué."}</p>
+          <p className="vanitas-hud-error">{latestAny.result || tr("ev.failed")}</p>
         ) : !result ? (
-          <p className="vanitas-hud-empty-note">Aucune recherche encore lancée sur ce poste.</p>
+          <p className="vanitas-hud-empty-note">{tr("ev.noSearch")}</p>
         ) : events.length === 0 ? (
           <p className="vanitas-hud-empty-note">
-            Aucun événement trouvé pour cette recherche. Le journal de ce poste ne conserve peut-être plus cette
-            période (rotation locale, indépendante de Vanitas) — essaie une période plus récente.
+            {tr("ev.noEvent")}
           </p>
         ) : (
           <>
             <div className="vanitas-evlog-list-head">
-              <span>Niveau</span>
-              <span>Date et heure</span>
-              <span>Source</span>
-              <span>ID</span>
-              <span>Catégorie de tâche</span>
+              <span>{tr("ev.col.level")}</span>
+              <span>{tr("ev.col.datetime")}</span>
+              <span>{tr("ev.col.source")}</span>
+              <span>{tr("ev.col.id")}</span>
+              <span>{tr("ev.col.task")}</span>
             </div>
             <div className="vanitas-evlog-list-wrap">
               {events.map((e, i) => (
@@ -278,7 +271,7 @@ export default function VanitasEventLogPane({ agent, commandList, onQueued, canW
                     setDetailTab("general");
                   }}
                 >
-                  <span className={`vanitas-evlog-lvl ${e.level}`}>{LEVEL_LABEL_FR[e.level] ?? e.level}</span>
+                  <span className={`vanitas-evlog-lvl ${e.level}`}>{LEVEL_LABEL[e.level] ?? e.level}</span>
                   <span className="vanitas-evlog-time">{fmtDateTime(e.time)}</span>
                   <span className="vanitas-evlog-src">{e.provider}</span>
                   <span className="vanitas-evlog-eid">{e.event_id}</span>
@@ -294,39 +287,39 @@ export default function VanitasEventLogPane({ agent, commandList, onQueued, canW
                     className={`vanitas-evlog-detail-tab${detailTab === "general" ? " active" : ""}`}
                     onClick={() => setDetailTab("general")}
                   >
-                    Général
+                    {tr("ev.general")}
                   </span>
                   <span
                     className={`vanitas-evlog-detail-tab${detailTab === "xml" ? " active" : ""}`}
                     onClick={() => setDetailTab("xml")}
                   >
-                    Détails (XML)
+                    {tr("ev.xml")}
                   </span>
                 </div>
                 <div className="vanitas-evlog-detail-text">
-                  {detailTab === "general" ? selected.description : selected.xml || "(XML indisponible)"}
+                  {detailTab === "general" ? selected.description : selected.xml || tr("ev.xmlUnavailable")}
                 </div>
                 <div className="vanitas-evlog-detail-meta">
                   <span>
-                    <b>Journal :</b> {selected.channel}
+                    <b>{tr("ev.meta.log")}</b> {selected.channel}
                   </span>
                   <span>
-                    <b>Source :</b> {selected.provider}
+                    <b>{tr("ev.meta.source")}</b> {selected.provider}
                   </span>
                   <span>
-                    <b>ID :</b> {selected.event_id}
+                    <b>{tr("ev.meta.id")}</b> {selected.event_id}
                   </span>
                   <span>
-                    <b>RecordId :</b> {selected.record_id}
+                    <b>{tr("ev.meta.record")}</b> {selected.record_id}
                   </span>
                 </div>
               </div>
             )}
 
             <div className="vanitas-evlog-status-bar">
-              <span>{events.length} événement{events.length > 1 ? "s" : ""} affiché{events.length > 1 ? "s" : ""}</span>
+              <span>{tr("ev.shown", { count: events.length })}</span>
               {result?.has_more && channels.size > 1 && (
-                <span className="more">⚠ Plafond atteint — sélectionne un seul canal pour paginer au-delà</span>
+                <span className="more">{tr("ev.cap")}</span>
               )}
               {canPaginate && (
                 <button
@@ -335,7 +328,7 @@ export default function VanitasEventLogPane({ agent, commandList, onQueued, canW
                   disabled={busy}
                   onClick={() => runSearch(result.next_after_record_id)}
                 >
-                  Voir les 2000 suivants →
+                  {tr("ev.next")}
                 </button>
               )}
             </div>
@@ -344,19 +337,19 @@ export default function VanitasEventLogPane({ agent, commandList, onQueued, canW
       </div>
 
       <div className="vanitas-evlog-actions">
-        <div className="vanitas-evlog-actions-title">Journal actuel</div>
+        <div className="vanitas-evlog-actions-title">{tr("ev.currentLog")}</div>
         <button type="button" className="vanitas-evlog-act-btn primary" disabled={busy || !canWrite} onClick={() => runSearch(null)}>
-          🔍 Rechercher
+          {tr("ev.search")}
         </button>
         {selected && (
           <>
-            <div className="vanitas-evlog-actions-title">Événement sélectionné</div>
+            <div className="vanitas-evlog-actions-title">{tr("ev.selectedEvent")}</div>
             <button
               type="button"
               className="vanitas-evlog-act-btn"
               onClick={() => navigator.clipboard?.writeText(selected.description)}
             >
-              Copier la description
+              {tr("ev.copyDescription")}
             </button>
           </>
         )}

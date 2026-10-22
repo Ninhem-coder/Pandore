@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../api.js";
 import { isErrorPayload } from "../hooks/useDashboardData.js";
+import { currentLocale, localizedTable, tr } from "../i18n/core.js";
 
 // Durée de vie d'un certificat agent (jalon 3, server/app/ca.py) — partagée entre la liste
 // (VanitasDevicesTab.jsx) et la fiche poste (VanitasDeviceDetail.jsx), d'où cette extraction.
@@ -59,16 +60,15 @@ export function CertSegBar({ days, segments = CERT_SEG_COUNT }) {
  * aussi une exigence "read". Ce masquage frontend reste un CONFORT D'UI — l'application réelle
  * de la règle est toujours côté serveur (`require_vanitas_read/write`, api_server.py).
  */
-export const VANITAS_MODULES = [
-  { key: "postes", label: "Postes" },
-  { key: "terminal", label: "Terminal" },
-  { key: "applications", label: "Applications" },
-  { key: "conformite", label: "Conformité" },
-  { key: "groupes", label: "Groupes" },
-  // Activités suspectes (jalon "détection d'activités suspectes sur les postes") — triage du
-  // journal d'événements comportementaux remontés par l'agent (processus/event log/réseau/USB).
-  { key: "activites_suspectes", label: "Activités suspectes" },
-];
+// Activités suspectes (jalon "détection d'activités suspectes sur les postes") — triage du
+// journal d'événements comportementaux remontés par l'agent (processus/event log/réseau/USB).
+// `label` is a getter: read in the current interface language (v.module.<key>).
+export const VANITAS_MODULES = ["postes", "terminal", "applications", "conformite", "groupes", "activites_suspectes"].map((key) => ({
+  key,
+  get label() {
+    return tr(`v.module.${key}`);
+  },
+}));
 
 export function hasVanitasAccess(user, module, level = "read") {
   if (!user) return false;
@@ -98,24 +98,45 @@ export function hasAnyVanitasAccess(user) {
  * (VanitasGroupDetail.jsx) d'un groupe — même UI des deux côtés, jamais deux formulaires de
  * règle qui pourraient diverger.
  */
+// Labels and placeholders are getters (v.rule.field.<key> / v.rule.placeholder.<key>).
+function ruleField(key, type, operators, extra = {}) {
+  return {
+    key,
+    type,
+    operators,
+    ...extra,
+    get label() {
+      return tr(`v.rule.field.${key}`);
+    },
+    get placeholder() {
+      return type === "text" ? tr(`v.rule.placeholder.${key}`) : undefined;
+    },
+  };
+}
+
 export const GROUP_RULE_FIELDS = [
-  { key: "hostname", label: "Nom du poste", type: "text", placeholder: "ex. *-wks*", operators: ["glob", "not_glob", "contains", "not_contains", "equals", "not_equals"] },
-  { key: "os", label: "Système d'exploitation", type: "text", placeholder: "ex. Windows 11", operators: ["contains", "not_contains", "equals", "not_equals"] },
-  {
-    key: "status", label: "Statut", type: "select", operators: ["equals", "not_equals"],
-    options: [{ value: "online", label: "En ligne" }, { value: "offline", label: "Silencieux" }],
-  },
-  { key: "agent_version", label: "Version de l'agent", type: "text", placeholder: "ex. 1.1.0", operators: ["contains", "not_contains", "equals", "not_equals"] },
+  ruleField("hostname", "text", ["glob", "not_glob", "contains", "not_contains", "equals", "not_equals"]),
+  ruleField("os", "text", ["contains", "not_contains", "equals", "not_equals"]),
+  ruleField("status", "select", ["equals", "not_equals"], {
+    options: [
+      {
+        value: "online",
+        get label() {
+          return tr("v.rule.online");
+        },
+      },
+      {
+        value: "offline",
+        get label() {
+          return tr("v.rule.offline");
+        },
+      },
+    ],
+  }),
+  ruleField("agent_version", "text", ["contains", "not_contains", "equals", "not_equals"]),
 ];
 
-export const GROUP_RULE_OPERATOR_LABELS = {
-  contains: "contient",
-  not_contains: "ne contient pas",
-  equals: "est exactement",
-  not_equals: "n'est pas",
-  glob: "correspond au motif (*, ?)",
-  not_glob: "ne correspond pas au motif (*, ?)",
-};
+export const GROUP_RULE_OPERATOR_LABELS = localizedTable("v.rule.op", ["contains", "not_contains", "equals", "not_equals", "glob", "not_glob"]);
 
 function groupRuleFieldDef(key) {
   return GROUP_RULE_FIELDS.find((f) => f.key === key) ?? GROUP_RULE_FIELDS[0];
@@ -125,7 +146,7 @@ function groupRuleFieldDef(key) {
  * brut affiché à Nicolas. `null`/pas de condition → `null` (groupe statique). */
 export function summarizeGroupRules(rules) {
   if (!rules?.conditions?.length) return null;
-  const joiner = rules.combinator === "any" ? " OU " : " ET ";
+  const joiner = tr(rules.combinator === "any" ? "v.rule.or" : "v.rule.and");
   return rules.conditions
     .map((c) => `${groupRuleFieldDef(c.field).label} ${GROUP_RULE_OPERATOR_LABELS[c.operator] ?? c.operator} « ${c.value} »`)
     .join(joiner);
@@ -153,10 +174,12 @@ export function GroupRuleBuilder({ rules, onChange, disabled }) {
       {conditions.length > 1 && (
         <div className="vanitas-hud-chips" style={{ marginBottom: "10px" }}>
           <button type="button" className={`vanitas-hud-chip${combinator === "all" ? " active" : ""}`} onClick={() => commit(conditions, "all")} disabled={disabled}>
-            <span className="led" />TOUTES LES CONDITIONS (ET)
+            <span className="led" />
+            {tr("v.rule.all")}
           </button>
           <button type="button" className={`vanitas-hud-chip${combinator === "any" ? " active" : ""}`} onClick={() => commit(conditions, "any")} disabled={disabled}>
-            <span className="led" />AU MOINS UNE (OU)
+            <span className="led" />
+            {tr("v.rule.any")}
           </button>
         </div>
       )}
@@ -188,7 +211,7 @@ export function GroupRuleBuilder({ rules, onChange, disabled }) {
             </select>
             {fieldDef.type === "select" ? (
               <select className="filter-input" value={c.value} onChange={(e) => updateCondition(idx, { value: e.target.value })} disabled={disabled}>
-                <option value="">Choisir…</option>
+                <option value="">{tr("v.rule.choose")}</option>
                 {fieldDef.options.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -205,51 +228,53 @@ export function GroupRuleBuilder({ rules, onChange, disabled }) {
                 disabled={disabled}
               />
             )}
-            <button type="button" className="vanitas-ghost-btn" onClick={() => removeCondition(idx)} disabled={disabled} aria-label="Retirer cette condition">
+            <button type="button" className="vanitas-ghost-btn" onClick={() => removeCondition(idx)} disabled={disabled} aria-label={tr("v.rule.removeAria")}>
               ✕
             </button>
           </div>
         );
       })}
       <button type="button" className="vanitas-ghost-btn" onClick={addCondition} disabled={disabled}>
-        + Ajouter une condition
+        {tr("v.rule.add")}
       </button>
     </div>
   );
 }
 
-export const COMMAND_LABELS = {
-  force_inventory: "Forcer un inventaire",
-  restart_service: "Redémarrer le service",
-  system_diagnostic: "Diagnostic système",
-  check_windows_updates: "Vérifier les mises à jour Windows",
-  hardware_inventory: "Inventaire matériel",
-  uninstall_agent: "Désinstaller l'agent",
+// Labels read in the current interface language (v.cmd.<type>); the comments below explain why
+// each type exists in this catalog.
+export const COMMAND_LABELS = localizedTable("v.cmd", [
+  "force_inventory",
+  "restart_service",
+  "system_diagnostic",
+  "check_windows_updates",
+  "hardware_inventory",
+  "uninstall_agent",
   // Jalon 11 — 3ᵉ point de synchronisation du catalogue de commandes, en plus de
   // `server/app/commands.py::COMMAND_TYPES` et du switch de `CommandExecutor.cs` (facile à
   // oublier, repéré en concevant ce jalon) : sans cette entrée, le bouton générique "Lancer"
   // afficherait le type brut "compliance_check" plutôt qu'un libellé lisible.
-  compliance_check: "Forcer une vérification de conformité",
+  "compliance_check",
   // Push d'application (2026-09-08) — 3ᵉ point de synchronisation, même raison que
   // "compliance_check" ci-dessus.
-  install_application: "Installation d'application",
+  "install_application",
   // Mise à jour de l'agent lui-même (2026-09-11) — même raison, 4ᵉ point de synchronisation
   // (voir aussi `server/app/commands.py::COMMAND_TYPES`, `UpdateRunner.cs`).
-  update_agent: "Mise à jour de l'agent",
+  "update_agent",
   // Journal d'événements Windows à la demande (2026-09-16) — 5ᵉ point de synchronisation, même
   // raison (voir aussi `server/app/commands.py::COMMAND_TYPES`, `Commands/EventLogFetcher.cs`).
-  fetch_event_log: "Journal d'événements Windows",
+  "fetch_event_log",
   // Jalon "Mises à jour Vanitas" (2026-09-17) — 6ᵉ point de synchronisation, même raison (voir
   // aussi `server/app/commands.py::COMMAND_TYPES`, `CommandExecutor.cs::ForceReboot`).
-  force_reboot: "Redémarrage forcé (mises à jour)",
+  "force_reboot",
   // Jalon "confinement" (2026-09-17) — 7ᵉ point de synchronisation, même raison (voir aussi
   // `server/app/commands.py::COMMAND_TYPES`, `ContainmentRunner.cs`). Boutons dédiés dans
   // `VanitasSuspiciousActivityTab.jsx`, jamais le menu générique "Lancer" — mêmes précédents que
   // "force_reboot".
-  kill_process: "Tuer le process",
-  isolate_network: "Isoler le réseau",
-  lift_isolation: "Lever l'isolement",
-};
+  "kill_process",
+  "isolate_network",
+  "lift_isolation",
+]);
 export const COMMAND_TYPES = Object.keys(COMMAND_LABELS);
 
 // Jalon 7 — "uninstall_agent" reste dans le catalogue (queue_command.py, l'agent doit savoir
@@ -285,28 +310,28 @@ export const DANGEROUS_COMMAND_TYPES = new Set([
 export const SAFE_COMMAND_TYPES = COMMAND_TYPES.filter((t) => !DANGEROUS_COMMAND_TYPES.has(t));
 
 export function fmtRelative(value) {
-  if (!value) return "jamais";
+  if (!value) return tr("v.never");
   const then = new Date(value).getTime();
-  if (Number.isNaN(then)) return "jamais";
+  if (Number.isNaN(then)) return tr("v.never");
   const diffH = (Date.now() - then) / 3_600_000;
-  if (diffH < 1) return "à l'instant";
-  if (diffH < 24) return `il y a ${Math.round(diffH)} h`;
-  return `il y a ${Math.round(diffH / 24)} j`;
+  if (diffH < 1) return tr("rel.justNow");
+  if (diffH < 24) return tr("rel.hours", { n: Math.round(diffH) });
+  return tr("rel.days", { n: Math.round(diffH / 24) });
 }
 
 export function fmtDate(value) {
-  return value ? new Date(value).toLocaleDateString("fr-FR") : "—";
+  return value ? new Date(value).toLocaleDateString(currentLocale()) : "—";
 }
 
 export function fmtDateTime(value) {
-  return value ? new Date(value).toLocaleString("fr-FR") : "—";
+  return value ? new Date(value).toLocaleString(currentLocale()) : "—";
 }
 
 export function fmtBytes(bytes) {
   const n = Number(bytes);
   if (!bytes || Number.isNaN(n) || n <= 0) return "—";
   const gb = n / 1_000_000_000;
-  return `${gb.toFixed(1).replace(".", ",")} Go`;
+  return tr("v.gb", { n: gb.toLocaleString(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) });
 }
 
 export function daysUntil(isoDate) {
@@ -382,11 +407,8 @@ export function severityTone(severity) {
 
 export function severityLabelFr(severity) {
   const s = (severity || "").toUpperCase();
-  if (s === "CRITICAL") return "Critique";
-  if (s === "HIGH") return "Élevée";
-  if (s === "MEDIUM") return "Moyenne";
-  if (s === "LOW") return "Faible";
-  return "Non renseignée";
+  if (["CRITICAL", "HIGH", "MEDIUM", "LOW"].includes(s)) return tr(`v.sev.${s}`);
+  return tr("v.sev.none");
 }
 
 export function CommandForm({ agentId, onQueued, initialType }) {
@@ -422,7 +444,7 @@ export function CommandForm({ agentId, onQueued, initialType }) {
           ))}
         </select>
         <button type="button" className="vanitas-queue-btn" onClick={handleLaunch} disabled={busy}>
-          {busy ? "Envoi…" : "Lancer"}
+          {busy ? tr("v.sending") : tr("v.launch")}
         </button>
       </div>
       {error && <p className="error-note">{error}</p>}
@@ -465,7 +487,7 @@ export function ConfirmButton({ label, confirmLabel, onConfirm, className, disab
 
   return (
     <button type="button" className={classes || undefined} onClick={handleClick} disabled={disabled} title={title}>
-      {armed ? (confirmLabel ?? "Confirmer ?") : label}
+      {armed ? (confirmLabel ?? tr("v.confirm")) : label}
     </button>
   );
 }
@@ -502,7 +524,7 @@ export function VanitasWizardShell({ onClose, wide, children }) {
   return createPortal(
     <div className="vanitas-wiz-overlay">
       <div className={`vanitas-wiz-shell${wide ? " wide" : ""}`} ref={shellRef} role="dialog" aria-modal="true">
-        <button type="button" className="vanitas-wiz-close" onClick={onClose} aria-label="Fermer">
+        <button type="button" className="vanitas-wiz-close" onClick={onClose} aria-label={tr("common.closeAria")}>
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>

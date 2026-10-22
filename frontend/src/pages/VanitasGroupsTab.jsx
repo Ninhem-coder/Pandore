@@ -9,6 +9,7 @@ import {
 } from "../hooks/useDashboardData.js";
 import VanitasGroupDetail from "./VanitasGroupDetail.jsx";
 import { ConfirmButton, GroupRuleBuilder, fmtDate, summarizeGroupRules } from "./vanitasShared.jsx";
+import { tr } from "../i18n/core.js";
 
 function CreateGroupForm({ onCreated }) {
   const [name, setName] = useState("");
@@ -48,7 +49,7 @@ function CreateGroupForm({ onCreated }) {
         <span className="prompt">&gt;</span>
         <input
           type="text"
-          placeholder="nom du nouveau groupe..."
+          placeholder={tr("vg.newPlaceholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={busy}
@@ -64,18 +65,20 @@ function CreateGroupForm({ onCreated }) {
             setRules(null);
           }}
         >
-          <span className="led" />STATIQUE
+          <span className="led" />
+          {tr("vg.static")}
         </button>
         <button
           type="button"
           className={`vanitas-hud-chip${isDynamic ? " active" : ""}`}
           onClick={() => setIsDynamic(true)}
         >
-          <span className="led" />DYNAMIQUE
+          <span className="led" />
+          {tr("vg.dynamic")}
         </button>
       </div>
       <button type="submit" className="vanitas-queue-btn" disabled={busy || !name.trim() || (isDynamic && !hasValidRule)}>
-        {busy ? "Création…" : "Créer le groupe"}
+        {busy ? tr("vg.creating") : tr("vg.create")}
       </button>
       {error && (
         <p className="error-note" style={{ margin: 0, width: "100%" }}>
@@ -86,9 +89,7 @@ function CreateGroupForm({ onCreated }) {
         <div style={{ width: "100%" }}>
           <GroupRuleBuilder rules={rules} onChange={setRules} disabled={busy} />
           <p className="vanitas-hud-empty-note" style={{ margin: "10px 0 0" }}>
-            Membres calculés automatiquement selon la règle ci-dessus — jamais d'affectation
-            manuelle sur ce type de groupe. Plusieurs conditions se combinent en ET (toutes
-            requises) ou en OU (au moins une), au choix.
+            {tr("vg.dynamicNote")}
           </p>
         </div>
       )}
@@ -202,7 +203,7 @@ export default function VanitasGroupsTab() {
   if (loading) {
     return (
       <div className="vanitas-hud">
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
@@ -214,7 +215,7 @@ export default function VanitasGroupsTab() {
 
       <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginBottom: "20px" }}>
         <div className="vanitas-hud-card-head">
-          <h2>Créer un groupe</h2>
+          <h2>{tr("vg.createTitle")}</h2>
         </div>
         <CreateGroupForm onCreated={groups.refresh} />
       </div>
@@ -222,24 +223,23 @@ export default function VanitasGroupsTab() {
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
           <h2>
-            {groups.state.data.length} groupe{groups.state.data.length > 1 ? "s" : ""}
+            {tr("vg.count", { count: groups.state.data.length })}
           </h2>
-          <span className="vanitas-hud-card-note">CLIC LIGNE → DÉTAIL DU GROUPE</span>
+          <span className="vanitas-hud-card-note">{tr("vg.clickRow")}</span>
         </div>
         {groups.state.data.length === 0 ? (
           <p className="vanitas-hud-empty-note">
-            Aucun groupe créé pour l'instant — utile pour ranger les postes une fois le parc plus
-            fourni.
+            {tr("vg.empty")}
           </p>
         ) : (
           <div className="vanitas-hud-table-wrap">
             <table className="vanitas-hud-table">
               <thead>
                 <tr>
-                  <th>Nom</th>
-                  <th>Type</th>
-                  <th>Postes</th>
-                  <th>Modifié le</th>
+                  <th>{tr("vg.col.name")}</th>
+                  <th>{tr("vg.col.type")}</th>
+                  <th>{tr("vg.col.endpoints")}</th>
+                  <th>{tr("vg.col.modified")}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -249,7 +249,7 @@ export default function VanitasGroupsTab() {
                     key={g.id}
                     tabIndex={0}
                     role="button"
-                    aria-label={`Ouvrir le groupe ${g.name}`}
+                    aria-label={tr("vg.openAria", { name: g.name })}
                     onClick={() => selectGroup(g.id)}
                   >
                     <td className="vanitas-hud-host">
@@ -257,13 +257,13 @@ export default function VanitasGroupsTab() {
                       {summarizeGroupRules(g.rules) && <span className="id">{summarizeGroupRules(g.rules)}</span>}
                       {g.child_group_ids?.length > 0 && (
                         <span className="id">
-                          + {g.child_group_ids.length} sous-groupe{g.child_group_ids.length > 1 ? "s" : ""}
+                          {tr("vg.subgroups", { count: g.child_group_ids.length })}
                         </span>
                       )}
                     </td>
                     <td>
                       <span className={`vanitas-hud-status-pill ${g.rules ? "pending" : "ok"}`}>
-                        {g.rules ? "DYNAMIQUE" : "STATIQUE"}
+                        {tr(g.rules ? "vg.dynamic" : "vg.static")}
                       </span>
                     </td>
                     <td>
@@ -272,8 +272,8 @@ export default function VanitasGroupsTab() {
                     <td className="cve-small">{fmtDate(g.updated_at)}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <ConfirmButton
-                        label="Supprimer"
-                        confirmLabel="Confirmer ?"
+                        label={tr("vg.delete")}
+                        confirmLabel={tr("v.confirm")}
                         className="vanitas-danger-btn"
                         onConfirm={() => handleDelete(g.id)}
                       />
