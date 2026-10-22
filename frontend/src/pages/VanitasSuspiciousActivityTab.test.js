@@ -5,9 +5,9 @@ import {
   SeverityPill,
   StatusPill,
   SignalTypeBadge,
-  SEVERITY_LABEL_FR,
-  SIGNAL_TYPE_LABEL_FR,
-  STATUS_LABEL_FR,
+  SEVERITY_LABEL,
+  SIGNAL_TYPE_LABEL,
+  STATUS_LABEL,
 } from "./VanitasSuspiciousActivityTab.jsx";
 
 /**
@@ -23,15 +23,15 @@ import {
 
 describe("vocabulaire FR — jalon activités suspectes", () => {
   it("couvre les 3 sévérités du backend (low/med/high)", () => {
-    expect(Object.keys(SEVERITY_LABEL_FR).sort()).toEqual(["high", "low", "med"]);
+    expect(Object.keys(SEVERITY_LABEL).sort()).toEqual(["high", "low", "med"]);
   });
 
   it("couvre les 4 types de signal du backend", () => {
-    expect(Object.keys(SIGNAL_TYPE_LABEL_FR).sort()).toEqual(["event_log", "network", "process", "usb"]);
+    expect(Object.keys(SIGNAL_TYPE_LABEL).sort()).toEqual(["event_log", "network", "process", "usb"]);
   });
 
   it("couvre les 4 statuts de triage du backend", () => {
-    expect(Object.keys(STATUS_LABEL_FR).sort()).toEqual(["acknowledged", "escalated", "false_positive", "new"]);
+    expect(Object.keys(STATUS_LABEL).sort()).toEqual(["acknowledged", "escalated", "false_positive", "new"]);
   });
 });
 

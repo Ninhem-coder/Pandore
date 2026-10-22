@@ -845,7 +845,7 @@ export function buildEolExportData(rows, typeLabels) {
 
 /** Activités suspectes — export de la liste TELLE QUE FILTRÉE à l'écran (voir commentaire
  * d'en-tête ci-dessus) : `events` = `filtered` de VanitasSuspiciousActivityTab.jsx,
- * `labels` = ses maps SEVERITY_LABEL_FR/SIGNAL_TYPE_LABEL_FR/STATUS_LABEL_FR. */
+ * `labels` = ses maps SEVERITY_LABEL/SIGNAL_TYPE_LABEL/STATUS_LABEL. */
 export function buildSuspiciousEventsExportData(events, labels) {
   return (events || []).map((e) => ({
     hostname: e.hostname,

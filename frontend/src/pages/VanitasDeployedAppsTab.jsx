@@ -3,8 +3,9 @@ import { IconDownload } from "../components/icons.jsx";
 import { exportVanitasDeployedAppsToExcel } from "../export.js";
 import { useVanitasInstallerDeployments, useVanitasInstallers } from "../hooks/useDashboardData.js";
 import { fmtDateTime } from "./vanitasShared.jsx";
+import { localizedTable, tr } from "../i18n/core.js";
 
-const STATUS_LABEL = { ok: "Réussi", bad: "Échec", pending: "En attente" };
+const STATUS_LABEL = localizedTable("vdep.status", ["ok", "bad", "pending"]);
 const STATUS_ORDER = { bad: 0, pending: 1, ok: 2 };
 
 function rowStatus(devices) {
@@ -36,7 +37,7 @@ function lastActionAt(devices) {
 function DeployedDeviceCard({ device }) {
   const result =
     device.result ||
-    (device.status === "pending" ? "Commande en file, en attente du prochain poll de l'agent." : "—");
+    (device.status === "pending" ? tr("vdep.queued") : "—");
   return (
     <div className={`vanitas-deployed-device-row ${device.status}`}>
       <div className="vanitas-deployed-device-main">
@@ -93,17 +94,17 @@ function DeployedAppDetail({ devices }) {
   return (
     <div className="vanitas-deployed-detail" onClick={(e) => e.stopPropagation()}>
       <div className="vanitas-deployed-summary">
-        {pill("all", "tous", devices.length)}
-        {pill("ok", counts.ok > 1 ? "réussis" : "réussi", counts.ok)}
-        {pill("pending", "en attente", counts.pending)}
-        {pill("bad", counts.bad > 1 ? "échecs" : "échec", counts.bad)}
+        {pill("all", tr("vdep.pill.all"), devices.length)}
+        {pill("ok", tr("vdep.pill.ok", { count: counts.ok }), counts.ok)}
+        {pill("pending", tr("vdep.pill.pending"), counts.pending)}
+        {pill("bad", tr("vdep.pill.bad", { count: counts.bad }), counts.bad)}
       </div>
       {devices.length > 4 && (
         <div className="vanitas-hud-search vanitas-deployed-search">
           <span className="prompt">&gt;</span>
           <input
             type="text"
-            placeholder="Rechercher un poste..."
+            placeholder={tr("vdep.searchDevice")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
@@ -113,7 +114,7 @@ function DeployedAppDetail({ devices }) {
       <div className="vanitas-deployed-list">
         {filtered.length === 0 ? (
           <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-            Aucun poste ne correspond à ce filtre.
+            {tr("vdep.noDeviceMatch")}
           </p>
         ) : (
           filtered.map((d) => <DeployedDeviceCard key={d.agent_id} device={d} />)
@@ -145,7 +146,7 @@ function DeployedAppRow({ row, expanded, onToggle }) {
             ))}
             {directCount > 0 && (
               <span className="vanitas-hud-apps-badge vanitas-deployed-direct-badge">
-                {directCount} poste{directCount > 1 ? "s" : ""} direct{directCount > 1 ? "s" : ""}
+                {tr("vdep.direct", { count: directCount })}
               </span>
             )}
             {row.targets.length === 0 && directCount === 0 && <span className="cve-small">—</span>}
@@ -159,7 +160,7 @@ function DeployedAppRow({ row, expanded, onToggle }) {
             <span style={{ width: `${(counts.pending / total) * 100}%`, background: "var(--hud-accent)" }} />
           </div>
           <div className="vanitas-deployed-split-legend">
-            {counts.ok} ok · {counts.bad} échec{counts.bad > 1 ? "s" : ""} · {counts.pending} en attente
+            {counts.ok} ok · {tr("vdep.legendFails", { count: counts.bad })} · {tr("vdep.legendPending", { count: counts.pending })}
           </div>
         </td>
         <td className="time-cell">{fmtDateTime(lastAction)}</td>
@@ -220,7 +221,7 @@ export default function VanitasDeployedAppsTab() {
         const installer = installersById.get(d.installer_id);
         return {
           installerId: d.installer_id,
-          name: installer?.name ?? "Installeur supprimé",
+          name: installer?.name ?? tr("vdep.deletedInstaller"),
           version: installer?.version ?? null,
           targets: d.targets,
           devices: d.devices,
@@ -236,7 +237,7 @@ export default function VanitasDeployedAppsTab() {
       await exportVanitasDeployedAppsToExcel(rows);
       setExportState({ status: "idle", error: null });
     } catch (err) {
-      setExportState({ status: "idle", error: err.message || "Échec de l'export Excel." });
+      setExportState({ status: "idle", error: err.message || tr("v.exportFailed") });
     }
   }
 
@@ -268,7 +269,7 @@ export default function VanitasDeployedAppsTab() {
   if (loading) {
     return (
       <div className="vanitas-hud">
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
@@ -280,19 +281,19 @@ export default function VanitasDeployedAppsTab() {
 
       <div className="vanitas-hud-strip" style={{ marginBottom: "16px" }}>
         <div className="vanitas-hud-kpi" style={{ "--tone": "var(--hud-accent)" }}>
-          <div className="label">Déploiements</div>
+          <div className="label">{tr("vdep.kpi.deployments")}</div>
           <div className="value">{kpis.deployments}</div>
         </div>
         <div className="vanitas-hud-kpi" style={{ "--tone": "var(--hud-accent2)" }}>
-          <div className="label">Postes ciblés</div>
+          <div className="label">{tr("vdep.kpi.targeted")}</div>
           <div className="value">{kpis.devices}</div>
         </div>
         <div className="vanitas-hud-kpi" style={{ "--tone": "var(--hud-good)" }}>
-          <div className="label">Taux de réussite</div>
+          <div className="label">{tr("vdep.kpi.rate")}</div>
           <div className="value">{kpis.rate}%</div>
         </div>
         <div className="vanitas-hud-kpi" style={{ "--tone": "var(--hud-high)" }}>
-          <div className="label">Échecs actifs</div>
+          <div className="label">{tr("vdep.kpi.fails")}</div>
           <div className="value">{kpis.fails}</div>
         </div>
       </div>
@@ -302,7 +303,7 @@ export default function VanitasDeployedAppsTab() {
           <span className="prompt">&gt;</span>
           <input
             type="text"
-            placeholder="Rechercher (application, groupe, poste)..."
+            placeholder={tr("vdep.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
@@ -311,7 +312,7 @@ export default function VanitasDeployedAppsTab() {
         <div className="vanitas-hud-chips">
           <button type="button" className={`vanitas-hud-chip${rowFilter === "all" ? " active" : ""}`} onClick={() => setRowFilter("all")}>
             <span className="led" />
-            Tous<span className="n">{rows.length}</span>
+            {tr("vdep.chip.all")}<span className="n">{rows.length}</span>
           </button>
           <button
             type="button"
@@ -319,7 +320,7 @@ export default function VanitasDeployedAppsTab() {
             onClick={() => setRowFilter("fail")}
           >
             <span className="led" />
-            Échecs présents<span className="n">{failCount}</span>
+            {tr("vdep.chip.fail")}<span className="n">{failCount}</span>
           </button>
           <button
             type="button"
@@ -327,7 +328,7 @@ export default function VanitasDeployedAppsTab() {
             onClick={() => setRowFilter("ok")}
           >
             <span className="led" />
-            Tout réussi<span className="n">{okCount}</span>
+            {tr("vdep.chip.ok")}<span className="n">{okCount}</span>
           </button>
         </div>
       </div>
@@ -335,35 +336,33 @@ export default function VanitasDeployedAppsTab() {
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
           <h2>
-            {filteredRows.length} / {rows.length} application{rows.length > 1 ? "s" : ""} déployée
-            {rows.length > 1 ? "s" : ""}
+            {tr("vdep.count", { filtered: filteredRows.length, count: rows.length })}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span className="vanitas-hud-card-note">CLIC LIGNE → DÉTAIL PAR POSTE</span>
+            <span className="vanitas-hud-card-note">{tr("vdep.clickRow")}</span>
             <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
               <IconDownload />
-              {exportState.status === "exporting" ? "Export…" : "Exporter Excel"}
+              {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
             </button>
           </div>
         </div>
         {exportState.error && <p className="error-note" style={{ margin: "0 0 12px" }}>{exportState.error}</p>}
         {rows.length === 0 ? (
           <p className="vanitas-hud-empty-note">
-            Aucun déploiement pour l'instant — pousse un installeur depuis « Applications » ou la
-            fiche d'un groupe.
+            {tr("vdep.empty")}
           </p>
         ) : filteredRows.length === 0 ? (
-          <p className="vanitas-hud-empty-note">0 résultat — aucun déploiement ne correspond à ce filtre.</p>
+          <p className="vanitas-hud-empty-note">{tr("vdep.noResult")}</p>
         ) : (
           <div className="vanitas-hud-table-wrap">
             <table className="vanitas-hud-table">
               <thead>
                 <tr>
-                  <th>Application</th>
-                  <th>Cible(s)</th>
-                  <th>Postes</th>
-                  <th>État</th>
-                  <th>Dernière action</th>
+                  <th>{tr("vdep.col.app")}</th>
+                  <th>{tr("vdep.col.targets")}</th>
+                  <th>{tr("vdep.col.endpoints")}</th>
+                  <th>{tr("vdep.col.state")}</th>
+                  <th>{tr("vdep.col.last")}</th>
                   <th></th>
                 </tr>
               </thead>

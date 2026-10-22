@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import CopyButton from "../components/CopyButton.jsx";
 import { isErrorPayload } from "../hooks/useDashboardData.js";
+import { tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 const STORAGE_KEY = "vanitasAgentServerUrl";
 
@@ -149,48 +151,41 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
   return (
     <div className="vanitas-hud">
       <p className="vanitas-enroll-intro">
-        Génère un token d'enrôlement à usage unique pour un nouveau poste, et construit la
-        commande d'installation correspondante. Le token est consommé dès le premier
-        démarrage réel de l'agent — un poste qui ne s'enrôle jamais avec lui n'a rien
-        d'autre à faire, générer un nouveau token n'a aucun effet sur les postes déjà
-        enrôlés.
+        {tr("ven.intro")}
       </p>
 
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
-          <h2>Nouveau poste</h2>
+          <h2>{tr("ven.newEndpoint")}</h2>
         </div>
 
         <div style={{ padding: "16px" }}>
           <div className="vanitas-enroll-field">
             <span className="vanitas-enroll-label">
-              URL du SERVEUR VANITAS, port 8443 — PAS l'adresse de ce dashboard
+              {tr("ven.urlLabel")}
             </span>
             <input
               type="text"
               className="filter-input"
               style={{ width: "100%" }}
-              placeholder="https://localhost:8443 (ou l'adresse réseau du serveur pour un autre poste)"
+              placeholder={tr("ven.urlPlaceholder")}
               value={serverUrl}
               onChange={(e) => handleServerUrlChange(e.target.value)}
             />
             {urlLooksLikeDashboard && (
               <p className="vanitas-enroll-hint tone-warn">
-                ⚠️ Cette adresse ({window.location.origin}) est celle de ce dashboard, pas du
-                serveur Vanitas — pour installer sur cette même machine, utilise{" "}
-                <code>https://localhost:8443</code>.
+                {trRich("ven.warnDashboard", { origin: window.location.origin, url: <code>https://localhost:8443</code> })}
               </p>
             )}
             {urlLooksLikeHttp && (
               <p className="vanitas-enroll-hint tone-warn">
-                ⚠️ Le serveur Vanitas parle uniquement HTTPS (mTLS) — une adresse{" "}
-                <code>http://</code> ne se connectera jamais, utilise <code>https://</code>.
+                {trRich("ven.warnHttp", { http: <code>http://</code>, https: <code>https://</code> })}
               </p>
             )}
           </div>
 
           <button type="button" className="vanitas-wiz-primary-btn" onClick={handleGenerate} disabled={busy}>
-            {busy ? "Génération…" : "Générer un token d'enrôlement"}
+            {busy ? tr("ven.generating") : tr("ven.generate")}
           </button>
 
           {error && <p className="vanitas-hud-error" style={{ marginTop: "14px" }}>{error}</p>}
@@ -198,15 +193,11 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
           {result && (
             <div style={{ marginTop: "18px" }}>
               <div className="vanitas-enroll-callout tone-warn">
-                Ce token n'est affiché qu'ici, une seule fois — copie-le maintenant AVEC LE
-                BOUTON ci-dessous (jamais retapé à la main : un gabarit collé par erreur, même
-                un seul caractère de différence, se solde par un 401 "Token invalide" alors que
-                le reste de l'installation a réussi). Il devient inutilisable dès qu'un poste
-                s'en sert (usage unique).
+                {tr("ven.tokenOnce")}
               </div>
 
               <div className="vanitas-enroll-field">
-                <span className="vanitas-enroll-label">Token d'enrôlement</span>
+                <span className="vanitas-enroll-label">{tr("ven.token")}</span>
                 <div className="vanitas-enroll-code-row">
                   <code>{result.token}</code>
                   <CopyButton className="vanitas-enroll-copy-btn" text={result.token} />
@@ -215,7 +206,7 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
 
               {installCommand ? (
                 <div className="vanitas-enroll-field">
-                  <span className="vanitas-enroll-label">Commande d'installation (sur le poste, en administrateur)</span>
+                  <span className="vanitas-enroll-label">{tr("ven.command")}</span>
                   <div className="vanitas-enroll-code-row">
                     <code>{installCommand}</code>
                     <CopyButton className="vanitas-enroll-copy-btn" text={installCommand} />
@@ -223,8 +214,7 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
                 </div>
               ) : (
                 <div className="vanitas-enroll-callout tone-accent">
-                  Renseigne l'URL du serveur ci-dessus pour obtenir la commande complète — elle
-                  se construit immédiatement, pas besoin de régénérer un token.
+                  {tr("ven.fillUrl")}
                 </div>
               )}
             </div>
@@ -234,13 +224,12 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
 
       <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginTop: "16px" }}>
         <div className="vanitas-hud-card-head">
-          <h2>Reste du processus</h2>
-          <span className="vanitas-hud-card-note">build, signature, vérification</span>
+          <h2>{tr("ven.rest")}</h2>
+          <span className="vanitas-hud-card-note">{tr("ven.restNote")}</span>
         </div>
         <div style={{ padding: "16px" }}>
           <p className="vanitas-hud-empty-note" style={{ padding: 0, marginBottom: "6px" }}>
-            <strong>1. Builder le MSI</strong> (une fois par version, cette page ne le fait
-            pas) — depuis <code>endpoint-agent/agent/</code> :
+            {trRich("ven.step1", { title: <strong>{tr("ven.step1.title")}</strong>, dir: <code>endpoint-agent/agent/</code> })}
           </p>
           <div className="vanitas-enroll-code-row" style={{ marginBottom: "10px" }}>
             <code style={{ fontSize: "11px" }}>
@@ -250,32 +239,34 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
             <CopyButton className="vanitas-enroll-copy-btn" text="cd EndpointAgent && dotnet publish -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -o publish && cd ../Installer && dotnet build" />
           </div>
           <p className="vanitas-hud-empty-note" style={{ padding: 0, marginBottom: "10px" }}>
-            Le fichier atterrit dans{" "}
-            <code>endpoint-agent/agent/Installer/bin/x64/Debug/EndpointAgent.msi</code>.
+            {trRich("ven.step1.out", { path: <code>endpoint-agent/agent/Installer/bin/x64/Debug/EndpointAgent.msi</code> })}
           </p>
 
           <p className="vanitas-hud-empty-note" style={{ padding: 0, marginBottom: "10px" }}>
-            <strong>2. Certificat de signature</strong> — optionnel pour un test sur cette
-            machine (Windows installe un MSI non signé sans broncher en local), nécessaire
-            seulement pour un déploiement plus large (Intune/GPO). S'il est signé, le
-            certificat public doit être importé sur le poste cible dans{" "}
-            <code>Cert:\LocalMachine\Root</code> <strong>et</strong>{" "}
-            <code>Cert:\LocalMachine\TrustedPublisher</code>.
+            {trRich("ven.step2", {
+              title: <strong>{tr("ven.step2.title")}</strong>,
+              root: <code>Cert:\LocalMachine\Root</code>,
+              and: <strong>{tr("ven.and")}</strong>,
+              publisher: <code>Cert:\LocalMachine\TrustedPublisher</code>,
+            })}
           </p>
 
           <p className="vanitas-hud-empty-note" style={{ padding: 0, marginBottom: "10px" }}>
-            <strong>3. Lancer la commande</strong> ci-dessus DEPUIS le dossier contenant{" "}
-            <code>EndpointAgent.msi</code> (ou remplace son nom par le chemin complet) — sinon
-            l'installation échoue en silence avec le code <code>1619</code>. Terminal en{" "}
-            <strong>administrateur</strong> obligatoire (service LocalSystem).
+            {trRich("ven.step3", {
+              title: <strong>{tr("ven.step3.title")}</strong>,
+              msi: <code>EndpointAgent.msi</code>,
+              code: <code>1619</code>,
+              admin: <strong>{tr("ven.admin")}</strong>,
+            })}
           </p>
 
           <p className="vanitas-hud-empty-note" style={{ padding: 0 }}>
-            <strong>4. Vérifier</strong> — <code>/qn</code> installe en silence, aucune fenêtre
-            même en cas de succès :{" "}
-            <code>Get-Service EndpointAgent</code> doit exister et tourner ; ajoute{" "}
-            <code>/l*v install.log</code> à la fin de la commande pour voir le détail en cas
-            d'échec (code retour ≠ 0).
+            {trRich("ven.step4", {
+              title: <strong>{tr("ven.step4.title")}</strong>,
+              qn: <code>/qn</code>,
+              svc: <code>Get-Service EndpointAgent</code>,
+              log: <code>/l*v install.log</code>,
+            })}
           </p>
 
           {onNavigateVanitas && (
@@ -285,7 +276,7 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
               style={{ marginTop: "14px" }}
               onClick={() => onNavigateVanitas("vanitas-docs")}
             >
-              Voir la documentation →
+              {tr("ven.docs")}
             </button>
           )}
         </div>

@@ -4,46 +4,72 @@ import { useAuth } from "../AuthContext.jsx";
 import { isErrorPayload, useVanitasProfiles } from "../hooks/useDashboardData.js";
 import { ConfirmButton, VanitasWizardShell, VANITAS_MODULES, fmtDate } from "./vanitasShared.jsx";
 import { IconKey, IconLaptop, IconTerminal, IconUpload, IconShield, IconLayers, IconRadar } from "../components/icons.jsx";
+import { localizedTable, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
-const LEVEL_LABELS = { none: "Aucun accès", read: "Lecture", write: "Lecture-écriture" };
+const LEVEL_LABELS = localizedTable("vpr.level", ["none", "read", "write"]);
 
 /** Icône + description + "ce que l'écriture débloque en plus" par module — même contenu que
  * la maquette validée (artefact "Profils Vanitas"), jamais dans `VANITAS_MODULES`
  * (vanitasShared.jsx) lui-même : ce fichier reste la liste minimale {key,label} partagée par
  * TOUT le dashboard (nav, catalogue, résolution de permission), la description détaillée n'a
- * de sens que dans CETTE page. Icônes réutilisées telles quelles depuis `VanitasSidebar.jsx`
+ * de sens que dans CETTE page (textes : vpr.mod.<key>.desc / .rw). Icônes réutilisées telles quelles depuis `VanitasSidebar.jsx`
  * (même module → même pictogramme, jamais réinventé). */
 const MODULE_META = {
   postes: {
     icon: <IconLaptop />,
-    desc: "Voir la liste des postes, leur fiche détaillée, l'inventaire matériel/logiciel.",
-    rw: "Retirer un poste du parc, l'affecter à un groupe.",
+    get desc() {
+      return tr("vpr.mod.postes.desc");
+    },
+    get rw() {
+      return tr("vpr.mod.postes.rw");
+    },
   },
   terminal: {
     icon: <IconTerminal />,
-    desc: "Consulter l'historique des sessions terminal déjà exécutées.",
-    rw: "Ouvrir et piloter une session terminal interactive (PowerShell SYSTEM).",
+    get desc() {
+      return tr("vpr.mod.terminal.desc");
+    },
+    get rw() {
+      return tr("vpr.mod.terminal.rw");
+    },
   },
   applications: {
     icon: <IconUpload />,
-    desc: "Voir le catalogue d'installeurs Vanitas.",
-    rw: "Déposer, supprimer ou pousser un installeur vers un poste/groupe.",
+    get desc() {
+      return tr("vpr.mod.applications.desc");
+    },
+    get rw() {
+      return tr("vpr.mod.applications.rw");
+    },
   },
   conformite: {
     icon: <IconShield />,
-    desc: "Voir les règles et leurs résultats par poste.",
-    rw: "Créer, modifier, activer/désactiver ou supprimer une règle.",
+    get desc() {
+      return tr("vpr.mod.conformite.desc");
+    },
+    get rw() {
+      return tr("vpr.mod.conformite.rw");
+    },
   },
   groupes: {
     icon: <IconLayers />,
-    desc: "Voir les groupes de postes et leurs membres.",
-    rw: "Créer/modifier/supprimer un groupe, gérer ses membres, y pousser une application.",
+    get desc() {
+      return tr("vpr.mod.groupes.desc");
+    },
+    get rw() {
+      return tr("vpr.mod.groupes.rw");
+    },
   },
   // Activités suspectes (jalon "détection d'activités suspectes sur les postes", 2026-09-14).
   activites_suspectes: {
     icon: <IconRadar />,
-    desc: "Voir le journal d'événements suspects remontés par les postes et leur corrélation Defender.",
-    rw: "Accuser réception, marquer faux positif ou escalader un événement.",
+    get desc() {
+      return tr("vpr.mod.activites_suspectes.desc");
+    },
+    get rw() {
+      return tr("vpr.mod.activites_suspectes.rw");
+    },
   },
 };
 
@@ -80,7 +106,7 @@ function PermsMatrix({ perms, onChange }) {
                 <p className="vanitas-perm-row-name">{m.label}</p>
                 <p className="vanitas-perm-row-desc">
                   {meta.desc}
-                  <span className="vanitas-perm-row-rw-hint">Écriture : {meta.rw}</span>
+                  <span className="vanitas-perm-row-rw-hint">{tr("vpr.writeHint", { text: meta.rw })}</span>
                 </p>
               </div>
             </div>
@@ -142,8 +168,8 @@ function CreateProfileModal({ onClose, onCreated }) {
           <IconKey />
         </span>
         <div className="vanitas-wiz-header-text">
-          <h2>Créer un profil</h2>
-          <p>Nom, puis lecture/écriture par fonctionnalité Vanitas</p>
+          <h2>{tr("vpr.createProfile")}</h2>
+          <p>{tr("vpr.createProfileSub")}</p>
         </div>
       </div>
       <div className="vanitas-wiz-body">
@@ -151,7 +177,7 @@ function CreateProfileModal({ onClose, onCreated }) {
           type="text"
           className="filter-input"
           style={{ width: "100%", marginBottom: "16px" }}
-          placeholder="Nom du profil (ex. « Support N2 »)"
+          placeholder={tr("vpr.profileName")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={busy}
@@ -161,10 +187,10 @@ function CreateProfileModal({ onClose, onCreated }) {
         {error && <p className="error-note" style={{ marginTop: "12px" }}>{error}</p>}
         <div className="wizard-actions" style={{ marginTop: "18px" }}>
           <button type="button" className="vanitas-ghost-btn" onClick={onClose} disabled={busy}>
-            Annuler
+            {tr("vpr.cancel")}
           </button>
           <button type="button" className="vanitas-wiz-primary-btn" onClick={handleSubmit} disabled={busy || !name.trim()}>
-            {busy ? "Création…" : "Créer le profil"}
+            {busy ? tr("vpr.creating") : tr("vpr.createProfileBtn")}
           </button>
         </div>
       </div>
@@ -183,7 +209,7 @@ function ProfileCard({ profile, active, accountCount, onSelect }) {
       <span className="vanitas-profile-card-name">{profile.name}</span>
       <div className="vanitas-profile-card-meta">
         {granted.length === 0 ? (
-          <span className="vanitas-profile-card-meta-empty">Aucune permission</span>
+          <span className="vanitas-profile-card-meta-empty">{tr("vpr.noPermission")}</span>
         ) : (
           granted.map((m) => (
             <span key={m.key}>
@@ -194,7 +220,7 @@ function ProfileCard({ profile, active, accountCount, onSelect }) {
         )}
       </div>
       <div className="vanitas-profile-card-accounts">
-        {accountCount} compte{accountCount > 1 ? "s" : ""} assigné{accountCount > 1 ? "s" : ""}
+        {tr("vpr.assigned", { count: accountCount })}
       </div>
     </button>
   );
@@ -250,30 +276,30 @@ function ProfileDetailPanel({ profile, accountNames, onSaved, onDeleted }) {
             onChange={(e) => setName(e.target.value)}
             disabled={busy}
           />
-          <p className="vanitas-profile-detail-sub">MODIFIE LA MATRICE PUIS ENREGISTRE</p>
+          <p className="vanitas-profile-detail-sub">{tr("vpr.detailSub")}</p>
         </div>
         <ConfirmButton
-          label="Supprimer"
-          confirmLabel="Confirmer ?"
+          label={tr("vpr.delete")}
+          confirmLabel={tr("v.confirm")}
           className="vanitas-danger-btn"
           disabled={accountNames.length > 0}
-          title={accountNames.length > 0 ? "Réaffecte d'abord les comptes qui l'utilisent (onglet Comptes)." : undefined}
+          title={accountNames.length > 0 ? tr("vpr.reassignFirst") : undefined}
           onConfirm={handleDelete}
         />
       </div>
 
       <p className="filter-chip-group-label" style={{ margin: "22px 0 12px" }}>
-        Permissions par fonctionnalité
+        {tr("vpr.permsPerFeature")}
       </p>
       <PermsMatrix perms={perms} onChange={(key, level) => setPerms((prev) => ({ ...prev, [key]: level }))} />
 
       <div className="vanitas-profile-assigned-card">
         <p className="filter-chip-group-label" style={{ marginBottom: "10px" }}>
-          Comptes utilisant ce profil
+          {tr("vpr.accountsUsing")}
         </p>
         {accountNames.length === 0 ? (
           <p className="vanitas-hud-empty-note" style={{ padding: 0 }}>
-            Aucun compte n'utilise ce profil pour l'instant — assigne-le depuis l'onglet « Comptes ».
+            {tr("vpr.noAccountUsing")}
           </p>
         ) : (
           accountNames.map((username) => (
@@ -294,7 +320,7 @@ function ProfileDetailPanel({ profile, accountNames, onSaved, onDeleted }) {
           onClick={handleSave}
           disabled={busy || !name.trim() || !dirty}
         >
-          {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+          {busy ? tr("vpr.saving") : tr("vpr.saveChanges")}
         </button>
       </div>
     </div>
@@ -331,15 +357,14 @@ function ProfilesPane({ profiles, accountsByProfile }) {
     <div>
       {profiles.state.error && <p className="vanitas-hud-error">{profiles.state.error}</p>}
       {profiles.state.status === "loading" ? (
-        <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       ) : list.length === 0 ? (
         <div className="vanitas-hud-card vanitas-hud-frame vanitas-hud-empty-cta">
           <p className="vanitas-hud-empty-note">
-            Aucun profil pour l'instant — un compte non-admin sans profil n'a AUCUN accès à
-            Vanitas. Crée un profil pour lui en donner un, module par module.
+            {tr("vpr.noProfile")}
           </p>
           <button type="button" className="vanitas-queue-btn" onClick={() => setShowCreate(true)}>
-            + Créer un profil
+            {tr("vpr.addProfile")}
           </button>
         </div>
       ) : (
@@ -347,7 +372,7 @@ function ProfilesPane({ profiles, accountsByProfile }) {
           <div>
             <div className="vanitas-profile-list-head">
               <h2>
-                {list.length} profil{list.length > 1 ? "s" : ""}
+                {tr("vpr.profiles", { count: list.length })}
               </h2>
             </div>
             <div className="vanitas-profile-list">
@@ -367,7 +392,7 @@ function ProfilesPane({ profiles, accountsByProfile }) {
               style={{ width: "100%", justifyContent: "center", marginTop: "12px" }}
               onClick={() => setShowCreate(true)}
             >
-              + Créer un profil
+              {tr("vpr.addProfile")}
             </button>
           </div>
 
@@ -435,8 +460,8 @@ function CreateAccountWizard({ profiles, onClose, onCreated }) {
           <IconKey />
         </span>
         <div className="vanitas-wiz-header-text">
-          <h2>Créer un compte</h2>
-          <p>Identifiant + mot de passe + rôle</p>
+          <h2>{tr("vpr.createAccount")}</h2>
+          <p>{tr("vpr.createAccountSub")}</p>
         </div>
       </div>
       <div className="vanitas-wiz-body">
@@ -444,7 +469,7 @@ function CreateAccountWizard({ profiles, onClose, onCreated }) {
           type="text"
           className="filter-input"
           style={{ width: "100%", marginBottom: "12px" }}
-          placeholder="Identifiant"
+          placeholder={tr("vpr.username")}
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           disabled={busy}
@@ -454,7 +479,7 @@ function CreateAccountWizard({ profiles, onClose, onCreated }) {
           type="password"
           className="filter-input"
           style={{ width: "100%", marginBottom: "12px" }}
-          placeholder="Mot de passe (8 caractères min.)"
+          placeholder={tr("vpr.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={busy}
@@ -466,7 +491,8 @@ function CreateAccountWizard({ profiles, onClose, onCreated }) {
             className={`vanitas-hud-chip${role === "viewer" ? " active" : ""}`}
             onClick={() => setRole("viewer")}
           >
-            <span className="led" />LECTURE
+            <span className="led" />
+            {tr("vpr.chip.viewer")}
           </button>
           <button
             type="button"
@@ -484,7 +510,7 @@ function CreateAccountWizard({ profiles, onClose, onCreated }) {
             onChange={(e) => setProfileId(e.target.value)}
             disabled={busy}
           >
-            <option value="">Aucun accès (défaut)</option>
+            <option value="">{tr("vpr.noAccessDefault")}</option>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -495,7 +521,7 @@ function CreateAccountWizard({ profiles, onClose, onCreated }) {
         {error && <p className="error-note">{error}</p>}
         <div className="wizard-actions" style={{ marginTop: "10px" }}>
           <button type="button" className="vanitas-ghost-btn" onClick={onClose} disabled={busy}>
-            Annuler
+            {tr("vpr.cancel")}
           </button>
           <button
             type="button"
@@ -503,7 +529,7 @@ function CreateAccountWizard({ profiles, onClose, onCreated }) {
             onClick={handleSubmit}
             disabled={busy || !username.trim() || password.length < 8}
           >
-            {busy ? "Création…" : "Créer le compte"}
+            {busy ? tr("vpr.creating") : tr("vpr.createAccountBtn")}
           </button>
         </div>
       </div>
@@ -545,7 +571,7 @@ function AccountsPane({ profiles, accountsState, reloadAccounts }) {
   }
 
   async function handleResetPassword(username) {
-    const pw = window.prompt(`Nouveau mot de passe pour « ${username} » (8 caractères minimum) :`);
+    const pw = window.prompt(tr("vpr.resetPrompt", { username }));
     if (!pw) return;
     setError(null);
     try {
@@ -570,23 +596,23 @@ function AccountsPane({ profiles, accountsState, reloadAccounts }) {
       <div className="vanitas-hud-card vanitas-hud-frame">
         <div className="vanitas-hud-card-head">
           <h2>
-            {state.users.length} compte{state.users.length > 1 ? "s" : ""}
+            {tr("vpr.accounts", { count: state.users.length })}
           </h2>
           <button type="button" className="vanitas-queue-btn" onClick={() => setShowCreate(true)}>
-            + Créer un compte
+            {tr("vpr.addAccount")}
           </button>
         </div>
         {error && <p className="vanitas-hud-error">{error}</p>}
         {state.status === "loading" ? (
-          <p className="vanitas-hud-empty-note">CHARGEMENT…</p>
+          <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
         ) : (
           <div className="vanitas-hud-table-wrap">
             <table className="vanitas-hud-table">
               <thead>
                 <tr>
-                  <th>Compte</th>
-                  <th>Rôle</th>
-                  <th>Profil Vanitas</th>
+                  <th>{tr("vpr.col.account")}</th>
+                  <th>{tr("vpr.col.role")}</th>
+                  <th>{tr("vpr.col.profile")}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -599,9 +625,9 @@ function AccountsPane({ profiles, accountsState, reloadAccounts }) {
                       <td className="vanitas-hud-host">
                         <span className="name">
                           {u.username}
-                          {isSelf ? " (toi)" : ""}
+                          {isSelf ? tr("vpr.you") : ""}
                         </span>
-                        <span className="id">créé le {fmtDate(u.created_at)}</span>
+                        <span className="id">{tr("vpr.createdOn", { date: fmtDate(u.created_at) })}</span>
                       </td>
                       <td>
                         <select
@@ -611,8 +637,8 @@ function AccountsPane({ profiles, accountsState, reloadAccounts }) {
                           onChange={(e) => handleRoleChange(u.username, e.target.value)}
                           disabled={isSelf}
                         >
-                          <option value="admin">Administrateur</option>
-                          <option value="viewer">Lecture seule</option>
+                          <option value="admin">{tr("vpr.role.admin")}</option>
+                          <option value="viewer">{tr("vpr.role.viewer")}</option>
                         </select>
                       </td>
                       <td>
@@ -623,7 +649,7 @@ function AccountsPane({ profiles, accountsState, reloadAccounts }) {
                           onChange={(e) => handleProfileChange(u.username, e.target.value)}
                           disabled={isAdmin}
                         >
-                          <option value="">{isAdmin ? "— accès total —" : "Aucun accès"}</option>
+                          <option value="">{isAdmin ? tr("vpr.fullAccess") : tr("vpr.level.none")}</option>
                           {profiles.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.name}
@@ -637,16 +663,16 @@ function AccountsPane({ profiles, accountsState, reloadAccounts }) {
                           className="vanitas-ghost-btn"
                           onClick={() => handleResetPassword(u.username)}
                           disabled={isSelf}
-                          title={isSelf ? "Change ton propre mot de passe depuis Paramètres → Mon compte." : undefined}
+                          title={isSelf ? tr("vpr.selfPassword") : undefined}
                         >
-                          Réinit. mot de passe
+                          {tr("vpr.resetPassword")}
                         </button>
                         <ConfirmButton
-                          label="Supprimer"
-                          confirmLabel="Confirmer ?"
+                          label={tr("vpr.delete")}
+                          confirmLabel={tr("v.confirm")}
                           className="vanitas-danger-btn"
                           disabled={isSelf}
-                          title={isSelf ? "Impossible de supprimer son propre compte depuis cette page." : undefined}
+                          title={isSelf ? tr("vpr.selfDelete") : undefined}
                           onConfirm={() => handleDelete(u.username)}
                         />
                       </td>
@@ -718,19 +744,22 @@ export default function VanitasProfilesTab() {
     <div className="vanitas-hud">
       <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginBottom: "20px" }}>
         <p className="vanitas-hud-empty-note" style={{ margin: 0 }}>
-          Un <b>profil</b> regroupe des permissions lecture/lecture-écriture par fonctionnalité
-          Vanitas — un compte <b>admin</b> garde un accès total automatique, sans profil ; un
-          compte <b>lecture seule</b> SANS profil assigné n'a AUCUN accès à Vanitas (refus par
-          défaut) tant qu'un profil ne lui est pas donné ici.
+          {trRich("vpr.intro", {
+            profile: <b>{tr("vpr.intro.profile")}</b>,
+            admin: <b>admin</b>,
+            viewer: <b>{tr("vpr.intro.viewer")}</b>,
+          })}
         </p>
       </div>
 
       <div className="vanitas-hud-chips" style={{ marginBottom: "20px" }}>
         <button type="button" className={`vanitas-hud-chip${tab === "profiles" ? " active" : ""}`} onClick={() => setTab("profiles")}>
-          <span className="led" />PROFILS
+          <span className="led" />
+          {tr("vpr.tab.profiles")}
         </button>
         <button type="button" className={`vanitas-hud-chip${tab === "accounts" ? " active" : ""}`} onClick={() => setTab("accounts")}>
-          <span className="led" />COMPTES
+          <span className="led" />
+          {tr("vpr.tab.accounts")}
         </button>
       </div>
 

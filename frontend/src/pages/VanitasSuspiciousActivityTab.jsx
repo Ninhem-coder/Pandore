@@ -13,6 +13,8 @@ import {
 import { ALERT_SEVERITY_COLORS, ALERT_SEVERITY_LABEL } from "../theme.js";
 import { api } from "../api.js";
 import { ConfirmButton, fmtDateTime, fmtRelative, hasVanitasAccess, VanitasWizardShell } from "./vanitasShared.jsx";
+import { localizedTable, tr } from "../i18n/core.js";
+import { trRich } from "../i18n/rich.jsx";
 
 /**
  * Onglet transverse "Activités suspectes" (jalon "détection d'activités suspectes sur les
@@ -36,17 +38,12 @@ import { ConfirmButton, fmtDateTime, fmtRelative, hasVanitasAccess, VanitasWizar
  * au vocabulaire de sévérité de ce jalon (low/med/high), pas besoin d'un mapping supplémentaire.
  */
 
-export const SEVERITY_LABEL_FR = { low: "Faible", med: "Moyenne", high: "Élevée" };
+export const SEVERITY_LABEL = localizedTable("vs.sev", ["low", "med", "high"]);
 // `.vanitas-hud-sev-pill` (styles.css) attend low/medium/high — "med" est la seule chaîne du
 // vocabulaire backend qui ne coïncide pas lettre à lettre avec sa classe CSS existante.
 const SEVERITY_PILL_TONE = { low: "low", med: "medium", high: "high" };
 
-export const SIGNAL_TYPE_LABEL_FR = {
-  process: "Processus",
-  event_log: "Journal d'événements",
-  network: "Réseau",
-  usb: "Support amovible (USB)",
-};
+export const SIGNAL_TYPE_LABEL = localizedTable("vs.signal", ["process", "event_log", "network", "usb"]);
 // Couleurs = jetons --hud-* déjà existants (jamais inventées), un signal = une teinte, même
 // esprit que CATEGORY_META de VanitasActivityLogTab.jsx.
 const SIGNAL_TYPE_COLOR = {
@@ -56,12 +53,7 @@ const SIGNAL_TYPE_COLOR = {
   usb: "var(--hud-good)",
 };
 
-export const STATUS_LABEL_FR = {
-  new: "Nouveau",
-  acknowledged: "Accusé réception",
-  false_positive: "Faux positif",
-  escalated: "Escaladé",
-};
+export const STATUS_LABEL = localizedTable("vs.status", ["new", "acknowledged", "false_positive", "escalated"]);
 // `.vanitas-hud-status-pill` (styles.css) — classes déjà utilisées ailleurs pour un statut de
 // commande (ok/bad/pending), réemployées ici pour un statut de triage plutôt que d'inventer une
 // 2e famille de pastilles de statut.
@@ -71,10 +63,20 @@ const SIGNAL_TYPE_OPTIONS = ["process", "event_log", "network", "usb"];
 const SEVERITY_OPTIONS = ["high", "med", "low"];
 const STATUS_OPTIONS = ["new", "acknowledged", "false_positive", "escalated"];
 const RANGE_OPTIONS = [
-  { key: "7", label: "7 jours", days: 7 },
-  { key: "30", label: "30 jours", days: 30 },
-  { key: "90", label: "90 jours", days: 90 },
-  { key: "all", label: "Tout", days: null },
+  ...[7, 30, 90].map((days) => ({
+    key: String(days),
+    get label() {
+      return tr("vs.range.days", { count: days });
+    },
+    days,
+  })),
+  {
+    key: "all",
+    get label() {
+      return tr("vs.range.all");
+    },
+    days: null,
+  },
 ];
 
 export function sinceIsoFor(rangeKey) {
@@ -105,7 +107,7 @@ export function prettyDetail(detail) {
 export function SeverityPill({ severity }) {
   return (
     <span className={`vanitas-hud-sev-pill ${SEVERITY_PILL_TONE[severity] ?? "neutral"}`}>
-      {SEVERITY_LABEL_FR[severity] ?? severity}
+      {SEVERITY_LABEL[severity] ?? severity}
     </span>
   );
 }
@@ -113,7 +115,7 @@ export function SeverityPill({ severity }) {
 export function StatusPill({ status }) {
   return (
     <span className={`vanitas-hud-status-pill ${STATUS_PILL_TONE[status] ?? "warn"}`}>
-      {STATUS_LABEL_FR[status] ?? status}
+      {STATUS_LABEL[status] ?? status}
     </span>
   );
 }
@@ -122,7 +124,7 @@ export function SignalTypeBadge({ signalType }) {
   const color = SIGNAL_TYPE_COLOR[signalType] ?? "var(--hud-ink-faint)";
   return (
     <span className="badge" style={{ background: "rgba(255,255,255,.06)", color }}>
-      {SIGNAL_TYPE_LABEL_FR[signalType] ?? signalType}
+      {SIGNAL_TYPE_LABEL[signalType] ?? signalType}
     </span>
   );
 }
@@ -165,9 +167,9 @@ export function SuspiciousEventsTable({ events, loading, error, onSelect, showHo
   }
 
   if (error) return <p className="vanitas-hud-error">{error}</p>;
-  if (loading) return <p className="vanitas-hud-empty-note">CHARGEMENT…</p>;
+  if (loading) return <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>;
   if (sorted.length === 0) {
-    return <p className="vanitas-hud-empty-note">Aucun événement suspect ne correspond à ce filtre.</p>;
+    return <p className="vanitas-hud-empty-note">{tr("vs.noEvent")}</p>;
   }
 
   return (
@@ -176,22 +178,22 @@ export function SuspiciousEventsTable({ events, loading, error, onSelect, showHo
         <thead>
           <tr>
             <th className={`sortable${sortKey === "severity" ? " sorted" : ""}`} onClick={() => handleSort("severity")}>
-              Sévérité <span className="arrow">{arrow("severity")}</span>
+              {tr("vs.col.severity")} <span className="arrow">{arrow("severity")}</span>
             </th>
             {showHost && (
               <th className={`sortable${sortKey === "hostname" ? " sorted" : ""}`} onClick={() => handleSort("hostname")}>
-                Poste <span className="arrow">{arrow("hostname")}</span>
+                {tr("vs.col.endpoint")} <span className="arrow">{arrow("hostname")}</span>
               </th>
             )}
             <th className={`sortable${sortKey === "signal_type" ? " sorted" : ""}`} onClick={() => handleSort("signal_type")}>
-              Signal <span className="arrow">{arrow("signal_type")}</span>
+              {tr("vs.col.signal")} <span className="arrow">{arrow("signal_type")}</span>
             </th>
-            <th>Règle / résumé</th>
+            <th>{tr("vs.col.rule")}</th>
             <th className={`sortable${sortKey === "status" ? " sorted" : ""}`} onClick={() => handleSort("status")}>
-              Statut <span className="arrow">{arrow("status")}</span>
+              {tr("vs.col.status")} <span className="arrow">{arrow("status")}</span>
             </th>
             <th className={`sortable${sortKey === "occurred_at" ? " sorted" : ""}`} onClick={() => handleSort("occurred_at")}>
-              Survenu le <span className="arrow">{arrow("occurred_at")}</span>
+              {tr("vs.col.occurred")} <span className="arrow">{arrow("occurred_at")}</span>
             </th>
           </tr>
         </thead>
@@ -240,7 +242,7 @@ function DefenderCorrelationBlock({ eventId }) {
 
   const entry = correlation.state[eventId];
   if (!entry || entry.loading) {
-    return <p className="vanitas-hud-empty-note">Corrélation Defender — chargement…</p>;
+    return <p className="vanitas-hud-empty-note">{tr("vs.defenderLoading")}</p>;
   }
   if (entry.error) {
     return <p className="vanitas-hud-error">{entry.error}</p>;
@@ -252,15 +254,14 @@ function DefenderCorrelationBlock({ eventId }) {
   if (!defender?.found) {
     return (
       <p className="vanitas-hud-empty-note">
-        Ce poste n'a pas été retrouvé sur Microsoft Defender for Endpoint
-        {defender?.error ? ` (${defender.error})` : ""}.
+        {tr("vs.defenderNotFound", { error: defender?.error ? ` (${defender.error})` : "" })}
       </p>
     );
   }
 
   const alerts = defender.alerts ?? [];
   if (alerts.length === 0) {
-    return <p className="vanitas-hud-empty-note">Aucune alerte Defender active sur ce poste actuellement.</p>;
+    return <p className="vanitas-hud-empty-note">{tr("vs.defenderNoAlert")}</p>;
   }
 
   return (
@@ -318,7 +319,7 @@ function PriorAlertsBlock({ event }) {
   }, [event.id, event.agent_id, event.occurred_at]);
 
   if (state.status === "loading") {
-    return <p className="vanitas-hud-empty-note">Chargement…</p>;
+    return <p className="vanitas-hud-empty-note">{tr("vs.loading")}</p>;
   }
   if (state.status === "error") {
     return null; // Contexte optionnel — jamais bloquant pour le reste du panneau.
@@ -326,7 +327,7 @@ function PriorAlertsBlock({ event }) {
   if (state.data.length === 0) {
     return (
       <p className="vanitas-hud-empty-note">
-        Aucune autre alerte sur ce poste dans les {PRIOR_ALERTS_WINDOW_HOURS}h précédentes.
+        {tr("vs.noPrior", { hours: PRIOR_ALERTS_WINDOW_HOURS })}
       </p>
     );
   }
@@ -412,32 +413,32 @@ function ContainmentControls({ event, onIsolationChanged }) {
 
   return (
     <>
-      <p className="vanitas-cmd-detail-section-title">Actions de confinement</p>
+      <p className="vanitas-cmd-detail-section-title">{tr("vs.containment")}</p>
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginBottom: "8px" }}>
         {canKill && (
           <ConfirmButton
             className="vanitas-danger-btn"
-            label={state.busy === "kill_process" ? "Envoi…" : "Tuer le process"}
-            confirmLabel={`Confirmer ? (PID ${event.detail?.pid ?? "inconnu"})`}
+            label={state.busy === "kill_process" ? tr("vs.sending") : tr("vs.kill")}
+            confirmLabel={tr("vs.killConfirm", { pid: event.detail?.pid ?? tr("vs.unknown") })}
             disabled={state.busy !== null}
             onConfirm={() => runCommand("kill_process")}
           />
         )}
         {!agentsReady ? (
-          <span className="vanitas-hud-card-note">État réseau : chargement…</span>
+          <span className="vanitas-hud-card-note">{tr("vs.netLoading")}</span>
         ) : isIsolated ? (
           <ConfirmButton
             className="vanitas-queue-btn"
-            label={state.busy === "lift_isolation" ? "Envoi…" : "Lever l'isolement"}
-            confirmLabel="Confirmer la levée ?"
+            label={state.busy === "lift_isolation" ? tr("vs.sending") : tr("vs.lift")}
+            confirmLabel={tr("vs.liftConfirm")}
             disabled={state.busy !== null}
             onConfirm={() => runCommand("lift_isolation")}
           />
         ) : (
           <ConfirmButton
             className="vanitas-danger-btn"
-            label={state.busy === "isolate_network" ? "Envoi…" : "Isoler le réseau"}
-            confirmLabel="Confirmer l'isolement ?"
+            label={state.busy === "isolate_network" ? tr("vs.sending") : tr("vs.isolate")}
+            confirmLabel={tr("vs.isolateConfirm")}
             disabled={state.busy !== null}
             onConfirm={() => runCommand("isolate_network")}
           />
@@ -445,7 +446,9 @@ function ContainmentControls({ event, onIsolationChanged }) {
       </div>
       {isIsolated && (
         <p className="vanitas-hud-card-note" style={{ marginBottom: "8px" }}>
-          Poste isolé du réseau{agent.network_isolated_by ? ` par ${agent.network_isolated_by}` : ""}, {fmtRelative(agent.network_isolated_at)}.
+          {agent.network_isolated_by
+            ? tr("vs.isolatedBy", { by: agent.network_isolated_by, when: fmtRelative(agent.network_isolated_at) })
+            : tr("vs.isolated", { when: fmtRelative(agent.network_isolated_at) })}
         </p>
       )}
       {state.error && <p className="error-note">{state.error}</p>}
@@ -525,7 +528,7 @@ export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolat
         <div className="vanitas-wiz-header-text">
           <h2>{current.summary || current.matched_rule}</h2>
           <p>
-            {current.hostname} · {SIGNAL_TYPE_LABEL_FR[current.signal_type] ?? current.signal_type}
+            {current.hostname} · {SIGNAL_TYPE_LABEL[current.signal_type] ?? current.signal_type}
           </p>
         </div>
       </div>
@@ -534,52 +537,52 @@ export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolat
         <div className="vanitas-cmd-detail-meta">
           <StatusPill status={current.status} />
           <span className="vanitas-cmd-detail-meta-item">
-            Règle : <b>{current.matched_rule}</b>
+            {trRich("vs.rule", { rule: <b>{current.matched_rule}</b> })}
           </span>
           <span className="vanitas-cmd-detail-meta-item">
-            Survenu le <b>{fmtDateTime(current.occurred_at)}</b>
+            {trRich("vs.occurredOn", { date: <b>{fmtDateTime(current.occurred_at)}</b> })}
           </span>
           <span className="vanitas-cmd-detail-meta-item">
-            Reçu le <b>{fmtDateTime(current.received_at)}</b>
+            {trRich("vs.receivedOn", { date: <b>{fmtDateTime(current.received_at)}</b> })}
           </span>
         </div>
 
         {current.handled_by && (
           <>
-            <p className="vanitas-cmd-detail-section-title">Historique de triage</p>
+            <p className="vanitas-cmd-detail-section-title">{tr("vs.triageHistory")}</p>
             <p className="vanitas-hud-card-note">
-              Traité par <b>{current.handled_by}</b> le {fmtDateTime(current.handled_at)}
-              {current.handled_note ? ` — « ${current.handled_note} »` : ""}
+              {trRich("vs.handledBy", { by: <b>{current.handled_by}</b>, date: fmtDateTime(current.handled_at) })}
+              {current.handled_note ? tr("vs.quotedNote", { note: current.handled_note }) : ""}
             </p>
           </>
         )}
 
-        <p className="vanitas-cmd-detail-section-title">Détail</p>
+        <p className="vanitas-cmd-detail-section-title">{tr("vs.detail")}</p>
         {detailText ? (
           <pre className="vanitas-cmd-detail-pre">{detailText}</pre>
         ) : (
           <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-            Aucun détail structuré supplémentaire pour cet événement.
+            {tr("vs.noDetail")}
           </p>
         )}
 
         <p className="vanitas-cmd-detail-section-title">
-          Alertes précédentes sur ce poste ({PRIOR_ALERTS_WINDOW_HOURS}h avant)
+          {tr("vs.prior", { hours: PRIOR_ALERTS_WINDOW_HOURS })}
         </p>
         <PriorAlertsBlock event={current} />
 
-        <p className="vanitas-cmd-detail-section-title">Corrélation Defender</p>
+        <p className="vanitas-cmd-detail-section-title">{tr("vs.defender")}</p>
         <DefenderCorrelationBlock eventId={current.id} />
 
         <ContainmentControls event={current} onIsolationChanged={onIsolationChanged} />
 
         {canWrite && (
           <>
-            <p className="vanitas-cmd-detail-section-title">Traiter cet événement</p>
+            <p className="vanitas-cmd-detail-section-title">{tr("vs.handle")}</p>
             <textarea
               className="filter-input"
               style={{ width: "100%", minHeight: "60px", marginBottom: "10px" }}
-              placeholder="Note de triage (optionnelle)"
+              placeholder={tr("vs.notePlaceholder")}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               disabled={busy !== null}
@@ -597,7 +600,7 @@ export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolat
                 onClick={() => applyStatus("acknowledged")}
                 disabled={busy !== null || current.status !== "new"}
               >
-                {busy === "acknowledged" ? "Envoi…" : "Accuser réception"}
+                {busy === "acknowledged" ? tr("vs.sending") : tr("vs.ack")}
               </button>
               <button
                 type="button"
@@ -605,7 +608,7 @@ export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolat
                 onClick={() => applyStatus("false_positive")}
                 disabled={busy !== null || !canTransitionFurther}
               >
-                {busy === "false_positive" ? "Envoi…" : "Faux positif"}
+                {busy === "false_positive" ? tr("vs.sending") : tr("vs.fp")}
               </button>
               <button
                 type="button"
@@ -613,12 +616,12 @@ export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolat
                 onClick={() => applyStatus("escalated")}
                 disabled={busy !== null || !canTransitionFurther}
               >
-                {busy === "escalated" ? "Envoi…" : "Escalader"}
+                {busy === "escalated" ? tr("vs.sending") : tr("vs.escalate")}
               </button>
             </div>
             {!canTransitionFurther && (
               <p className="vanitas-hud-card-note" style={{ marginTop: "8px" }}>
-                Déjà traité — plus aucune transition possible depuis « {STATUS_LABEL_FR[current.status]} ».
+                {tr("vs.terminal", { status: STATUS_LABEL[current.status] })}
               </p>
             )}
             {error && <p className="error-note">{error}</p>}
@@ -653,7 +656,7 @@ function IsolatedDevicesPanel({ onOpenEvent, onIsolationChanged }) {
   const [error, setError] = useState(null);
 
   if (agents.state.status === "loading") {
-    return <p className="vanitas-hud-empty-note">CHARGEMENT…</p>;
+    return <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>;
   }
 
   const isolated = (agents.state.data ?? []).filter((a) => a.network_isolated);
@@ -686,21 +689,21 @@ function IsolatedDevicesPanel({ onOpenEvent, onIsolationChanged }) {
     <div className="vanitas-hud-card vanitas-hud-frame">
       <div className="vanitas-hud-card-head">
         <h2>
-          {isolated.length} poste{isolated.length > 1 ? "s" : ""} sous isolement réseau
+          {tr("vs.isolatedCount", { count: isolated.length })}
         </h2>
       </div>
       {error && <p className="error-note">{error}</p>}
       {isolated.length === 0 ? (
-        <p className="vanitas-hud-empty-note">Aucun poste isolé actuellement.</p>
+        <p className="vanitas-hud-empty-note">{tr("vs.noIsolated")}</p>
       ) : (
         <div className="vanitas-hud-table-wrap">
           <table className="vanitas-hud-table">
             <thead>
               <tr>
-                <th>Poste</th>
-                <th>Raison</th>
-                <th>Isolé par</th>
-                <th>Depuis</th>
+                <th>{tr("vs.col.endpoint")}</th>
+                <th>{tr("vs.col.reason")}</th>
+                <th>{tr("vs.col.isolatedBy")}</th>
+                <th>{tr("vs.col.since")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -718,10 +721,10 @@ function IsolatedDevicesPanel({ onOpenEvent, onIsolationChanged }) {
                         onClick={() => openReason(a)}
                         onKeyDown={(e) => e.key === "Enter" && openReason(a)}
                       >
-                        {a.network_isolated_reason ?? "Isolement manuel"}
+                        {a.network_isolated_reason ?? tr("vs.manual")}
                       </span>
                     ) : (
-                      a.network_isolated_reason ?? "Isolement manuel"
+                      a.network_isolated_reason ?? tr("vs.manual")
                     )}
                   </td>
                   <td>{a.network_isolated_by ?? "—"}</td>
@@ -730,8 +733,8 @@ function IsolatedDevicesPanel({ onOpenEvent, onIsolationChanged }) {
                     {canContain && (
                       <ConfirmButton
                         className="vanitas-queue-btn"
-                        label={busyId === a.id ? "Envoi…" : "Lever l'isolement"}
-                        confirmLabel="Confirmer ?"
+                        label={busyId === a.id ? tr("vs.sending") : tr("vs.lift")}
+                        confirmLabel={tr("v.confirm")}
                         disabled={busyId !== null}
                         onConfirm={() => liftFor(a)}
                       />
@@ -794,13 +797,13 @@ export default function VanitasSuspiciousActivityTab() {
     setExportState({ status: "exporting", error: null });
     try {
       await exportSuspiciousEventsToExcel(filtered, {
-        severity: SEVERITY_LABEL_FR,
-        signalType: SIGNAL_TYPE_LABEL_FR,
-        status: STATUS_LABEL_FR,
+        severity: SEVERITY_LABEL,
+        signalType: SIGNAL_TYPE_LABEL,
+        status: STATUS_LABEL,
       });
       setExportState({ status: "idle", error: null });
     } catch (err) {
-      setExportState({ status: "idle", error: err.message || "Échec de l'export Excel." });
+      setExportState({ status: "idle", error: err.message || tr("v.exportFailed") });
     }
   }
 
@@ -815,14 +818,14 @@ export default function VanitasSuspiciousActivityTab() {
           className={`vanitas-tab-btn${pageTab === "alerts" ? " active" : ""}`}
           onClick={() => setPageTab("alerts")}
         >
-          Alertes
+          {tr("vs.tab.alerts")}
         </button>
         <button
           type="button"
           className={`vanitas-tab-btn${pageTab === "isolated" ? " active" : ""}`}
           onClick={() => setPageTab("isolated")}
         >
-          Postes isolés
+          {tr("vs.tab.isolated")}
           {isolatedCount > 0 && <span className="vanitas-tab-btn-badge">{isolatedCount}</span>}
         </button>
       </div>
@@ -832,14 +835,14 @@ export default function VanitasSuspiciousActivityTab() {
       ) : (
         <>
           <div className="strip" style={{ marginBottom: "20px" }}>
-            <SummaryCard title="Sévérité élevée" value={bySeverity.high ?? 0} tone="danger" hint="événements" />
-            <SummaryCard title="Sévérité moyenne" value={bySeverity.med ?? 0} tone="warning" hint="événements" />
-            <SummaryCard title="Sévérité faible" value={bySeverity.low ?? 0} tone="good" hint="événements" />
+            <SummaryCard title={tr("vs.kpi.high")} value={bySeverity.high ?? 0} tone="danger" hint={tr("vs.kpi.events")} />
+            <SummaryCard title={tr("vs.kpi.med")} value={bySeverity.med ?? 0} tone="warning" hint={tr("vs.kpi.events")} />
+            <SummaryCard title={tr("vs.kpi.low")} value={bySeverity.low ?? 0} tone="good" hint={tr("vs.kpi.events")} />
             <SummaryCard
-              title="Non traités"
+              title={tr("vs.kpi.untriaged")}
               value={byStatus.new ?? 0}
               tone={(byStatus.new ?? 0) > 0 ? "danger" : "good"}
-              hint="statut « nouveau »"
+              hint={tr("vs.kpi.newStatus")}
             />
           </div>
 
@@ -848,33 +851,33 @@ export default function VanitasSuspiciousActivityTab() {
           <span className="prompt">&gt;</span>
           <input
             type="text"
-            placeholder="Rechercher (poste, résumé, règle)…"
+            placeholder={tr("vs.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
           />
         </div>
         <select className="filter-input" value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}>
-          <option value="all">Toute sévérité</option>
+          <option value="all">{tr("vs.anySeverity")}</option>
           {SEVERITY_OPTIONS.map((s) => (
             <option key={s} value={s}>
-              {SEVERITY_LABEL_FR[s]}
+              {SEVERITY_LABEL[s]}
             </option>
           ))}
         </select>
         <select className="filter-input" value={signalFilter} onChange={(e) => setSignalFilter(e.target.value)}>
-          <option value="all">Tout signal</option>
+          <option value="all">{tr("vs.anySignal")}</option>
           {SIGNAL_TYPE_OPTIONS.map((s) => (
             <option key={s} value={s}>
-              {SIGNAL_TYPE_LABEL_FR[s]}
+              {SIGNAL_TYPE_LABEL[s]}
             </option>
           ))}
         </select>
         <select className="filter-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="all">Tout statut</option>
+          <option value="all">{tr("vs.anyStatus")}</option>
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>
-              {STATUS_LABEL_FR[s]}
+              {STATUS_LABEL[s]}
             </option>
           ))}
         </select>
@@ -893,7 +896,7 @@ export default function VanitasSuspiciousActivityTab() {
           disabled={exportState.status === "exporting"}
         >
           <IconDownload />
-          {exportState.status === "exporting" ? "Export…" : "Exporter Excel"}
+          {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
         </button>
       </div>
       {exportState.error && <p className="error-note" style={{ margin: "0 0 12px" }}>{exportState.error}</p>}
