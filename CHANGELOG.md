@@ -8,6 +8,11 @@ changes are listed under *Unreleased* until the first public version.
 
 ### Added
 
+- **Demo mode** (`npm run demo`): the dashboard runs entirely in the browser with a generated,
+  fictional and deterministic dataset — no backend, tenant or secret. A "Mode démo" badge marks
+  every page; writes are refused. `npm run build:demo` produces a static demo build. The README
+  screenshots are captured from it (`frontend/scripts/capture-screenshots.ps1`). See
+  [docs/demo.md](docs/demo.md).
 - English documentation: README, architecture, installation, configuration and usage guides,
   diagrams (`docs/images/`), contribution guide, security policy, code of conduct, issue and
   pull request templates, and a GitHub Actions workflow for the backend, dashboard and Vanitas
