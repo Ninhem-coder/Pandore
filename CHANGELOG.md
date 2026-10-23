@@ -48,6 +48,11 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas updates redesigned** as list + detail: a summary band (the six patch states in one bar
+  with a clickable legend, pending fixes, active policies), an "Endpoints / Policies by group"
+  switch on the list, and the detail in a side panel instead of a popup and a side column. The
+  reboot window is drawn on a 24-hour strip (readable across midnight) for an endpoint and while
+  editing a group policy.
 - **Vanitas deployed applications redesigned** as list + detail: a summary band (installations
   split into succeeded / pending / failed with a clickable legend, success rate excluding pending,
   targeted endpoints), a list with a per-application split bar (failures first) and the detail in
