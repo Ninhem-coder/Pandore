@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import { IconDownload } from "../components/icons.jsx";
 import { exportVulnerabilitiesToExcel } from "../export.js";
 import { isErrorPayload, useVanitasAgents, useVanitasCveAvis } from "../hooks/useDashboardData.js";
 import { VanitasWizardShell, fmtDate, severityLabelFr, severityTone } from "./vanitasShared.jsx";
-import { tr } from "../i18n/core.js";
+import { CVE_SEVERITY_COLORS } from "../theme.js";
+import { currentLocale, tr } from "../i18n/core.js";
 
 const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 // "Concerné" (bad) avant "Indéterminé" (warn) avant "Exclu" (good) — le plus urgent d'abord,
@@ -39,23 +40,30 @@ function DeviceRow({ device }) {
   );
 }
 
+// Couleur par sévérité CVE — palette PARTAGÉE avec la page Vulnérabilités de Pandore
+// (`CVE_SEVERITY_COLORS`, theme.js), jamais une palette propre à cette page.
+const SEVERITY_THEME_KEY = { CRITICAL: "Critical", HIGH: "High", MEDIUM: "Medium", LOW: "Low" };
+function severityColor(severity) {
+  return CVE_SEVERITY_COLORS[SEVERITY_THEME_KEY[(severity || "").toUpperCase()]] ?? CVE_SEVERITY_COLORS.Unknown;
+}
+
+function fmtCvss(score) {
+  return score == null ? "—" : Number(score).toLocaleString(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
 /**
- * Popup de détail d'une CVE (2026-09-10, maquette validée par Nicolas puis enrichie
- * "description, plan d'action en se basant sur le cert-fr") — même chrome `VanitasWizardShell`
- * que les autres popups Vanitas. Trois sections : produit(s) concerné(s), description/plan
- * d'action tiré d'un avis CERT-FR s'il en existe un (voir `useVanitasCveAvis` /
- * `defender/anssi.py::get_cve_avis` — recherche DIRECTE par CVE, indépendante du rapprochement
- * par nom de logiciel déjà utilisé côté Pandore), et les appareils exposés (filtrables par
- * statut + recherche si la liste est longue).
- *
- * EXPORTÉE (2026-09-11) et réutilisée TELLE QUELLE par `VanitasDeviceDetail.jsx` — même motif
- * déjà établi côté Pandore (`VulnerabilitiesTab.jsx::CveDetailModal` réutilisée par
- * `DeviceOverviewTab.jsx` avec une prop `deviceScope`) : `deviceScope` (nom d'hôte) masque la
- * section "Appareils exposés" — sur la fiche d'UN SEUL poste, cette section serait redondante
- * (le lecteur est déjà sur ce poste) — le reste (produits concernés, description/plan CERT-FR,
- * lien NVD) reste identique dans les deux contextes.
+ * Détail d'une CVE (2026-09-10, maquette validée par Nicolas puis enrichie "description, plan
+ * d'action en se basant sur le cert-fr") : produit(s) concerné(s), description/plan d'action tiré
+ * d'un avis CERT-FR s'il en existe un (voir `useVanitasCveAvis` / `defender/anssi.py::
+ * get_cve_avis` — recherche DIRECTE par CVE, indépendante du rapprochement par nom de logiciel
+ * déjà utilisé côté Pandore), et les appareils exposés (filtrables par statut + recherche si la
+ * liste est longue). Deux habillages (refonte 2026-10-23) :
+ * - `variant="modal"` : popup `VanitasWizardShell`, EXPORTÉE (`CveDetailModal`) et réutilisée
+ *   par `VanitasDeviceDetail.jsx` avec `deviceScope` (nom d'hôte) qui masque "Appareils
+ *   exposés" — sur la fiche d'UN SEUL poste, cette section serait redondante ;
+ * - `variant="panel"` : panneau latéral de la page "Vulnérabilités" (liste + détail).
  */
-export function CveDetailModal({ group, onClose, deviceScope }) {
+function CveDetail({ group, onClose, deviceScope, variant }) {
   const avis = useVanitasCveAvis();
   const [statusFilter, setStatusFilter] = useState("all");
   const [query, setQuery] = useState("");
@@ -99,11 +107,123 @@ export function CveDetailModal({ group, onClose, deviceScope }) {
       <button
         type="button"
         className={`vanitas-vuln-pill ${status}${statusFilter === status ? " active" : ""}`}
+        aria-pressed={statusFilter === status}
         onClick={() => setStatusFilter(status)}
       >
         <span className="dot" />
         {count} {label}
       </button>
+    );
+  }
+
+  const products = (
+    <div>
+      <p className="filter-chip-group-label">{tr("vv.products")}</p>
+      <div className="vanitas-vuln-product-list">
+        {group.products.map((p) => (
+          <div key={`${p.name}-${p.version}`} className="vanitas-vuln-product-row">
+            <b>{p.name}</b> <span>{tr("vv.refVersion", { version: p.version || "—" })}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const certfrBlock = (
+    <div>
+      <p className="filter-chip-group-label">{tr("vv.certfrTitle")}</p>
+      {certfrLoading ? (
+        <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
+          {tr("vv.certfrLoading")}
+        </p>
+      ) : certfr ? (
+        <div className="vanitas-vuln-certfr-block">
+          <div className="vanitas-vuln-certfr-ref-row">
+            <span className="vanitas-vuln-certfr-ref">{certfr.certfr_ref}</span>
+            <span className="cve-small">{tr("vv.certfrPublished", { date: fmtDate(certfr.published) })}</span>
+          </div>
+          <div className="vanitas-vuln-certfr-title">{certfr.title}</div>
+          {certfr.summary && (
+            <>
+              <p className="vanitas-vuln-certfr-sub">{tr("vv.summary")}</p>
+              <p className="vanitas-vuln-certfr-text">{certfr.summary}</p>
+            </>
+          )}
+          {certfr.solution && (
+            <>
+              <p className="vanitas-vuln-certfr-sub">{tr("vv.actionPlan")}</p>
+              <p className="vanitas-vuln-certfr-solution">{certfr.solution}</p>
+            </>
+          )}
+          <a className="vanitas-vuln-certfr-link" href={certfr.url} target="_blank" rel="noopener noreferrer">
+            {tr("vv.originalAdvisory")}
+          </a>
+        </div>
+      ) : (
+        <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
+          {tr("vv.noCertfr")}
+        </p>
+      )}
+    </div>
+  );
+
+  const devices = !deviceScope && (
+    <div>
+      <p className="filter-chip-group-label">{tr("vv.exposedDevices", { count: group.devices.length })}</p>
+      <div className="vanitas-vuln-summary">
+        {pill("all", tr("vv.pill.all"), group.devices.length)}
+        {pill("bad", tr("vv.pill.bad", { count: counts.bad }), counts.bad)}
+        {pill("warn", tr("vv.pill.warn"), counts.warn)}
+        {pill("good", tr("vv.pill.good", { count: counts.good }), counts.good)}
+      </div>
+      {group.devices.length > 4 && (
+        <div className="vanitas-hud-search vanitas-vuln-search">
+          <span className="prompt">&gt;</span>
+          <input
+            type="text"
+            placeholder={tr("vv.searchDevice")}
+            aria-label={tr("vv.searchDevice")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
+      )}
+      <div className="vanitas-vuln-device-list">
+        {filteredDevices.length === 0 ? (
+          <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
+            {tr("vv.noDeviceMatch")}
+          </p>
+        ) : (
+          filteredDevices.map((d) => <DeviceRow key={`${d.agentId}-${d.product_name}`} device={d} />)
+        )}
+      </div>
+    </div>
+  );
+
+  const nvdLink = (
+    <a className="vanitas-vuln-nvd-link" href={`https://nvd.nist.gov/vuln/detail/${group.cve_id}`} target="_blank" rel="noopener noreferrer">
+      {tr("vv.viewNvd")}
+    </a>
+  );
+
+  if (variant === "panel") {
+    const color = severityColor(group.severity);
+    return (
+      <aside className="vvp-card vvp-detail" aria-label={tr("vv.detailAria")} style={{ "--sev": color }}>
+        <div className="vvp-detail-head">
+          <div className="vvp-detail-title">
+            <h2>{group.cve_id}</h2>
+            <span className="vvp-sub">{tr("vv.publishedOn", { date: fmtDate(group.published) })}</span>
+          </div>
+          <span className="vvp-score">CVSS {fmtCvss(group.cvss_score)}</span>
+          <span className="vvp-sev">{severityLabelFr(group.severity)}</span>
+        </div>
+        {products}
+        {certfrBlock}
+        {devices}
+        <div className="vvp-detail-foot">{nvdLink}</div>
+      </aside>
     );
   }
 
@@ -128,96 +248,11 @@ export function CveDetailModal({ group, onClose, deviceScope }) {
           <span className={`vanitas-hud-sev-pill ${severityTone(group.severity)}`}>{severityLabelFr(group.severity)}</span>
           <span className="vanitas-vuln-meta-badge">{tr("vv.publishedOn", { date: fmtDate(group.published) })}</span>
         </div>
-
-        <div>
-          <p className="filter-chip-group-label">{tr("vv.products")}</p>
-          <div className="vanitas-vuln-product-list">
-            {group.products.map((p) => (
-              <div key={`${p.name}-${p.version}`} className="vanitas-vuln-product-row">
-                <b>{p.name}</b> <span>{tr("vv.refVersion", { version: p.version || "—" })}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="filter-chip-group-label">{tr("vv.certfrTitle")}</p>
-          {certfrLoading ? (
-            <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-              {tr("vv.certfrLoading")}
-            </p>
-          ) : certfr ? (
-            <div className="vanitas-vuln-certfr-block">
-              <div className="vanitas-vuln-certfr-ref-row">
-                <span className="vanitas-vuln-certfr-ref">{certfr.certfr_ref}</span>
-                <span className="cve-small">{tr("vv.certfrPublished", { date: fmtDate(certfr.published) })}</span>
-              </div>
-              <div className="vanitas-vuln-certfr-title">{certfr.title}</div>
-              {certfr.summary && (
-                <>
-                  <p className="vanitas-vuln-certfr-sub">{tr("vv.summary")}</p>
-                  <p className="vanitas-vuln-certfr-text">{certfr.summary}</p>
-                </>
-              )}
-              {certfr.solution && (
-                <>
-                  <p className="vanitas-vuln-certfr-sub">{tr("vv.actionPlan")}</p>
-                  <p className="vanitas-vuln-certfr-solution">{certfr.solution}</p>
-                </>
-              )}
-              <a className="vanitas-vuln-certfr-link" href={certfr.url} target="_blank" rel="noopener noreferrer">
-                {tr("vv.originalAdvisory")}
-              </a>
-            </div>
-          ) : (
-            <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-              {tr("vv.noCertfr")}
-            </p>
-          )}
-        </div>
-
-        {!deviceScope && (
-          <div>
-            <p className="filter-chip-group-label">{tr("vv.exposedDevices", { count: group.devices.length })}</p>
-            <div className="vanitas-vuln-summary">
-              {pill("all", tr("vv.pill.all"), group.devices.length)}
-              {pill("bad", tr("vv.pill.bad", { count: counts.bad }), counts.bad)}
-              {pill("warn", tr("vv.pill.warn"), counts.warn)}
-              {pill("good", tr("vv.pill.good", { count: counts.good }), counts.good)}
-            </div>
-            {group.devices.length > 4 && (
-              <div className="vanitas-hud-search vanitas-vuln-search">
-                <span className="prompt">&gt;</span>
-                <input
-                  type="text"
-                  placeholder={tr("vv.searchDevice")}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
-            )}
-            <div className="vanitas-vuln-device-list">
-              {filteredDevices.length === 0 ? (
-                <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-                  {tr("vv.noDeviceMatch")}
-                </p>
-              ) : (
-                filteredDevices.map((d) => <DeviceRow key={`${d.agentId}-${d.product_name}`} device={d} />)
-              )}
-            </div>
-          </div>
-        )}
-
+        {products}
+        {certfrBlock}
+        {devices}
         <div className="vanitas-vuln-modal-foot">
-          <a
-            className="vanitas-vuln-nvd-link"
-            href={`https://nvd.nist.gov/vuln/detail/${group.cve_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {tr("vv.viewNvd")}
-          </a>
+          {nvdLink}
           <button type="button" className="vanitas-ghost-btn" onClick={onClose}>
             {tr("vv.close")}
           </button>
@@ -227,13 +262,23 @@ export function CveDetailModal({ group, onClose, deviceScope }) {
   );
 }
 
+/** Popup de détail d'une CVE — fiche poste Vanitas (voir `CveDetail`). */
+export function CveDetailModal(props) {
+  return <CveDetail {...props} variant="modal" />;
+}
+
+const SORTS = ["sev", "cvss", "exposed", "recent"];
+
 /**
  * "Vanitas" > Sécurité > Vulnérabilités (2026-09-09, "toutes les vulnérabilités de tous les
  * postes"). Réécrite le 2026-09-10 (demande de Nicolas — "que ça concerne que les
- * vulnérabilités, les postes sont dans les appareils exposés pas dans le tableau directement" ;
- * maquette validée puis enrichie d'une description/plan d'action CERT-FR) : la table liste
- * maintenant UNE LIGNE PAR CVE (dédupliquée sur tout le parc), les postes n'apparaissent plus
- * qu'en cliquant une ligne — popup `CveDetailModal` ci-dessus.
+ * vulnérabilités, les postes sont dans les appareils exposés pas dans le tableau directement") :
+ * UNE LIGNE PAR CVE (dédupliquée sur tout le parc), les postes n'apparaissent que dans le détail.
+ *
+ * Refonte liste + détail (2026-10-23, maquette canvas validée par Nicolas) : bandeau de synthèse
+ * (CVE distinctes, répartition par sévérité — légende cliquable —, postes concernés, exposition
+ * moyenne), liste filtrable/triable à gauche, détail de la CVE sélectionnée dans un panneau
+ * latéral (plus de popup). Classes `.vvp-*`.
  *
  * Pas de route serveur "toutes les vulnérabilités du parc en une fois" côté `endpoint-agent/
  * server/app/routes/vulnerabilities.py` (seulement un agrégat top-N fleet-wide ET un détail par
@@ -246,14 +291,16 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
   const [byAgent, setByAgent] = useState({}); // { [agentId]: { status, data: [] } }
   const [query, setQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [sort, setSort] = useState("sev");
   const [selectedCveId, setSelectedCveId] = useState(null);
   // Navigation depuis la Vue d'ensemble (2026-09-11) — "Top vulnérabilités" transmet une CVE à
-  // ouvrir directement, mais la collecte par agent (byAgent, ci-dessus) est encore en vol au
-  // moment du clic : `pendingCveId` retente à chaque mise à jour de `groups` (useEffect plus
+  // sélectionner directement, mais la collecte par agent (byAgent, ci-dessus) est encore en vol
+  // au moment du clic : `pendingCveId` retente à chaque mise à jour de `groups` (useEffect plus
   // bas) plutôt que d'échouer silencieusement si la CVE n'est pas encore chargée — même
   // correctif déjà appliqué côté Pandore (VulnerabilitiesTab.jsx::pendingCveQuery, revue de
   // sécurité du 2026-09-02).
   const [pendingCveId, setPendingCveId] = useState(null);
+  const detailRef = useRef(null);
 
   useEffect(() => {
     agents.ensureLoaded();
@@ -279,8 +326,8 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
   }, [agents.state.data]);
 
   // Regroupe par CVE — une ligne = une vulnérabilité, sur TOUT le parc (pas une occurrence
-  // poste × CVE comme avant cette réécriture). `products` déduplique par (nom, version) : la
-  // même CVE peut toucher le même produit à des versions différentes selon les postes.
+  // poste × CVE). `products` déduplique par (nom, version) : la même CVE peut toucher le même
+  // produit à des versions différentes selon les postes.
   const groups = useMemo(() => {
     const byCve = new Map();
     for (const agent of agents.state.data ?? []) {
@@ -332,6 +379,8 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
     if (!pendingCveId) return;
     const found = groups.find((g) => g.cve_id === pendingCveId);
     if (found) {
+      setSeverityFilter("all");
+      setQuery("");
       setSelectedCveId(pendingCveId);
       setPendingCveId(null);
     }
@@ -362,32 +411,40 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
     const filtered = groups.filter((g) => {
       if (severityFilter !== "all" && (g.severity || "").toUpperCase() !== severityFilter) return false;
       if (!q) return true;
-      return (
-        g.cve_id.toLowerCase().includes(q) ||
-        g.products.some((p) => p.name?.toLowerCase().includes(q))
-      );
+      return g.cve_id.toLowerCase().includes(q) || g.products.some((p) => p.name?.toLowerCase().includes(q));
     });
+    const sevRank = (g) => {
+      const i = SEVERITY_ORDER.indexOf((g.severity || "").toUpperCase());
+      return i === -1 ? SEVERITY_ORDER.length : i;
+    };
     return [...filtered].sort((a, b) => {
-      const sa = SEVERITY_ORDER.indexOf((a.severity || "").toUpperCase());
-      const sb = SEVERITY_ORDER.indexOf((b.severity || "").toUpperCase());
-      const ra = sa === -1 ? SEVERITY_ORDER.length : sa;
-      const rb = sb === -1 ? SEVERITY_ORDER.length : sb;
-      if (ra !== rb) return ra - rb;
-      return (b.cvss_score ?? -1) - (a.cvss_score ?? -1);
+      if (sort === "cvss") return (b.cvss_score ?? -1) - (a.cvss_score ?? -1);
+      if (sort === "exposed") return b.devices.length - a.devices.length || (b.cvss_score ?? -1) - (a.cvss_score ?? -1);
+      if (sort === "recent") return new Date(b.published || 0) - new Date(a.published || 0);
+      return sevRank(a) - sevRank(b) || (b.cvss_score ?? -1) - (a.cvss_score ?? -1);
     });
-  }, [groups, query, severityFilter]);
+  }, [groups, query, severityFilter, sort]);
 
   const affectedHostCount = useMemo(() => {
     const hosts = new Set();
     groups.forEach((g) => g.devices.forEach((d) => hosts.add(d.hostname)));
     return hosts.size;
   }, [groups]);
-  const highOrCriticalCount = severityCounts.CRITICAL + severityCounts.HIGH;
   const avgExposure = groups.length
-    ? (groups.reduce((sum, g) => sum + g.devices.length, 0) / groups.length).toFixed(1)
+    ? (groups.reduce((sum, g) => sum + g.devices.length, 0) / groups.length).toLocaleString(currentLocale(), {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      })
     : "0";
 
-  const selectedGroup = selectedCveId ? groups.find((g) => g.cve_id === selectedCveId) ?? null : null;
+  const selectedGroup = rows.find((g) => g.cve_id === selectedCveId) ?? rows[0] ?? null;
+
+  function selectCve(id) {
+    setSelectedCveId(id);
+    if (detailRef.current && window.matchMedia?.("(max-width: 980px)").matches) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 
   const loading = agents.state.status === "loading";
   const stillCollecting = (agents.state.data ?? []).some((a) => byAgent[a.id]?.status === "loading");
@@ -395,160 +452,145 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
 
   if (loading) {
     return (
-      <div className="vanitas-hud">
+      <div className="vanitas-hud vvp">
         <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
 
+  const agentTotal = (agents.state.data ?? []).length;
+  const presentSeverities = SEVERITY_ORDER.filter((s) => severityCounts[s] > 0);
+
   return (
-    <div className="vanitas-hud">
+    <div className="vanitas-hud vvp">
       {error && <p className="vanitas-hud-error">{error}</p>}
 
-      <div className="vanitas-hud-strip">
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
-          <div className="label">
-            {tr("vv.kpi.distinct")}<span className="tag">{tr("vv.kpi.fleet")}</span>
-          </div>
-          <div className="value">{groups.length}</div>
-          <div className="bar">
-            <i style={{ width: groups.length ? "100%" : "0%" }} />
+      <section className="vvp-card vvp-sum" aria-label={tr("vv.sumAria")}>
+        <div className="vvp-sum-col">
+          <span className="vvp-lbl">{tr("vv.kpi.distinct")}</span>
+          <span className="vvp-val accent">{groups.length}</span>
+          <span className="vvp-sub vvp-small">{stillCollecting ? tr("vv.collecting") : tr("vv.fleetWide")}</span>
+        </div>
+        <div className="vvp-sum-sev">
+          <span className="vvp-lbl">{tr("vv.bySeverity")}</span>
+          <span
+            className="vvp-sum-bar"
+            role="img"
+            aria-label={presentSeverities.map((s) => tr(`vv.leg.${s}`, { count: severityCounts[s] })).join(", ")}
+          >
+            {presentSeverities.map((s) => (
+              <i key={s} style={{ flex: severityCounts[s], background: severityColor(s) }} />
+            ))}
+          </span>
+          <div className="vvp-legend">
+            {presentSeverities.length === 0
+              ? <span className="vvp-sub">—</span>
+              : presentSeverities.map((s) => (
+                  <button key={s} type="button" className="vvp-leg" onClick={() => setSeverityFilter(s)}>
+                    <i style={{ background: severityColor(s) }} />
+                    {tr(`vv.leg.${s}`, { count: severityCounts[s] })}
+                  </button>
+                ))}
           </div>
         </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
-          <div className="label">
-            {tr("vv.kpi.highCrit")}<span className="tag">≥ HIGH</span>
-          </div>
-          <div className="value">{highOrCriticalCount}</div>
-          <div className="bar">
-            <i style={{ width: groups.length ? `${Math.round((highOrCriticalCount / groups.length) * 100)}%` : "0%" }} />
-          </div>
+        <div className="vvp-sum-col vvp-sum-third">
+          <span className="vvp-lbl">{tr("vv.kpi.affected")}</span>
+          <span className="vvp-val">
+            {affectedHostCount} <small>/ {agentTotal}</small>
+          </span>
+          <span className="vvp-sub vvp-small">{tr("vv.atLeastOne")}</span>
         </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent2)" }}>
-          <div className="label">
-            {tr("vv.kpi.affected")}<span className="tag">{tr("vv.kpi.total")}</span>
-          </div>
-          <div className="value">{affectedHostCount}</div>
-          <div className="bar">
-            <i
-              style={{
-                width: (agents.state.data ?? []).length ? `${Math.round((affectedHostCount / agents.state.data.length) * 100)}%` : "0%",
-              }}
-            />
-          </div>
+        <div className="vvp-sum-col vvp-sum-fourth">
+          <span className="vvp-lbl">{tr("vv.kpi.avg")}</span>
+          <span className="vvp-val">{avgExposure}</span>
+          <span className="vvp-sub vvp-small">{tr("vv.perCve")}</span>
         </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-good)" }}>
-          <div className="label">
-            {tr("vv.kpi.avg")}<span className="tag">{tr("vv.kpi.perCve")}</span>
-          </div>
-          <div className="value">{avgExposure}</div>
-          <div className="bar">
-            <i style={{ width: groups.length ? "100%" : "0%" }} />
-          </div>
-        </div>
-      </div>
+      </section>
 
-      <div className="vanitas-hud-card vanitas-hud-frame">
-        <div className="vanitas-hud-card-head">
-          <h2>{rows.length} CVE</h2>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span className="vanitas-hud-card-note">
-              {stillCollecting ? tr("vv.collecting") : tr("vv.clickRow")}
-            </span>
+      <div className="vvp-split">
+        <section className="vvp-card vvp-list" aria-label={tr("vv.listTitle")}>
+          <div className="vvp-list-head">
+            <h2 className="vvp-h2">{tr("vv.listTitle")}</h2>
             <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
               <IconDownload />
               {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
             </button>
           </div>
-        </div>
-        {exportState.error && <p className="error-note" style={{ margin: "0 0 12px" }}>{exportState.error}</p>}
-
-        <div className="vanitas-hud-toolbar">
-          <div className="vanitas-hud-search">
-            <span className="prompt">&gt;</span>
-            <input
-              type="text"
-              placeholder={tr("vv.searchPlaceholder")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              autoComplete="off"
-            />
+          {exportState.error && <p className="error-note" style={{ margin: 0 }}>{exportState.error}</p>}
+          <div className="vvp-toolbar">
+            <label className="vvp-search-wrap">
+              <span className="vvp-sr">{tr("vv.searchShort")}</span>
+              <input type="search" className="vvp-search" placeholder={tr("vv.searchShort")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+            </label>
+            <label className="vvp-sort">
+              <span className="vvp-lbl">{tr("vv.sort")}</span>
+              <select className="vvp-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+                {SORTS.map((s) => (
+                  <option key={s} value={s}>
+                    {tr(`vv.sort.${s}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <div className="vanitas-hud-chips">
-            <button type="button" className={`vanitas-hud-chip${severityFilter === "all" ? " active" : ""}`} onClick={() => setSeverityFilter("all")}>
-              <span className="led" />
-              {tr("vv.all")} <span className="n">{severityCounts.all}</span>
+          <div className="vvp-chips" role="group" aria-label={tr("vv.sevAria")}>
+            <button type="button" className={`vvp-chip${severityFilter === "all" ? " on" : ""}`} aria-pressed={severityFilter === "all"} onClick={() => setSeverityFilter("all")}>
+              {tr("vv.allF")} <b>{severityCounts.all}</b>
             </button>
             {SEVERITY_ORDER.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={`vanitas-hud-chip${s === "CRITICAL" || s === "HIGH" ? " tone-high" : ""}${severityFilter === s ? " active" : ""}`}
-                onClick={() => setSeverityFilter(s)}
-              >
-                <span className="led" />
-                {severityLabelFr(s).toUpperCase()} <span className="n">{severityCounts[s]}</span>
+              <button key={s} type="button" className={`vvp-chip${severityFilter === s ? " on" : ""}`} aria-pressed={severityFilter === s} onClick={() => setSeverityFilter(s)}>
+                <span className="dot" style={{ background: severityColor(s) }} />
+                {severityLabelFr(s)} <b>{severityCounts[s]}</b>
               </button>
             ))}
           </div>
+
+          {agentTotal === 0 ? (
+            <p className="vvp-empty">{tr("vv.noAgent")}</p>
+          ) : rows.length === 0 ? (
+            <p className="vvp-empty">{groups.length === 0 ? (stillCollecting ? tr("vv.collecting") : tr("vv.noVuln")) : tr("vv.noResult")}</p>
+          ) : (
+            <div className="vvp-rows">
+              {rows.map((g) => {
+                const isSel = selectedGroup?.cve_id === g.cve_id;
+                return (
+                  <button
+                    key={g.cve_id}
+                    type="button"
+                    className={`vvp-cve${isSel ? " sel" : ""}`}
+                    style={{ "--sev": severityColor(g.severity) }}
+                    aria-pressed={isSel}
+                    onClick={() => selectCve(g.cve_id)}
+                  >
+                    <span className="vvp-cve-stripe" />
+                    <span className="vvp-cve-id">{g.cve_id}</span>
+                    <span className="vvp-score">{fmtCvss(g.cvss_score)}</span>
+                    <span className="vvp-cve-meta">
+                      <span className="vvp-ink">{g.products.map((p) => p.name).join(", ")}</span>
+                      <span>·</span>
+                      <span>{severityLabelFr(g.severity)}</span>
+                      <span>·</span>
+                      <span>{tr("vv.endpoints", { count: g.devices.length })}</span>
+                      <span>·</span>
+                      <span>{tr("vv.publishedLower", { date: fmtDate(g.published) })}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div ref={detailRef} className="vvp-detail-slot">
+          {selectedGroup ? (
+            <CveDetail key={selectedGroup.cve_id} group={selectedGroup} variant="panel" />
+          ) : (
+            <div className="vvp-card vvp-empty-panel">
+              <p className="vvp-sub">{tr("vv.pickCve")}</p>
+            </div>
+          )}
         </div>
-
-        {(agents.state.data ?? []).length === 0 ? (
-          <p className="vanitas-hud-empty-note">{tr("vv.noAgent")}</p>
-        ) : rows.length === 0 ? (
-          <p className="vanitas-hud-empty-note">
-            {groups.length === 0 ? tr("vv.noVuln") : tr("vv.noResult")}
-          </p>
-        ) : (
-          <div className="vanitas-hud-table-wrap">
-            <table className="vanitas-hud-table vanitas-vuln-table">
-              <colgroup>
-                <col style={{ width: "16%" }} />
-                <col style={{ width: "26%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "14%" }} />
-                <col style={{ width: "14%" }} />
-                <col style={{ width: "14%" }} />
-                <col style={{ width: "6%" }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>CVE</th>
-                  <th>{tr("vv.col.products")}</th>
-                  <th>CVSS</th>
-                  <th>{tr("vv.col.severity")}</th>
-                  <th>{tr("vv.col.published")}</th>
-                  <th>{tr("vv.col.exposed")}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((g) => (
-                  <tr key={g.cve_id} onClick={() => setSelectedCveId(g.cve_id)} tabIndex={0} role="button">
-                    <td className="vanitas-hud-vuln-cve">{g.cve_id}</td>
-                    <td>{g.products.map((p) => p.name).join(", ")}</td>
-                    <td className="vanitas-hud-cmd-none">{g.cvss_score ?? "—"}</td>
-                    <td>
-                      <span className={`vanitas-hud-sev-pill ${severityTone(g.severity)}`}>{severityLabelFr(g.severity)}</span>
-                    </td>
-                    <td className="vanitas-hud-cmd-none">{fmtDate(g.published)}</td>
-                    <td>
-                      <span className="vanitas-hud-apps-badge">
-                        {tr("vv.endpoints", { count: g.devices.length })}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="vanitas-hud-chev">›</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
-
-      {selectedGroup && <CveDetailModal group={selectedGroup} onClose={() => setSelectedCveId(null)} />}
     </div>
   );
 }

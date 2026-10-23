@@ -48,6 +48,11 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas vulnerabilities redesigned** as CVEs + detail: a summary band (distinct CVEs, a
+  clickable severity split, affected endpoints, average exposure), searchable / sortable CVE
+  list with severity chips, and the CVE detail (products, CERT-FR advisory, exposed devices,
+  NVD link) in a side panel. Severity colours come from the Pandore CVE palette. The endpoint
+  page keeps the detail popup.
 - **Compliance now comes from Intune's reporting API** (`getDeviceStatusByCompliacePolicyReport`,
   `getDevicePoliciesComplianceReport`, `getPolicyNonComplianceMetadata`) instead of the legacy
   per-device endpoints. Counts now match the Intune portal, and the built-in "Default Device
