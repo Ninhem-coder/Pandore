@@ -19133,3 +19133,242 @@ button.vov-kpi:hover { border-color: var(--hud-line-strong); background: var(--h
 @media (prefers-reduced-motion: reduce) {
   .vov *, .vov-sk { transition: none !important; animation: none !important; }
 }
+
+/* ── Vanitas > Catalogue d'application — refonte (2026-10-23, maquette canvas validée) ──
+   Scopée à `.vcat` (VanitasAppCatalogTab.jsx), même langage que la Vue d'ensemble bento
+   (`.vov-*`) mais classes propres (convention : pas de couplage entre deux pages). Grilles en
+   `auto-fill` : s'adaptent à la largeur réelle sans point de rupture dédié. */
+.vcat {
+  --vcat-muted: #8fa3a8; /* --hud-ink-faint ne passe pas AA en petit texte */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: var(--hud-sans);
+  font-variant-numeric: tabular-nums;
+}
+.vcat .tone-accent { --tone: var(--hud-accent); --tone-dim: var(--hud-accent-dim); }
+.vcat .tone-warn { --tone: var(--hud-warn); --tone-dim: var(--hud-warn-soft); }
+.vcat .tone-accent2 { --tone: var(--hud-accent2); --tone-dim: var(--hud-accent2-dim); }
+.vcat .tone-neutral { --tone: var(--vcat-muted); --tone-dim: rgba(143, 163, 168, 0.12); }
+.vcat-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.vcat-card {
+  background: var(--hud-panel);
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  min-width: 0;
+  color: var(--hud-ink);
+  transition: border-color 0.16s linear;
+}
+.vcat-lbl {
+  font-family: var(--hud-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vcat-muted);
+}
+.vcat-h2 {
+  font-family: var(--hud-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hud-ink);
+}
+.vcat-sub { font-size: 12.5px; line-height: 1.4; color: var(--vcat-muted); }
+.vcat-muted { color: var(--vcat-muted); }
+.vcat-mono { font-family: var(--hud-mono); font-size: 12px; }
+.vcat-nowrap { white-space: nowrap; }
+.vcat-ellipsis { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vcat button:focus-visible,
+.vcat input:focus-visible,
+.vcat select:focus-visible {
+  outline: 2px solid var(--hud-accent);
+  outline-offset: 2px;
+}
+
+/* Synthèse */
+.vcat-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.vcat-stat { display: flex; flex-direction: column; gap: 6px; }
+.vcat-val { font-size: 26px; font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; }
+.vcat-val.accent { color: var(--hud-accent); }
+.vcat-latest { font-size: 16px; font-weight: 600; line-height: 1.25; }
+.vcat-format-bar { display: flex; gap: 2px; height: 8px; margin-top: 4px; border-radius: 99px; overflow: hidden; background: rgba(143, 163, 168, 0.12); }
+.vcat-format-bar i { display: block; background: var(--tone); }
+.vcat-format-legend { display: flex; flex-wrap: wrap; gap: 12px; }
+.vcat-format-legend b { color: var(--hud-ink); }
+
+/* Panneau : barre d'outils + résultats */
+.vcat-panel { display: flex; flex-direction: column; gap: 12px; }
+.vcat-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.vcat-search-wrap { display: flex; flex: 1 1 280px; min-width: 0; }
+.vcat-search {
+  width: 100%;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-bg);
+  color: var(--hud-ink);
+  font: 14px var(--hud-sans);
+}
+.vcat-search:focus { border-color: var(--hud-accent); box-shadow: inset 0 0 0 1px var(--hud-line-strong); }
+.vcat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vcat-chip {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hud-line);
+  background: transparent;
+  color: var(--vcat-muted);
+  font: 600 12px var(--hud-mono);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.16s linear, color 0.16s linear;
+}
+.vcat-chip b { font: 600 12px var(--hud-sans); color: var(--hud-ink); }
+.vcat-chip:hover { border-color: var(--hud-line-strong); color: var(--hud-ink); }
+.vcat-chip.on { border-color: var(--hud-accent); color: var(--hud-accent); background: var(--hud-accent-dim); }
+.vcat-sort { display: inline-flex; align-items: center; gap: 8px; }
+.vcat-select {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-bg);
+  color: var(--hud-ink);
+  font: 13px var(--hud-sans);
+}
+.vcat-seg { display: inline-flex; border: 1px solid var(--hud-line); border-radius: 10px; overflow: hidden; }
+.vcat-seg button {
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--vcat-muted);
+  font: 600 12px var(--hud-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vcat-seg button.on { background: var(--hud-accent-dim); color: var(--hud-accent); }
+.vcat-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.vcat-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  min-height: 36px;
+  font-family: var(--hud-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hud-accent);
+  cursor: pointer;
+}
+.vcat-link:hover { color: #7ff0e3; }
+.vcat-empty { margin: 0; padding: 12px 0; font-size: 13px; color: var(--vcat-muted); }
+.vcat-nomatch { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 16px; text-align: center; color: var(--hud-accent); }
+
+/* Vue cartes */
+.vcat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.vcat-app { display: flex; flex-direction: column; gap: 10px; background: #0c1114; }
+.vcat-app:hover { border-color: var(--hud-line-strong); }
+.vcat-app-head { display: flex; align-items: center; gap: 12px; }
+.vcat-ico {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tone);
+  background: var(--tone-dim);
+}
+.vcat-app-id { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.vcat-app-name { font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vcat-tag {
+  font-family: var(--hud-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  color: var(--tone);
+  background: var(--tone-dim);
+}
+.vcat-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(57, 230, 210, 0.1);
+  background: var(--hud-bg);
+}
+.vcat-cmd code { flex: 1; min-width: 0; font: 12px var(--hud-mono); color: #c7d4d6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vcat-copy {
+  flex: none;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-line);
+  background: transparent;
+  color: var(--vcat-muted);
+  font: 600 11px var(--hud-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.16s linear, color 0.16s linear;
+}
+.vcat-copy:hover { border-color: var(--hud-line-strong); color: var(--hud-ink); }
+.vcat-app-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(57, 230, 210, 0.1);
+  font-size: 12px;
+  color: var(--vcat-muted);
+}
+
+/* Vue liste */
+.vcat-table-wrap { overflow-x: auto; }
+.vcat-table { width: 100%; border-collapse: collapse; }
+.vcat-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font: 600 10.5px var(--hud-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vcat-muted);
+  border-bottom: 1px solid var(--hud-line);
+}
+.vcat-table td { padding: 8px 10px; font-size: 13px; vertical-align: middle; border-bottom: 1px solid rgba(57, 230, 210, 0.07); }
+.vcat-table tr:hover td { background: var(--hud-panel-raised); }
+.vcat-table-cmd { max-width: 380px; }
+.vcat-table .vcat-app-name { font-size: 13.5px; }
+
+/* Chargement */
+.vcat-sk { display: block; border-radius: 8px; background: var(--hud-accent-dim); animation: vcat-pulse 1.5s linear infinite; }
+@keyframes vcat-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+@media (max-width: 640px) {
+  .vcat-grid { grid-template-columns: minmax(0, 1fr); }
+  .vcat-hide-sm { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vcat *, .vcat-sk { transition: none !important; animation: none !important; }
+}

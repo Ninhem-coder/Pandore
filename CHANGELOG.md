@@ -36,6 +36,9 @@ changes are listed under *Unreleased* until the first public version.
   reorderable columns like the Pandore overview: drag a block by its handle, resize the main
   column's blocks with − / +, reset the layout; the layout is remembered per browser. Same
   data and links as before; loading shows skeletons.
+- **Vanitas application catalog redesigned** in the same style: four summary figures (count,
+  formats, total size, latest publication), format filters, sorting, a cards / list switch
+  (remembered per browser) and a copy button for each install command.
 - **Compliance now comes from Intune's reporting API** (`getDeviceStatusByCompliacePolicyReport`,
   `getDevicePoliciesComplianceReport`, `getPolicyNonComplianceMetadata`) instead of the legacy
   per-device endpoints. Counts now match the Intune portal, and the built-in "Default Device
@@ -54,6 +57,8 @@ changes are listed under *Unreleased* until the first public version.
 
 ### Fixed
 
+- Vanitas file sizes were always shown in GB ("0.0 GB" for a 5 MB installer); they now use
+  KB, MB or GB depending on the size.
 - Demo mode: command ids were only unique per endpoint, so the fleet-wide command lists
   (Vanitas overview) rendered rows with duplicate React keys.
 - The Vanitas server could not start on a fresh database: a migration created the
