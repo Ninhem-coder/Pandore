@@ -39,6 +39,11 @@ changes are listed under *Unreleased* until the first public version.
 - **Vanitas application catalog redesigned** in the same style: four summary figures (count,
   formats, total size, latest publication), format filters, sorting, a cards / list switch
   (remembered per browser) and a copy button for each install command.
+- **Vanitas suspicious activity redesigned** as a list + detail view: clickable summary tiles
+  (they apply the matching filter), severity and status filter chips with counts, events
+  grouped by day, and the event detail (triage, containment, JSON, prior alerts, Defender
+  correlation) in a side panel instead of a popup. Isolated endpoints are shown as cards. The
+  endpoint pages keep the detail popup.
 - **Compliance now comes from Intune's reporting API** (`getDeviceStatusByCompliacePolicyReport`,
   `getDevicePoliciesComplianceReport`, `getPolicyNonComplianceMetadata`) instead of the legacy
   per-device endpoints. Counts now match the Intune portal, and the built-in "Default Device

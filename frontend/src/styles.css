@@ -19400,3 +19400,207 @@ button.vov-kpi:hover { border-color: var(--hud-line-strong); background: var(--h
 @media (prefers-reduced-motion: reduce) {
   .vcat *, .vcat-sk { transition: none !important; animation: none !important; }
 }
+
+/* ── Vanitas > Activités suspectes — refonte liste + détail (2026-10-23, maquette validée) ──
+   Scopée à `.vsa` (VanitasSuspiciousActivityTab.jsx, page seule — la popup réutilisée par les
+   fiches poste garde ses classes `.vanitas-cmd-detail-*`). Même langage que la Vue d'ensemble
+   bento et le catalogue, classes propres à la page. */
+.vsa {
+  --vsa-muted: #8fa3a8; /* --hud-ink-faint ne passe pas AA en petit texte */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: var(--hud-sans);
+  font-variant-numeric: tabular-nums;
+}
+.vsa .tone-high { --tone: var(--hud-high); }
+.vsa .tone-warn { --tone: var(--hud-warn); }
+.vsa .tone-good { --tone: var(--hud-good); }
+.vsa .tone-accent2 { --tone: var(--hud-accent2); }
+.vsa .sev-high { --sev: var(--hud-high); }
+.vsa .sev-med { --sev: var(--hud-warn); }
+.vsa .sev-low { --sev: var(--hud-good); }
+.vsa-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.vsa-card {
+  background: var(--hud-panel);
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  min-width: 0;
+  color: var(--hud-ink);
+}
+.vsa-lbl { font-family: var(--hud-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--vsa-muted); }
+.vsa-h2 { margin: 0; font-family: var(--hud-mono); font-size: 12.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hud-ink); }
+.vsa-sub { font-size: 12.5px; line-height: 1.4; color: var(--vsa-muted); }
+.vsa-mono { font-family: var(--hud-mono); font-size: 12px; }
+.vsa-ink { color: var(--hud-ink); }
+.vsa-empty { margin: 0; padding: 24px 0; text-align: center; font-size: 13px; color: var(--vsa-muted); }
+.vsa button:focus-visible,
+.vsa input:focus-visible { outline: 2px solid var(--hud-accent); outline-offset: 2px; }
+.vsa select:focus-visible { outline: none; border-color: var(--hud-accent); box-shadow: inset 0 0 0 1px var(--hud-line-strong); }
+
+/* Onglets */
+.vsa-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hud-line); }
+.vsa-tabs button {
+  height: 40px;
+  margin-bottom: -1px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--vsa-muted);
+  font: 600 12px var(--hud-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.vsa-tabs button.on { color: var(--hud-accent); border-bottom-color: var(--hud-accent); }
+.vsa-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--hud-accent2-dim);
+  color: var(--hud-accent2);
+  font: 600 11px var(--hud-sans);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Synthèse cliquable */
+.vsa-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.vsa-stat { display: flex; flex-direction: column; gap: 6px; text-align: left; font: inherit; cursor: pointer; transition: border-color 0.16s linear; }
+.vsa-stat:hover { border-color: var(--hud-line-strong); }
+.vsa-val { font-size: 26px; font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; color: var(--tone); }
+.vsa-val.quiet { color: var(--hud-ink); }
+
+/* Filtres */
+.vsa-filters { display: flex; flex-direction: column; gap: 10px; }
+.vsa-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.vsa-search-wrap { display: flex; flex: 1 1 240px; min-width: 0; }
+.vsa-search {
+  width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-bg);
+  color: var(--hud-ink);
+  font: 14px var(--hud-sans);
+}
+.vsa-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.vsa-chip {
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hud-line);
+  background: transparent;
+  color: var(--vsa-muted);
+  font: 600 11.5px var(--hud-mono);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.16s linear, color 0.16s linear;
+}
+.vsa-chip b { font: 600 11.5px var(--hud-sans); color: var(--hud-ink); }
+.vsa-chip .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--sev); }
+.vsa-chip:hover { border-color: var(--hud-line-strong); color: var(--hud-ink); }
+.vsa-chip.on { border-color: var(--hud-accent); color: var(--hud-accent); background: var(--hud-accent-dim); }
+.vsa-field { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-right: 10px; }
+.vsa-signal { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.vsa-select {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-bg);
+  color: var(--hud-ink);
+  font: 13px var(--hud-sans);
+}
+
+/* Liste + détail */
+.vsa-split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.vsa-list-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.vsa-list { display: flex; flex-direction: column; max-height: 760px; overflow: auto; margin: 0 -6px; padding: 0 6px; }
+.vsa-day { padding: 12px 0 4px; font: 600 10.5px var(--hud-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--vsa-muted); }
+.vsa-ev {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 3px auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 10px 10px 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hud-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.16s linear, border-color 0.16s linear;
+}
+.vsa-ev:hover { background: var(--hud-panel-raised); }
+.vsa-ev.sel { background: rgba(57, 230, 210, 0.06); border-color: var(--hud-line-strong); }
+.vsa-ev-bar { align-self: stretch; border-radius: 2px; background: var(--sev); }
+.vsa-ev-sev { width: 80px; display: flex; }
+.vsa-ev-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vsa-ev-sum { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vsa-ev-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--vsa-muted); }
+.vsa-sk { display: block; height: 44px; margin: 6px 0; border-radius: 10px; background: var(--hud-accent-dim); animation: vsa-pulse 1.5s linear infinite; }
+@keyframes vsa-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+.vsa-detail-slot { min-width: 0; position: sticky; top: 16px; }
+.vsa-detail { display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 32px); overflow: auto; }
+.vsa-detail-head { display: flex; align-items: flex-start; gap: 12px; padding-bottom: 6px; }
+.vsa-detail-title { flex: 1; min-width: 0; }
+.vsa-detail-title h2 { margin: 0 0 2px; font-size: 16px; font-weight: 600; line-height: 1.35; }
+.vsa-detail .vanitas-cmd-detail-section-title { padding-top: 10px; border-top: 1px solid rgba(57, 230, 210, 0.1); }
+.vsa-emptystate { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 36px 16px; text-align: center; }
+
+/* Postes isolés */
+.vsa-iso-wrap { display: flex; flex-direction: column; gap: 10px; }
+.vsa-iso { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.vsa-iso-card { display: flex; flex-direction: column; gap: 10px; border-color: color-mix(in srgb, var(--hud-accent2) 40%, transparent); }
+.vsa-iso-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.vsa-iso-host { font-size: 14px; font-weight: 600; }
+.vsa-iso-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: var(--hud-accent2);
+  background: var(--hud-accent2-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+.vsa-iso-pill .dot { width: 7px; height: 7px; border-radius: 99px; background: currentColor; }
+.vsa-iso-card .vanitas-queue-btn { align-self: flex-start; }
+.vsa-kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 13px; }
+.vsa-kv dt { color: var(--vsa-muted); }
+.vsa-kv dd { margin: 0; min-width: 0; }
+.vsa-textlink { border: 0; padding: 0; background: none; color: var(--hud-accent); font: inherit; text-align: left; text-decoration: underline; cursor: pointer; }
+
+@media (max-width: 980px) {
+  .vsa-split { grid-template-columns: minmax(0, 1fr); }
+  .vsa-detail-slot { position: static; }
+  .vsa-detail { max-height: none; }
+  .vsa-signal { margin-left: 0; }
+}
+@media (max-width: 640px) {
+  .vsa-ev { grid-template-columns: 3px minmax(0, 1fr) auto; }
+  .vsa-ev-sev { display: none; }
+  .vsa-kv { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vsa *, .vsa-sk { transition: none !important; animation: none !important; }
+}
