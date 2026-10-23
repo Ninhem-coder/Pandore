@@ -44,6 +44,10 @@ changes are listed under *Unreleased* until the first public version.
   grouped by day, and the event detail (triage, containment, JSON, prior alerts, Defender
   correlation) in a side panel instead of a popup. Isolated endpoints are shown as cards. The
   endpoint pages keep the detail popup.
+- **Vanitas compliance redesigned** as rules + detail: one summary band (compliance rate, the
+  endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
+  rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
+  editor, delete, results filtered by outcome) in a side panel instead of a popup.
 - **Compliance now comes from Intune's reporting API** (`getDeviceStatusByCompliacePolicyReport`,
   `getDevicePoliciesComplianceReport`, `getPolicyNonComplianceMetadata`) instead of the legacy
   per-device endpoints. Counts now match the Intune portal, and the built-in "Default Device

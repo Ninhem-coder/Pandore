@@ -19604,3 +19604,186 @@ button.vov-kpi:hover { border-color: var(--hud-line-strong); background: var(--h
 @media (prefers-reduced-motion: reduce) {
   .vsa *, .vsa-sk { transition: none !important; animation: none !important; }
 }
+
+/* ── Vanitas > Conformité — refonte liste + détail (2026-10-23, maquette validée) ──
+   Scopée à `.vcp` (VanitasComplianceTab.jsx). Bandeau de synthèse unique (taux, répartition des
+   postes, règles actives), règles à gauche, détail de la règle sélectionnée à droite. Le tableau
+   de résultats garde `.compliance-detail-table` / `.compliance-cmp-tag` (attendu/obtenu). */
+.vcp {
+  --vcp-muted: #8fa3a8; /* --hud-ink-faint ne passe pas AA en petit texte */
+  --vcp-none: #556a70;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: var(--hud-sans);
+  font-variant-numeric: tabular-nums;
+}
+.vcp .good { --c: var(--hud-good); }
+.vcp .bad { --c: var(--hud-high); }
+.vcp .warn { --c: var(--hud-warn); }
+.vcp .none { --c: var(--vcp-none); }
+.vcp .accent { --c: var(--hud-accent); }
+.vcp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.vcp-card {
+  background: var(--hud-panel);
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  min-width: 0;
+  color: var(--hud-ink);
+}
+.vcp-lbl { font-family: var(--hud-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--vcp-muted); }
+.vcp-h2 { margin: 0; font-family: var(--hud-mono); font-size: 12.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hud-ink); }
+.vcp-sub { font-size: 12.5px; line-height: 1.4; color: var(--vcp-muted); }
+.vcp-small { font-size: 11.5px; }
+.vcp-val { font-size: 26px; font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; color: var(--c, var(--hud-ink)); }
+.vcp-val small { font-size: 15px; color: var(--vcp-muted); }
+.vcp-empty { margin: 0; padding: 20px 0; text-align: center; font-size: 13px; color: var(--vcp-muted); }
+.vcp-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vcp-pill.on { color: var(--hud-accent); background: var(--hud-accent-dim); }
+.vcp-pill.off { color: var(--vcp-muted); background: rgba(143, 163, 168, 0.12); }
+.vcp button:focus-visible,
+.vcp input:focus-visible,
+.vcp textarea:focus-visible { outline: 2px solid var(--hud-accent); outline-offset: 2px; }
+
+/* Bandeau de synthèse */
+.vcp-sum { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding: 14px 0; }
+.vcp-sum > div { padding: 0 20px; }
+.vcp-sum > div + div { border-left: 1px solid rgba(57, 230, 210, 0.12); }
+.vcp-sum-rate { display: flex; align-items: center; gap: 14px; }
+.vcp-sum-rate svg { flex: none; }
+.vcp-sum-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vcp-sum-fleet { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vcp-sum-bar { display: flex; gap: 2px; height: 10px; border-radius: 99px; overflow: hidden; background: rgba(143, 163, 168, 0.12); }
+.vcp-sum-bar i, .vcp-stack i { display: block; background: var(--c); }
+.vcp-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.vcp-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  font-size: 13px;
+  color: var(--hud-ink);
+}
+.vcp-leg i { width: 8px; height: 8px; border-radius: 99px; background: var(--c); flex: none; }
+.vcp-leg-btn { padding: 0; border: 0; background: none; font: 13px var(--hud-sans); cursor: pointer; border-radius: 8px; }
+.vcp-leg-btn:hover { color: var(--hud-accent); }
+
+/* Liste des règles + détail */
+.vcp-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px; align-items: start; }
+.vcp-rules { display: flex; flex-direction: column; gap: 10px; }
+.vcp-rules-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.vcp-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.vcp-actions-end { justify-content: flex-end; }
+.vcp-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.vcp-chip {
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hud-line);
+  background: transparent;
+  color: var(--vcp-muted);
+  font: 600 11.5px var(--hud-mono);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.16s linear, color 0.16s linear;
+}
+.vcp-chip b { font: 600 11.5px var(--hud-sans); color: var(--hud-ink); }
+.vcp-chip:hover { border-color: var(--hud-line-strong); color: var(--hud-ink); }
+.vcp-chip.on { border-color: var(--hud-accent); color: var(--hud-accent); background: var(--hud-accent-dim); }
+.vcp-rule-list { display: flex; flex-direction: column; gap: 2px; }
+.vcp-rule {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--hud-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.16s linear, border-color 0.16s linear;
+}
+.vcp-rule:hover { background: var(--hud-panel-raised); }
+.vcp-rule.sel { background: rgba(57, 230, 210, 0.06); border-color: var(--hud-line-strong); }
+.vcp-rule-name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vcp-stack { grid-column: 1 / -1; display: flex; gap: 2px; height: 6px; border-radius: 99px; overflow: hidden; background: rgba(143, 163, 168, 0.12); }
+.vcp-counts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--vcp-muted); }
+.vcp-counts b { font-weight: 600; color: var(--c); }
+
+.vcp-detail-slot { min-width: 0; position: sticky; top: 16px; }
+.vcp-detail { display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 32px); overflow: auto; }
+.vcp-detail-head { display: flex; align-items: flex-start; gap: 12px; }
+.vcp-detail-title { flex: 1; min-width: 0; }
+.vcp-detail-title h2 { margin: 0 0 2px; font-size: 17px; font-weight: 600; line-height: 1.3; }
+.vcp-callout {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--hud-warn) 45%, transparent);
+  background: var(--hud-warn-soft);
+  color: var(--hud-ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.vcp-callout svg { flex: none; margin-top: 1px; color: var(--hud-warn); }
+.vcp-edit { display: flex; flex-direction: column; gap: 8px; }
+.vcp-input {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-bg);
+  color: var(--hud-ink);
+  font: 14px var(--hud-sans);
+}
+.vcp-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.vcp-kpi { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(57, 230, 210, 0.1); background: var(--hud-bg); }
+.vcp-kpi .vcp-val { font-size: 22px; }
+.vcp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.vcp-search-wrap { display: flex; flex: 1 1 200px; min-width: 0; }
+.vcp-search {
+  width: 100%;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-line);
+  background: var(--hud-bg);
+  color: var(--hud-ink);
+  font: 13.5px var(--hud-sans);
+}
+.vcp-table-wrap { overflow: auto; max-height: 460px; }
+.vcp-table-wrap .host { white-space: nowrap; }
+.vcp-empty-panel { display: flex; align-items: center; justify-content: center; padding: 36px 16px; text-align: center; }
+
+@media (max-width: 980px) {
+  .vcp-split { grid-template-columns: minmax(0, 1fr); }
+  .vcp-detail-slot { position: static; }
+  .vcp-detail { max-height: none; }
+  .vcp-sum { grid-template-columns: auto minmax(0, 1fr); }
+  .vcp-sum-fleet { grid-column: 1 / -1; grid-row: 2; margin-top: 14px; padding-top: 14px !important; border-left: 0 !important; border-top: 1px solid rgba(57, 230, 210, 0.12); }
+}
+@media (max-width: 640px) {
+  .vcp-sum > div { padding: 0 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vcp * { transition: none !important; }
+}
