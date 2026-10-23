@@ -165,6 +165,26 @@ export default function VanitasAppCatalogTab({ onNavigateVanitas }) {
       </section>
 
       <section className="vcat-card vcat-panel" aria-label={tr("page.vanitas-app-catalog")}>
+        {/* Catalogue vide : ni barre d'outils ni compteur (rien à filtrer/trier), un vrai état vide
+            à la place — icône réticule de la charte (§10), action vers "Application" si le compte
+            y a accès. */}
+        {!loading && all.length === 0 ? (
+          <div className="vcat-emptystate">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <circle cx="24" cy="24" r="16" />
+              <circle cx="24" cy="24" r="6" />
+              <path d="M24 4v8M24 36v8M4 24h8M36 24h8" />
+            </svg>
+            <h2 className="vcat-h2">{tr("vcat.emptyTitle")}</h2>
+            <p className="vcat-sub">{tr(canManage ? "vcat.emptyText" : "vcat.emptyTextReadOnly")}</p>
+            {canManage && (
+              <button type="button" className="vcat-primary" onClick={() => onNavigateVanitas?.("vanitas-installers")}>
+                {tr("vcat.addInstaller")}
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
         <div className="vcat-toolbar">
           <label className="vcat-search-wrap">
             <span className="vcat-sr">{tr("vcat.searchPlaceholder")}</span>
@@ -237,8 +257,6 @@ export default function VanitasAppCatalogTab({ onNavigateVanitas }) {
               </div>
             ))}
           </div>
-        ) : all.length === 0 ? (
-          <p className="vcat-empty">{tr("vcat.empty")}</p>
         ) : rows.length === 0 ? (
           <div className="vcat-nomatch">
             <svg width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
@@ -325,6 +343,8 @@ export default function VanitasAppCatalogTab({ onNavigateVanitas }) {
               </tbody>
             </table>
           </div>
+        )}
+          </>
         )}
       </section>
     </div>

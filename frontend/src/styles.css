@@ -19190,7 +19190,7 @@ button.vov-kpi:hover { border-color: var(--hud-line-strong); background: var(--h
 }
 
 /* Synthèse */
-.vcat-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.vcat-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
 .vcat-stat { display: flex; flex-direction: column; gap: 6px; }
 .vcat-val { font-size: 26px; font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; }
 .vcat-val.accent { color: var(--hud-accent); }
@@ -19275,7 +19275,35 @@ button.vov-kpi:hover { border-color: var(--hud-line-strong); background: var(--h
   cursor: pointer;
 }
 .vcat-link:hover { color: #7ff0e3; }
-.vcat-empty { margin: 0; padding: 12px 0; font-size: 13px; color: var(--vcat-muted); }
+.vcat-emptystate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 16px 36px;
+  text-align: center;
+  color: var(--hud-accent);
+}
+.vcat-emptystate .vcat-h2 { margin: 6px 0 0; }
+.vcat-emptystate .vcat-sub { margin: 0; max-width: 460px; }
+.vcat-primary {
+  margin-top: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid var(--hud-accent);
+  background: var(--hud-accent-dim);
+  color: var(--hud-accent);
+  font: 600 12px var(--hud-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.16s linear;
+}
+.vcat-primary:hover { background: rgba(57, 230, 210, 0.22); }
+/* Le menu de tri prend :focus-visible au clic (Chrome) : contour fin comme le champ de
+   recherche plutôt que l'anneau épais commun aux boutons. */
+.vcat select.vcat-select:focus-visible { outline: none; border-color: var(--hud-accent); box-shadow: inset 0 0 0 1px var(--hud-line-strong); }
 .vcat-nomatch { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 16px; text-align: center; color: var(--hud-accent); }
 
 /* Vue cartes */
