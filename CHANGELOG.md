@@ -48,6 +48,12 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas endpoints redesigned** as list + preview: a summary band (endpoints, connectivity
+  split into online / offline > 24 h / silent > 7 d with a clickable legend, certificates expiring
+  within 30 days, agent version spread), a compact searchable / sortable list with filter chips
+  (including critical CVEs) and a side preview (last contact, certificate, apps, vulnerabilities,
+  compliance, system disk, groups, latest commands). The full endpoint page opens from the
+  preview; group changes and removal moved from the row to the preview.
 - **Vanitas end-of-life software redesigned** as products + detail: occurrences are grouped by
   product/version (one entry per product, its endpoints in the detail), with a summary band
   (products, affected endpoints, a clickable EOL / soon split, endoflife.date source), state and
