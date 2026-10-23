@@ -30,6 +30,12 @@ changes are listed under *Unreleased* until the first public version.
 
 ### Changed
 
+- **Vanitas overview redesigned** ("bento" layout): a fleet posture card and six KPI tiles at
+  the top, each tile carrying its 7-day change and 30-day sparkline (the separate "Trends"
+  band is merged into them, and the two "silent" thresholds now share one tile). Below, two
+  reorderable columns like the Pandore overview: drag a block by its handle, resize the main
+  column's blocks with − / +, reset the layout; the layout is remembered per browser. Same
+  data and links as before; loading shows skeletons.
 - **Compliance now comes from Intune's reporting API** (`getDeviceStatusByCompliacePolicyReport`,
   `getDevicePoliciesComplianceReport`, `getPolicyNonComplianceMetadata`) instead of the legacy
   per-device endpoints. Counts now match the Intune portal, and the built-in "Default Device

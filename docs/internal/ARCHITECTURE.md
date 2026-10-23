@@ -186,6 +186,14 @@ flowchart LR
   `vanitasDocsParts.jsx` — toute modification du texte se fait dans LES DEUX corps.
   Traduit à ce jour : coquille + toutes les pages Pandore et Vanitas + doc Vanitas + exports
   Excel ; reste : messages d'erreur du backend, données démo.
+- **Vues d'ensemble réordonnables** : Pandore (`OverviewTab.jsx`, `.ov2-*`) et Vanitas
+  (`VanitasOverviewTab.jsx`, refonte « bento » du 2026-10-23, `.vov-*`) partagent
+  `hooks/useReorderableZone.js` (glisser-déposer en direct + FLIP + `localStorage`, options
+  `sizeCount`/`defaultSize`). Deux zones indépendantes par page (colonne principale
+  redimensionnable, colonne de droite à ordre seul), jamais de déplacement d'une zone à
+  l'autre. Clés `localStorage` versionnées (`…-v1`) : bumper le suffixe si la FORME du layout
+  persisté change. Vanitas : points de rupture sur la largeur réelle (`data-size` posé par un
+  `ResizeObserver`), pas de `container-type` (ancêtres dimensionnés par leur contenu).
 - **Ne jamais reproduire un logo de marque réelle** sans asset officiel dans le repo — glyphes
   abstraits/neutres.
 
