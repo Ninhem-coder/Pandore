@@ -158,13 +158,14 @@ export default function VanitasDevicesTab({ vanitasNav }) {
   );
 
   const counts = useMemo(() => {
-    const c = { total: list.length, online: 0, offline: 0, silent: 0, cert: 0, risk: 0, latest: 0 };
+    const c = { total: list.length, online: 0, offline: 0, silent: 0, cert: 0, risk: 0, latest: 0, nogroup: 0 };
     for (const a of list) {
       c[connState(a)]++;
       const d = daysUntil(a.cert_not_after);
       if (d !== null && d < CERT_WARNING_DAYS) c.cert++;
       if (vulnByAgent.get(a.id)?.critical) c.risk++;
       if (latestAgentVersion && a.agent_version === latestAgentVersion) c.latest++;
+      if (!(a.group_ids ?? []).length) c.nogroup++;
     }
     c.down = c.offline + c.silent;
     return c;
@@ -182,6 +183,7 @@ export default function VanitasDevicesTab({ vanitasNav }) {
         if (!(d !== null && d < CERT_WARNING_DAYS)) return false;
       }
       if (filter === "risk" && !vulnByAgent.get(a.id)?.critical) return false;
+      if (filter === "nogroup" && (a.group_ids ?? []).length) return false;
       return true;
     });
     const risk = (a) => {
@@ -291,6 +293,9 @@ export default function VanitasDevicesTab({ vanitasNav }) {
     ["silent", tr("vd.f.silent"), counts.silent, CONN_COLOR.silent],
     ["cert", tr("vd.f.cert"), counts.cert, CVE_SEVERITY_COLORS.Medium],
     ["risk", tr("vd.f.risk"), counts.risk, CVE_SEVERITY_COLORS.Critical],
+    // "Sans groupe" (2026-10-23) — cible du lien du bandeau de "Groupes" ; affichée seulement
+    // quand il y en a (ou qu'elle est active), pour ne pas encombrer un parc entièrement rangé.
+    ...(counts.nogroup || filter === "nogroup" ? [["nogroup", tr("vd.f.nogroup"), counts.nogroup, "var(--hud-ink-faint)"]] : []),
   ];
 
   return (

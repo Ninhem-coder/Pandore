@@ -48,6 +48,11 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas groups redesigned** as list + detail: a summary band (static / dynamic groups, fleet
+  coverage with a link to endpoints without a group, groups with a patch window, most exposed
+  group), a searchable list with an inline creation form, and the group detail in a side panel
+  with Members / Actions / Subgroups tabs instead of a full page. Endpoints can now be added to a
+  static group from the group itself, and the Endpoints page gains a "No group" filter.
 - **Vanitas endpoints redesigned** as list + preview: a summary band (endpoints, connectivity
   split into online / offline > 24 h / silent > 7 d with a clickable legend, certificates expiring
   within 30 days, agent version spread), a compact searchable / sortable list with filter chips

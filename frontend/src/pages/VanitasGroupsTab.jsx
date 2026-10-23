@@ -1,17 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
-import {
-  isErrorPayload,
-  useVanitasAgentVulnerabilities,
-  useVanitasAgents,
-  useVanitasGroupMembers,
-  useVanitasGroups,
-} from "../hooks/useDashboardData.js";
+import { isErrorPayload, useVanitasAgentVulnerabilities, useVanitasAgents, useVanitasGroups } from "../hooks/useDashboardData.js";
 import VanitasGroupDetail from "./VanitasGroupDetail.jsx";
-import { ConfirmButton, GroupRuleBuilder, fmtDate, summarizeGroupRules } from "./vanitasShared.jsx";
-import { tr } from "../i18n/core.js";
+import { GroupRuleBuilder, summarizeGroupRules } from "./vanitasShared.jsx";
+import { currentLocale, tr } from "../i18n/core.js";
 
-function CreateGroupForm({ onCreated }) {
+function CreateGroupForm({ onCreated, onCancel }) {
   const [name, setName] = useState("");
   const [isDynamic, setIsDynamic] = useState(false);
   const [rules, setRules] = useState(null);
@@ -31,10 +25,7 @@ function CreateGroupForm({ onCreated }) {
       if (isErrorPayload(payload)) {
         setError(payload.message);
       } else {
-        setName("");
-        setRules(null);
-        setIsDynamic(false);
-        onCreated();
+        onCreated(payload?.id ?? null);
       }
     } catch (err) {
       setError(err.message);
@@ -44,55 +35,53 @@ function CreateGroupForm({ onCreated }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="vanitas-hud-toolbar" style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
-      <div className="vanitas-hud-search" style={{ flex: "1 1 220px" }}>
-        <span className="prompt">&gt;</span>
+    <form onSubmit={handleSubmit} className="vgp-new">
+      <div className="vgp-row">
         <input
           type="text"
-          placeholder={tr("vg.newPlaceholder")}
+          className="vgp-input vgp-grow"
+          placeholder={tr("vgp.namePlaceholder")}
+          aria-label={tr("vgp.nameAria")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={busy}
           autoComplete="off"
+          autoFocus
         />
+        <span className="vgp-seg" role="group" aria-label={tr("vgp.typeAria")}>
+          <button
+            type="button"
+            className={!isDynamic ? "on" : ""}
+            aria-pressed={!isDynamic}
+            onClick={() => {
+              setIsDynamic(false);
+              setRules(null);
+            }}
+          >
+            {tr("vgp.static")}
+          </button>
+          <button type="button" className={isDynamic ? "on" : ""} aria-pressed={isDynamic} onClick={() => setIsDynamic(true)}>
+            {tr("vgp.dynamic")}
+          </button>
+        </span>
       </div>
-      <div className="vanitas-hud-chips">
-        <button
-          type="button"
-          className={`vanitas-hud-chip${!isDynamic ? " active" : ""}`}
-          onClick={() => {
-            setIsDynamic(false);
-            setRules(null);
-          }}
-        >
-          <span className="led" />
-          {tr("vg.static")}
-        </button>
-        <button
-          type="button"
-          className={`vanitas-hud-chip${isDynamic ? " active" : ""}`}
-          onClick={() => setIsDynamic(true)}
-        >
-          <span className="led" />
-          {tr("vg.dynamic")}
-        </button>
-      </div>
-      <button type="submit" className="vanitas-queue-btn" disabled={busy || !name.trim() || (isDynamic && !hasValidRule)}>
-        {busy ? tr("vg.creating") : tr("vg.create")}
-      </button>
-      {error && (
-        <p className="error-note" style={{ margin: 0, width: "100%" }}>
-          {error}
-        </p>
-      )}
-      {isDynamic && (
-        <div style={{ width: "100%" }}>
+      {isDynamic ? (
+        <>
           <GroupRuleBuilder rules={rules} onChange={setRules} disabled={busy} />
-          <p className="vanitas-hud-empty-note" style={{ margin: "10px 0 0" }}>
-            {tr("vg.dynamicNote")}
-          </p>
-        </div>
+          <span className="vgp-sub">{tr("vg.dynamicNote")}</span>
+        </>
+      ) : (
+        <span className="vgp-sub">{tr("vgp.staticNote")}</span>
       )}
+      {error && <p className="error-note" style={{ margin: 0 }}>{error}</p>}
+      <div className="vgp-row vgp-row-end">
+        <button type="button" className="vanitas-ghost-btn" onClick={onCancel} disabled={busy}>
+          {tr("vgd.cancel")}
+        </button>
+        <button type="submit" className="vanitas-queue-btn" disabled={busy || !name.trim() || (isDynamic && !hasValidRule)}>
+          {busy ? tr("vg.creating") : tr("vg.create")}
+        </button>
+      </div>
     </form>
   );
 }
@@ -100,25 +89,29 @@ function CreateGroupForm({ onCreated }) {
 /**
  * "Vanitas" > Inventaire > Groupes (2026-09-08, demande de Nicolas — "ranger les postes dans
  * des groupes si trop de devices et pas organisé", étendu le même soir en many-to-many +
- * groupes dynamiques par motif de nom, "les deux" confirmé via AskUserQuestion). Motif HUD
- * standard (bandeau + table + master/detail en état LOCAL, jamais `onNavigate` — voir
- * `VanitasDevicesTab.jsx`/`VanitasDeviceDetail.jsx`, le précédent exact confirmé par
- * exploration avant de coder).
+ * groupes dynamiques par motif de nom).
  *
- * L'affectation d'un poste à un groupe STATIQUE se fait depuis "Postes" (liste ou fiche) —
- * cette page se concentre sur la création/le renommage/la suppression de groupes et la vue
- * agrégée par groupe (voir VanitasGroupDetail.jsx). `device_count` vient directement du
- * serveur (déjà correct pour les deux types — statique via la table de jointure, dynamique via
- * `fnmatch` — plus besoin de le recalculer côté client comme au jalon v1).
+ * Refonte liste + détail (2026-10-23, maquette canvas validée par Nicolas) : bandeau de synthèse
+ * (groupes statiques/dynamiques, couverture du parc — "sans groupe" mène à Postes filtré —,
+ * groupes avec fenêtre de patch, groupe le plus exposé), liste avec recherche/pastilles et
+ * formulaire de création dépliable, détail dans un panneau latéral (VanitasGroupDetail.jsx,
+ * trois onglets) au lieu d'une page plein écran.
+ *
+ * Membres dérivés de `agent.group_ids` (déjà résolus côté serveur pour les deux types et les
+ * sous-groupes, voir `group_membership.py::group_ids_for_agents`) — plus d'appel
+ * `/groups/{id}/members` par groupe. Vulnérabilités chargées pour tout le parc (même cache que
+ * Vulnérabilités / Postes) pour les moyennes par groupe. Classes `.vgp-*`.
  */
-export default function VanitasGroupsTab() {
+export default function VanitasGroupsTab({ onNavigateVanitas }) {
   const groups = useVanitasGroups();
   const agents = useVanitasAgents();
-  const groupMembers = useVanitasGroupMembers();
   const vulnerabilities = useVanitasAgentVulnerabilities();
 
   const [selectedGroupId, setSelectedGroupId] = useState(null);
-  const [deleteError, setDeleteError] = useState(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [creating, setCreating] = useState(false);
+  const detailRef = useRef(null);
 
   useEffect(() => {
     groups.ensureLoaded();
@@ -127,163 +120,229 @@ export default function VanitasGroupsTab() {
   }, []);
 
   useEffect(() => {
-    if (selectedGroupId) groupMembers.ensureLoaded(selectedGroupId);
+    for (const a of agents.state.data ?? []) vulnerabilities.ensureLoaded(a.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId]);
+  }, [agents.state.data]);
 
-  const selectedMembersState = selectedGroupId ? groupMembers.state[selectedGroupId] : null;
+  const groupList = groups.state.data ?? [];
+  const agentList = agents.state.data ?? [];
 
-  // Une fois les hostnames membres connus, charge leur rapprochement CVE (déjà mis en cache
-  // par agent) pour le calcul du "taux de risque moyen" du groupe — VanitasGroupDetail.jsx ne
-  // fait lui-même aucun appel réseau, seulement de la présentation.
-  useEffect(() => {
-    if (!selectedMembersState || selectedMembersState.loading) return;
-    const hostnames = new Set(selectedMembersState.data ?? []);
-    for (const a of agents.state.data ?? []) {
-      if (hostnames.has(a.hostname)) vulnerabilities.ensureLoaded(a.id);
+  const membersByGroup = useMemo(() => {
+    const map = new Map(groupList.map((g) => [g.id, []]));
+    for (const a of agentList) for (const gid of a.group_ids ?? []) map.get(gid)?.push(a);
+    return map;
+  }, [groupList, agentList]);
+
+  // Moyenne de CVE par poste, par groupe (même définition que "Vulnérabilités moyennes" du
+  // détail) — `null` tant qu'un membre est encore en collecte.
+  const avgVulnsByGroup = useMemo(() => {
+    const map = new Map();
+    for (const [gid, members] of membersByGroup) {
+      if (members.length === 0) continue;
+      if (members.some((a) => !vulnerabilities.state[a.id] || vulnerabilities.state[a.id].loading)) continue;
+      map.set(gid, members.reduce((s, a) => s + (vulnerabilities.state[a.id].data?.length ?? 0), 0) / members.length);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMembersState, agents.state.data]);
+    return map;
+  }, [membersByGroup, vulnerabilities.state]);
 
-  function selectGroup(groupId) {
-    setSelectedGroupId(groupId);
+  const mostExposed = useMemo(() => {
+    let best = null;
+    for (const [gid, avg] of avgVulnsByGroup) if (!best || avg > best.avg) best = { gid, avg };
+    return best ? { group: groupList.find((g) => g.id === best.gid), avg: best.avg } : null;
+  }, [avgVulnsByGroup, groupList]);
+
+  const staticCount = groupList.filter((g) => !g.rules).length;
+  const dynamicCount = groupList.length - staticCount;
+  const covered = agentList.filter((a) => (a.group_ids ?? []).length > 0).length;
+  const orphans = agentList.length - covered;
+  const patchCount = groupList.filter((g) => g.patch_enabled).length;
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return groupList
+      .filter((g) => {
+        if (filter === "static" && g.rules) return false;
+        if (filter === "dynamic" && !g.rules) return false;
+        return !q || g.name.toLowerCase().includes(q);
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [groupList, query, filter]);
+
+  const selected = visible.find((g) => g.id === selectedGroupId) ?? visible[0] ?? null;
+
+  function selectGroup(id) {
+    setSelectedGroupId(id);
+    if (detailRef.current && window.matchMedia?.("(max-width: 980px)").matches) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
-  async function handleDelete(groupId) {
-    setDeleteError(null);
-    try {
-      const payload = await api.vanitas.deleteGroup(groupId);
-      if (isErrorPayload(payload)) {
-        setDeleteError(payload.message);
-      } else {
-        groups.refresh();
-        agents.refresh();
-      }
-    } catch (err) {
-      setDeleteError(err.message);
-    }
-  }
-
-  const selectedGroup = selectedGroupId ? groups.state.data.find((g) => g.id === selectedGroupId) ?? null : null;
-  const selectedMemberHostnames = useMemo(
-    () => new Set(selectedMembersState?.data ?? []),
-    [selectedMembersState]
-  );
-  const selectedGroupAgents = useMemo(
-    () => (agents.state.data ?? []).filter((a) => selectedMemberHostnames.has(a.hostname)),
-    [agents.state.data, selectedMemberHostnames]
-  );
-
-  if (selectedGroup) {
-    return (
-      <VanitasGroupDetail
-        key={selectedGroup.id}
-        group={selectedGroup}
-        allGroups={groups.state.data}
-        agents={selectedGroupAgents}
-        membersLoading={!selectedMembersState || selectedMembersState.loading}
-        vulnerabilities={vulnerabilities.state}
-        onBack={() => setSelectedGroupId(null)}
-        onChanged={() => {
-          groups.refresh();
-          agents.refresh();
-          groupMembers.ensureLoaded(selectedGroup.id);
-        }}
-        onDeleted={() => {
-          setSelectedGroupId(null);
-          groups.refresh();
-          agents.refresh();
-        }}
-      />
-    );
+  function refreshAll() {
+    groups.refresh();
+    agents.refresh();
   }
 
   const loading = groups.state.status === "loading" || agents.state.status === "loading";
-
   if (loading) {
     return (
-      <div className="vanitas-hud">
+      <div className="vanitas-hud vgp">
         <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
 
+  const fmtAvg = (n) => n.toLocaleString(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
   return (
-    <div className="vanitas-hud">
+    <div className="vanitas-hud vgp">
       {groups.state.error && <p className="vanitas-hud-error">{groups.state.error}</p>}
-      {deleteError && <p className="vanitas-hud-error">{deleteError}</p>}
 
-      <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginBottom: "20px" }}>
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("vg.createTitle")}</h2>
+      <section className="vgp-card vgp-sum" aria-label={tr("vgp.sumAria")}>
+        <div className="vgp-sum-col">
+          <span className="vgp-lbl">{tr("vgp.groups")}</span>
+          <span className="vgp-val accent">{groupList.length}</span>
+          <span className="vgp-sub vgp-small">{tr("vgp.split", { static: staticCount, dynamic: dynamicCount })}</span>
         </div>
-        <CreateGroupForm onCreated={groups.refresh} />
-      </div>
-
-      <div className="vanitas-hud-card vanitas-hud-frame">
-        <div className="vanitas-hud-card-head">
-          <h2>
-            {tr("vg.count", { count: groups.state.data.length })}
-          </h2>
-          <span className="vanitas-hud-card-note">{tr("vg.clickRow")}</span>
-        </div>
-        {groups.state.data.length === 0 ? (
-          <p className="vanitas-hud-empty-note">
-            {tr("vg.empty")}
-          </p>
-        ) : (
-          <div className="vanitas-hud-table-wrap">
-            <table className="vanitas-hud-table">
-              <thead>
-                <tr>
-                  <th>{tr("vg.col.name")}</th>
-                  <th>{tr("vg.col.type")}</th>
-                  <th>{tr("vg.col.endpoints")}</th>
-                  <th>{tr("vg.col.modified")}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.state.data.map((g) => (
-                  <tr
-                    key={g.id}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={tr("vg.openAria", { name: g.name })}
-                    onClick={() => selectGroup(g.id)}
-                  >
-                    <td className="vanitas-hud-host">
-                      <span className="name">{g.name}</span>
-                      {summarizeGroupRules(g.rules) && <span className="id">{summarizeGroupRules(g.rules)}</span>}
-                      {g.child_group_ids?.length > 0 && (
-                        <span className="id">
-                          {tr("vg.subgroups", { count: g.child_group_ids.length })}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`vanitas-hud-status-pill ${g.rules ? "pending" : "ok"}`}>
-                        {tr(g.rules ? "vg.dynamic" : "vg.static")}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="vanitas-hud-apps-badge">{g.device_count}</span>
-                    </td>
-                    <td className="cve-small">{fmtDate(g.updated_at)}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <ConfirmButton
-                        label={tr("vg.delete")}
-                        confirmLabel={tr("v.confirm")}
-                        className="vanitas-danger-btn"
-                        onConfirm={() => handleDelete(g.id)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="vgp-sum-state">
+          <span className="vgp-lbl">{tr("vgp.coverage")}</span>
+          <span className="vgp-sum-bar" role="img" aria-label={`${tr("vgp.covered", { count: covered })}, ${tr("vgp.orphans", { count: orphans })}`}>
+            <i className="cov" style={{ flex: covered }} />
+            <i className="orph" style={{ flex: orphans }} />
+          </span>
+          <div className="vgp-legend">
+            <span className="vgp-leg static">
+              <i className="cov" />
+              {tr("vgp.covered", { count: covered })}
+            </span>
+            {orphans > 0 ? (
+              <button type="button" className="vgp-leg" onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "nogroup" })}>
+                <i className="orph" />
+                {tr("vgp.orphansLink", { count: orphans })}
+              </button>
+            ) : (
+              <span className="vgp-leg static">
+                <i className="orph" />
+                {tr("vgp.orphans", { count: 0 })}
+              </span>
+            )}
           </div>
-        )}
+        </div>
+        <div className="vgp-sum-col vgp-sum-third">
+          <span className="vgp-lbl">{tr("vgp.patchWindow")}</span>
+          <span className="vgp-val">
+            {patchCount} <small>/ {groupList.length}</small>
+          </span>
+          <span className="vgp-sub vgp-small">{tr("vgp.withWindow")}</span>
+        </div>
+        <div className="vgp-sum-col vgp-sum-fourth">
+          <span className="vgp-lbl">{tr("vgp.mostExposed")}</span>
+          {mostExposed?.group ? (
+            <>
+              <button type="button" className="vgp-exposed" onClick={() => selectGroup(mostExposed.group.id)}>
+                {mostExposed.group.name}
+              </button>
+              <span className="vgp-sub vgp-small">{tr("vgp.avgCve", { n: fmtAvg(mostExposed.avg) })}</span>
+            </>
+          ) : (
+            <span className="vgp-sub">—</span>
+          )}
+        </div>
+      </section>
+
+      <div className="vgp-split">
+        <section className="vgp-card vgp-list" aria-label={tr("vgp.listTitle")}>
+          <div className="vgp-list-head">
+            <h2 className="vgp-h2">{tr("vgp.listTitle")}</h2>
+            <button type="button" className="vanitas-queue-btn" onClick={() => setCreating((v) => !v)} aria-expanded={creating}>
+              {creating ? tr("vgp.close") : tr("vgp.new")}
+            </button>
+          </div>
+          {creating && (
+            <CreateGroupForm
+              onCancel={() => setCreating(false)}
+              onCreated={(id) => {
+                setCreating(false);
+                if (id) setSelectedGroupId(id);
+                setFilter("all");
+                setQuery("");
+                refreshAll();
+              }}
+            />
+          )}
+          <div className="vgp-row">
+            <label className="vgp-search-wrap">
+              <span className="vgp-sr">{tr("vgp.searchShort")}</span>
+              <input type="search" className="vgp-input" placeholder={tr("vgp.searchShort")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+            </label>
+            <span className="vgp-chips" role="group" aria-label={tr("vgp.typeAria")}>
+              {[
+                ["all", tr("vgp.f.all"), groupList.length],
+                ["static", tr("vgp.f.static"), staticCount],
+                ["dynamic", tr("vgp.f.dynamic"), dynamicCount],
+              ].map(([k, label, n]) => (
+                <button key={k} type="button" className={`vgp-chip${filter === k ? " on" : ""}`} aria-pressed={filter === k} onClick={() => setFilter(k)}>
+                  {label} <b>{n}</b>
+                </button>
+              ))}
+            </span>
+          </div>
+
+          {groupList.length === 0 ? (
+            <p className="vgp-empty">{tr("vg.empty")}</p>
+          ) : visible.length === 0 ? (
+            <p className="vgp-empty">{tr("vgp.noMatch")}</p>
+          ) : (
+            <div className="vgp-rows">
+              {visible.map((g) => {
+                const isDyn = !!g.rules;
+                const isSel = selected?.id === g.id;
+                const count = membersByGroup.get(g.id)?.length ?? g.device_count ?? 0;
+                return (
+                  <button key={g.id} type="button" className={`vgp-grp${isSel ? " sel" : ""}`} aria-pressed={isSel} onClick={() => selectGroup(g.id)}>
+                    <span className={`vgp-ico${isDyn ? " dyn" : ""}`} aria-hidden="true">
+                      {isDyn ? "⟳" : g.name.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="vgp-grp-name">{g.name}</span>
+                    <span className="vgp-count">
+                      {tr("vgp.endpoints", { count })}
+                    </span>
+                    <span className="vgp-grp-meta">
+                      <span className={`vgp-tag${isDyn ? " dyn" : ""}`}>{tr(isDyn ? "vgp.dynamic" : "vgp.static")}</span>
+                      <span className="vgp-ellipsis">{isDyn ? summarizeGroupRules(g.rules) : tr("vgp.manual")}</span>
+                      {g.patch_enabled && g.patch_window_start && (
+                        <span>· {tr("vgp.patchShort", { start: g.patch_window_start, end: g.patch_window_end })}</span>
+                      )}
+                      {(g.child_group_ids ?? []).length > 0 && <span>· {tr("vg.subgroups", { count: g.child_group_ids.length })}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div ref={detailRef} className="vgp-detail-slot">
+          {selected ? (
+            <VanitasGroupDetail
+              key={selected.id}
+              group={selected}
+              allGroups={groupList}
+              agents={membersByGroup.get(selected.id) ?? []}
+              allAgents={agentList}
+              vulnerabilities={vulnerabilities.state}
+              onNavigateVanitas={onNavigateVanitas}
+              onChanged={refreshAll}
+              onDeleted={() => {
+                setSelectedGroupId(null);
+                refreshAll();
+              }}
+            />
+          ) : (
+            <div className="vgp-card vgp-empty-panel">
+              <p className="vgp-sub">{tr("vgp.pick")}</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
