@@ -48,6 +48,11 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas deployed applications redesigned** as list + detail: a summary band (installations
+  split into succeeded / pending / failed with a clickable legend, success rate excluding pending,
+  targeted endpoints), a list with a per-application split bar (failures first) and the detail in
+  a side panel instead of an accordion. New: "Retry the failures" re-queues the install on every
+  failed endpoint (double confirmation), and "+ Deploy" leads to the installer catalog.
 - **Vanitas groups redesigned** as list + detail: a summary band (static / dynamic groups, fleet
   coverage with a link to endpoints without a group, groups with a patch window, most exposed
   group), a searchable list with an inline creation form, and the group detail in a side panel
