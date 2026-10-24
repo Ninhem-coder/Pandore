@@ -21835,3 +21835,89 @@ button.vpr-leg:hover { color: var(--hud-accent); }
   .vdc-terms dd { margin-bottom: 8px; }
   .vdc-nav { min-width: 0; flex: 1 1 140px; }
 }
+
+/* ── Contrôle de tri commun Vanitas (components/SortMenu.jsx, 2026-10-24, direction A validée) ──
+   Bouton « ↓ Trié par <critère> ▾ » + menu (critères, puis sens). Remplace les `<select>` natifs
+   de Postes, Vulnérabilités et Catalogue d'application. Tokens --hud-* uniquement. */
+.sortmenu { position: relative; display: inline-flex; flex: none; }
+.sortmenu-btn {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px 0 9px;
+  border: 1px solid var(--hud-line);
+  border-radius: 10px;
+  background: transparent;
+  color: #c7d4d6;
+  font: 13px var(--hud-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.16s linear, color 0.16s linear;
+}
+.sortmenu-btn:hover,
+.sortmenu-btn.open { border-color: var(--hud-line-strong); color: var(--hud-ink); }
+.sortmenu-btn:focus-visible { outline: 2px solid var(--hud-accent); outline-offset: 2px; }
+.sortmenu-arrow { color: var(--hud-accent); font: 700 13px var(--hud-mono); }
+.sortmenu-pre,
+.sortmenu-caret { color: #8fa3a8; }
+.sortmenu-cur { color: var(--hud-ink); }
+.sortmenu-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 280px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--hud-line-strong);
+  border-radius: 12px;
+  background: var(--hud-panel);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.sortmenu-head { padding: 6px 8px 4px; font: 600 11px var(--hud-mono); letter-spacing: 0.08em; text-transform: uppercase; color: #8fa3a8; }
+.sortmenu-opt {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #c7d4d6;
+  font: 13px var(--hud-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.sortmenu-opt:hover,
+.sortmenu-opt:focus-visible { background: var(--hud-panel-raised); color: var(--hud-ink); outline: none; }
+.sortmenu-opt.on { color: var(--hud-accent); }
+.sortmenu-check { font-size: 12px; }
+.sortmenu-opt > span:nth-child(2) { white-space: nowrap; }
+.sortmenu-hint { font: 11px var(--hud-mono); color: #8fa3a8; white-space: nowrap; }
+.sortmenu-dir { display: flex; gap: 4px; margin-top: 4px; padding: 8px 8px 4px; border-top: 1px solid rgba(57, 230, 210, 0.1); }
+.sortmenu-dir button {
+  flex: 1;
+  height: 30px;
+  border: 1px solid var(--hud-line);
+  border-radius: 8px;
+  background: transparent;
+  color: #8fa3a8;
+  font: 600 11px var(--hud-mono);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sortmenu-dir button:hover { color: var(--hud-ink); }
+.sortmenu-dir button:focus-visible { outline: 2px solid var(--hud-accent); outline-offset: 1px; }
+.sortmenu-dir button.on { border-color: var(--hud-accent); background: var(--hud-accent-dim); color: var(--hud-accent); }
+@media (max-width: 640px) {
+  .sortmenu-pre { display: none; }
+  .sortmenu-menu { right: auto; left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sortmenu-btn { transition: none; }
+}

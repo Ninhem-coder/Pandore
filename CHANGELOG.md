@@ -48,6 +48,10 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **One sort control across Vanitas**: Endpoints, Vulnerabilities and the App catalog replace their
+  native drop-downs with a shared "Sorted by" button and menu (criteria with their natural order,
+  then ascending / descending). The sort direction can now be reversed; keyboard and screen
+  reader friendly (arrow keys, Escape returns focus to the button).
 - **Vanitas documentation rewritten** for the redesigned screens: the table of contents follows
   the Vanitas menu, a full-text search shows how many matches each section has and highlights
   them, and one section is shown at a time with an "Open the page" link, an "In short" box (what

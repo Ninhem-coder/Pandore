@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import SortMenu from "../components/SortMenu.jsx";
 import { useAuth } from "../AuthContext.jsx";
 import CopyButton from "../components/CopyButton.jsx";
 import { useVanitasInstallers } from "../hooks/useDashboardData.js";
@@ -60,12 +61,20 @@ function PackageIcon() {
   );
 }
 
+// Critères de tri (SortMenu) et leur ordre naturel — celui de l'ancien <select>, conservé.
+const CATALOG_SORTS = [
+  { value: "recent", dir: "desc" },
+  { value: "name", dir: "asc" },
+  { value: "size", dir: "desc" },
+];
+
 export default function VanitasAppCatalogTab({ onNavigateVanitas }) {
   const installers = useVanitasInstallers();
   const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [format, setFormat] = useState("all");
   const [sort, setSort] = useState("recent");
+  const [sortDir, setSortDir] = useState("desc");
   const [view, setView] = useState(readStoredView);
 
   useEffect(() => {
@@ -106,12 +115,13 @@ export default function VanitasAppCatalogTab({ onNavigateVanitas }) {
       if (!q) return true;
       return [i.name, i.version, i.original_filename].filter(Boolean).join(" ").toLowerCase().includes(q);
     });
+    const flip = sortDir === (CATALOG_SORTS.find((o) => o.value === sort)?.dir ?? "desc") ? 1 : -1;
     return filtered.sort((a, b) => {
-      if (sort === "name") return (a.name || "").localeCompare(b.name || "", currentLocale());
-      if (sort === "size") return (Number(b.size_bytes) || 0) - (Number(a.size_bytes) || 0);
-      return new Date(b.uploaded_at) - new Date(a.uploaded_at);
+      if (sort === "name") return flip * (a.name || "").localeCompare(b.name || "", currentLocale());
+      if (sort === "size") return flip * ((Number(b.size_bytes) || 0) - (Number(a.size_bytes) || 0));
+      return flip * (new Date(b.uploaded_at) - new Date(a.uploaded_at));
     });
-  }, [all, query, format, sort]);
+  }, [all, query, format, sort, sortDir]);
 
   const canManage = hasVanitasAccess(user, "applications", "read");
   const presentFormats = FORMATS.filter((f) => stats.byFormat[f] > 0);
@@ -210,14 +220,15 @@ export default function VanitasAppCatalogTab({ onNavigateVanitas }) {
               </button>
             ))}
           </div>
-          <label className="vcat-sort">
-            <span className="vcat-lbl">{tr("vcat.sort")}</span>
-            <select className="vcat-select" value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="recent">{tr("vcat.sort.recent")}</option>
-              <option value="name">{tr("vcat.sort.name")}</option>
-              <option value="size">{tr("vcat.sort.size")}</option>
-            </select>
-          </label>
+          <SortMenu
+            options={CATALOG_SORTS.map((o) => ({ ...o, label: tr(`vcat.sort.${o.value}`), hint: tr(`vcat.sortHint.${o.value}`) }))}
+            value={sort}
+            dir={sortDir}
+            onChange={(v, d) => {
+              setSort(v);
+              setSortDir(d);
+            }}
+          />
           <div className="vcat-seg" role="group" aria-label={tr("vcat.view")}>
             <button type="button" className={view === "cards" ? "on" : ""} aria-pressed={view === "cards"} onClick={() => changeView("cards")}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">

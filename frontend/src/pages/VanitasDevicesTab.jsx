@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import SortMenu from "../components/SortMenu.jsx";
 import { api } from "../api.js";
 import { IconDownload } from "../components/icons.jsx";
 import { exportPostesToExcel } from "../export.js";
@@ -43,6 +44,14 @@ const CONN_COLOR = { online: CVE_SEVERITY_COLORS.Low, offline: CVE_SEVERITY_COLO
 function cmpVersion(a, b) {
   return (a || "").localeCompare(b || "", undefined, { numeric: true });
 }
+
+// Critères de tri (SortMenu) et leur ordre naturel — celui de l'ancien <select>, conservé.
+const SORT_OPTIONS = [
+  { value: "lastSeen", key: "lastSeen", dir: "desc" },
+  { value: "hostname", key: "hostname", dir: "asc" },
+  { value: "certDays", key: "cert", dir: "asc" },
+  { value: "risk", key: "risk", dir: "desc" },
+];
 
 function sortVal(a, key, risk) {
   if (key === "hostname") return a.hostname ?? "";
@@ -98,6 +107,7 @@ export default function VanitasDevicesTab({ vanitasNav }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [sortKey, setSortKey] = useState("lastSeen");
+  const [sortDir, setSortDir] = useState("desc");
   const [removeError, setRemoveError] = useState(null);
 
   useEffect(() => {
@@ -191,12 +201,13 @@ export default function VanitasDevicesTab({ vanitasNav }) {
       return v ? v.critical * 1e6 + v.high * 1e3 + v.medium : 0;
     };
     return [...filtered].sort((a, b) => {
+      const flip = sortDir === (SORT_OPTIONS.find((o) => o.value === sortKey)?.dir ?? "desc") ? 1 : -1;
       const va = sortVal(a, sortKey, risk(a));
       const vb = sortVal(b, sortKey, risk(b));
-      if (typeof va === "string") return va.localeCompare(vb);
-      return va - vb;
+      if (typeof va === "string") return va.localeCompare(vb) * flip;
+      return (va - vb) * flip;
     });
-  }, [list, query, filter, sortKey, vulnByAgent]);
+  }, [list, query, filter, sortKey, sortDir, vulnByAgent]);
 
   function loadDetailCommands(agentId) {
     setDetailCommands({ status: "loading", data: [], error: null });
@@ -364,15 +375,15 @@ export default function VanitasDevicesTab({ vanitasNav }) {
               <span className="vdp-sr">{tr("vd.searchShort")}</span>
               <input type="search" className="vdp-search" placeholder={tr("vd.searchShort")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
             </label>
-            <label className="vdp-sort">
-              <span className="vdp-lbl">{tr("vv.sort")}</span>
-              <select className="vdp-select" value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
-                <option value="lastSeen">{tr("vd.sort.lastSeen")}</option>
-                <option value="hostname">{tr("vd.sort.hostname")}</option>
-                <option value="certDays">{tr("vd.sort.cert")}</option>
-                <option value="risk">{tr("vd.sort.risk")}</option>
-              </select>
-            </label>
+            <SortMenu
+              options={SORT_OPTIONS.map((o) => ({ ...o, label: tr(`vd.sort.${o.key}`), hint: tr(`vd.sortHint.${o.key}`) }))}
+              value={sortKey}
+              dir={sortDir}
+              onChange={(v, d) => {
+                setSortKey(v);
+                setSortDir(d);
+              }}
+            />
           </div>
           <div className="vdp-chips" role="group" aria-label={tr("vd.filterAria")}>
             {chips.map(([k, label, n, color]) => (

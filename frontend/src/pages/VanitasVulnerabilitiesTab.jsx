@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import SortMenu from "../components/SortMenu.jsx";
 import { api } from "../api.js";
 import { IconDownload } from "../components/icons.jsx";
 import { exportVulnerabilitiesToExcel } from "../export.js";
@@ -267,7 +268,13 @@ export function CveDetailModal(props) {
   return <CveDetail {...props} variant="modal" />;
 }
 
-const SORTS = ["sev", "cvss", "exposed", "recent"];
+// Ordre naturel de chaque critère (SortMenu) — celui de l'ancien <select>, conservé.
+const SORTS = [
+  { value: "sev", dir: "desc" },
+  { value: "cvss", dir: "desc" },
+  { value: "exposed", dir: "desc" },
+  { value: "recent", dir: "desc" },
+];
 
 /**
  * "Vanitas" > Sécurité > Vulnérabilités (2026-09-09, "toutes les vulnérabilités de tous les
@@ -292,6 +299,7 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
   const [query, setQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [sort, setSort] = useState("sev");
+  const [sortDir, setSortDir] = useState("desc");
   const [selectedCveId, setSelectedCveId] = useState(null);
   // Navigation depuis la Vue d'ensemble (2026-09-11) — "Top vulnérabilités" transmet une CVE à
   // sélectionner directement, mais la collecte par agent (byAgent, ci-dessus) est encore en vol
@@ -417,13 +425,15 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
       const i = SEVERITY_ORDER.indexOf((g.severity || "").toUpperCase());
       return i === -1 ? SEVERITY_ORDER.length : i;
     };
-    return [...filtered].sort((a, b) => {
+    const natural = [...filtered].sort((a, b) => {
       if (sort === "cvss") return (b.cvss_score ?? -1) - (a.cvss_score ?? -1);
       if (sort === "exposed") return b.devices.length - a.devices.length || (b.cvss_score ?? -1) - (a.cvss_score ?? -1);
       if (sort === "recent") return new Date(b.published || 0) - new Date(a.published || 0);
       return sevRank(a) - sevRank(b) || (b.cvss_score ?? -1) - (a.cvss_score ?? -1);
     });
-  }, [groups, query, severityFilter, sort]);
+    const naturalDir = SORTS.find((s) => s.value === sort)?.dir ?? "desc";
+    return sortDir === naturalDir ? natural : natural.reverse();
+  }, [groups, query, severityFilter, sort, sortDir]);
 
   const affectedHostCount = useMemo(() => {
     const hosts = new Set();
@@ -522,16 +532,15 @@ export default function VanitasVulnerabilitiesTab({ vanitasNav }) {
               <span className="vvp-sr">{tr("vv.searchShort")}</span>
               <input type="search" className="vvp-search" placeholder={tr("vv.searchShort")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
             </label>
-            <label className="vvp-sort">
-              <span className="vvp-lbl">{tr("vv.sort")}</span>
-              <select className="vvp-select" value={sort} onChange={(e) => setSort(e.target.value)}>
-                {SORTS.map((s) => (
-                  <option key={s} value={s}>
-                    {tr(`vv.sort.${s}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SortMenu
+              options={SORTS.map((s) => ({ ...s, label: tr(`vv.sort.${s.value}`), hint: tr(`vv.sortHint.${s.value}`) }))}
+              value={sort}
+              dir={sortDir}
+              onChange={(v, d) => {
+                setSort(v);
+                setSortDir(d);
+              }}
+            />
           </div>
           <div className="vvp-chips" role="group" aria-label={tr("vv.sevAria")}>
             <button type="button" className={`vvp-chip${severityFilter === "all" ? " on" : ""}`} aria-pressed={severityFilter === "all"} onClick={() => setSeverityFilter("all")}>

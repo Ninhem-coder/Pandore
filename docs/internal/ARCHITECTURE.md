@@ -181,6 +181,9 @@ flowchart LR
   ("Non conforme", "Erreur"… de `SEVERITY`/`FAILING_CATEGORIES`) RESTENT des identifiants en
   français : traduire à l'affichage via `categoryLabel()` (theme.js). Dictionnaires par zone dans
   `i18n/messages/<zone>.js` (`{ fr, en }` côte à côte), listés par `messages/index.js`.
+  Tri dans Vanitas : TOUJOURS `components/SortMenu.jsx` (bouton « Trié par » + menu, critères
+  `{ value, label, hint, dir }` où `dir` = ordre naturel du critère ; la page garde son comparateur
+  « naturel » et l'inverse si le sens choisi diffère) — jamais un `<select>` natif.
   Documentation Vanitas : contenu en DONNÉES, un fichier par langue (`vanitasDocsContent.fr.js` /
   `.en.js`, choisi par `getLang()`, mêmes `id` et même nombre de repères `legend` des deux côtés)
   — sert la recherche plein texte et l'affichage section par section. Rendu (mise en forme
