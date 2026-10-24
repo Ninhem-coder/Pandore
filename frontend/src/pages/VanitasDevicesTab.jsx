@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import SortMenu from "../components/SortMenu.jsx";
 import { api } from "../api.js";
 import { IconDownload } from "../components/icons.jsx";
 import { exportPostesToExcel } from "../export.js";
@@ -12,49 +13,81 @@ import {
   useVanitasCommands,
   useVanitasGroups,
 } from "../hooks/useDashboardData.js";
+import { CVE_SEVERITY_COLORS } from "../theme.js";
 import VanitasDeviceDetail from "./VanitasDeviceDetail.jsx";
 import {
+  CERT_VALIDITY_DAYS,
   CERT_WARNING_DAYS,
   COMMAND_LABELS,
-  CertSegBar,
   ConfirmButton,
   STALE_HOURS,
   certTone,
   daysUntil,
+  fmtDateTime,
   fmtRelative,
   isOnline,
+  latestCommandResult,
   summarizeGroupRules,
   toneVar,
 } from "./vanitasShared.jsx";
 import { tr } from "../i18n/core.js";
 
-function sortVal(a, key) {
+// Connectivité en 3 états (refonte 2026-10-23) : la page mélangeait "silencieux" > 24 h (pastille)
+// et > 7 j (tuile). En ligne < 24 h (`isOnline`), hors ligne 24 h – 7 j, silencieux > 7 j / jamais vu.
+function connState(agent) {
+  if (isOnline(agent)) return "online";
+  if (!agent.last_seen) return "silent";
+  return (Date.now() - new Date(agent.last_seen).getTime()) / 3_600_000 > STALE_HOURS ? "silent" : "offline";
+}
+const CONN_COLOR = { online: CVE_SEVERITY_COLORS.Low, offline: CVE_SEVERITY_COLORS.Medium, silent: CVE_SEVERITY_COLORS.Unknown };
+
+function cmpVersion(a, b) {
+  return (a || "").localeCompare(b || "", undefined, { numeric: true });
+}
+
+// Critères de tri (SortMenu) et leur ordre naturel — celui de l'ancien <select>, conservé.
+const SORT_OPTIONS = [
+  { value: "lastSeen", key: "lastSeen", dir: "desc" },
+  { value: "hostname", key: "hostname", dir: "asc" },
+  { value: "certDays", key: "cert", dir: "asc" },
+  { value: "risk", key: "risk", dir: "desc" },
+];
+
+function sortVal(a, key, risk) {
   if (key === "hostname") return a.hostname ?? "";
   if (key === "certDays") {
     const d = daysUntil(a.cert_not_after);
-    return d === null ? -Infinity : d;
+    return d === null ? Infinity : d;
   }
-  if (key === "apps") return a.apps_count ?? 0;
+  if (key === "risk") return -(risk ?? 0);
   // "lastSeen" — plus petit = vu plus récemment (millisecondes écoulées depuis last_seen).
   return a.last_seen ? Date.now() - new Date(a.last_seen).getTime() : Infinity;
 }
 
+function vulnCounts(entry) {
+  const c = { critical: 0, high: 0, medium: 0, low: 0, total: 0 };
+  for (const v of entry?.data ?? []) {
+    const s = (v.severity || "").toLowerCase();
+    if (c[s] !== undefined) c[s]++;
+    c.total++;
+  }
+  return c;
+}
+
 /**
- * "Vanitas" > Postes (jalon 8, refonte HUD) — remplace la table plate d'origine (jalon 5,
- * étape 7) par un bandeau KPI + recherche/filtres + table enrichie (certificat en barre
- * segmentée, statut en pastille pulsante, dernière commande visible sans ouvrir la fiche).
- * Identité visuelle propre à Vanitas ("façon cyberpunk mais pro", demande explicite de
- * Nicolas après trois maquettes comparées) — voir `.vanitas-hud` dans styles.css, scopée pour
- * ne jamais déteindre sur le reste du dashboard ("dossier sombre").
+ * "Vanitas" > Postes — jalon 8 (refonte HUD), puis refonte liste + aperçu (2026-10-23, maquette
+ * canvas validée par Nicolas) : bandeau de synthèse (postes, connectivité en 3 états avec légende
+ * cliquable, certificats < 30 j, version d'agent), liste compacte (recherche, tri, pastilles) et
+ * APERÇU latéral du poste sélectionné. La fiche complète (VanitasDeviceDetail.jsx, inchangée)
+ * s'ouvre depuis l'aperçu, ou directement via `vanitasNav.payload.selectAgentId`.
  *
- * "Dernière commande" par agent dérivée de `useVanitasCommands()` (fleet-wide, déjà utilisée
- * par VanitasOverviewTab.jsx/VanitasCommandsTab.jsx) — pas de nouvel appel réseau, juste un
- * regroupement côté client par `agent_id` en gardant la plus récente par `created_at`.
+ * "Dernière commande" par agent dérivée de `useVanitasCommands()` (fleet-wide, déjà partagée avec
+ * la Vue d'ensemble / Commandes) — pas de nouvel appel réseau. Vulnérabilités chargées pour tout le
+ * parc (même cache que la page Vulnérabilités) pour la pastille / le badge « CVE critiques » ;
+ * inventaire et conformité chargés seulement pour le poste prévisualisé.
  *
- * "Retirer de l'inventaire" (déjà possible depuis la fiche poste, jalon 7) est maintenant
- * AUSSI accessible directement depuis une ligne de la liste — même `ConfirmButton` (deux
- * clics), le clic sur le bouton stoppe sa propagation pour ne jamais déclencher la navigation
- * de la ligne vers la fiche poste.
+ * Groupes et "Retirer de l'inventaire" passent de la ligne à l'aperçu (même `ConfirmButton` en
+ * deux clics, mêmes appels, même contrat d'erreur). Classes `.vdp-*`.
  */
 export default function VanitasDevicesTab({ vanitasNav }) {
   const agents = useVanitasAgents();
@@ -63,17 +96,18 @@ export default function VanitasDevicesTab({ vanitasNav }) {
   const compliance = useVanitasAgentCompliance();
   const commands = useVanitasCommands();
   // Groupes (2026-09-08) — chargés ici (pas dans VanitasDeviceDetail.jsx) pour bénéficier du
-  // même cache partagé que VanitasGroupsTab.jsx, jamais deux appels réseau indépendants pour
-  // la même liste selon l'onglet ouvert en premier.
+  // même cache partagé que VanitasGroupsTab.jsx.
   const groups = useVanitasGroups();
 
   const [selectedId, setSelectedId] = useState(null);
+  const [previewId, setPreviewId] = useState(null);
   const [detailCommands, setDetailCommands] = useState({ status: "idle", data: [], error: null });
+  const detailRef = useRef(null);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [sortKey, setSortKey] = useState("lastSeen");
-  const [sortDir, setSortDir] = useState(1);
+  const [sortDir, setSortDir] = useState("desc");
   const [removeError, setRemoveError] = useState(null);
 
   useEffect(() => {
@@ -83,27 +117,32 @@ export default function VanitasDevicesTab({ vanitasNav }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Groupes (2026-09-08) — `groupById` pour résoudre `agent.group_ids` en badges nommés,
-  // `staticGroups` pour le sélecteur d'ajout (jamais un groupe DYNAMIQUE, sans objet — ses
-  // membres sont calculés par motif, pas affectés à la main).
+  useEffect(() => {
+    for (const a of agents.state.data ?? []) vulnerabilities.ensureLoaded(a.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agents.state.data]);
+
   const groupById = useMemo(() => {
     const map = new Map();
     for (const g of groups.state.data ?? []) map.set(g.id, g);
     return map;
   }, [groups.state.data]);
-  const staticGroups = useMemo(
-    () => (groups.state.data ?? []).filter((g) => !g.rules),
-    [groups.state.data]
-  );
+  const staticGroups = useMemo(() => (groups.state.data ?? []).filter((g) => !g.rules), [groups.state.data]);
 
-  const latestCommandByAgent = useMemo(() => {
+  const commandsByAgent = useMemo(() => {
     const map = new Map();
     for (const c of commands.state.data ?? []) {
-      const prev = map.get(c.agent_id);
-      if (!prev || new Date(c.created_at) > new Date(prev.created_at)) map.set(c.agent_id, c);
+      if (!map.has(c.agent_id)) map.set(c.agent_id, []);
+      map.get(c.agent_id).push(c);
     }
+    for (const list of map.values()) list.sort((x, y) => new Date(y.created_at) - new Date(x.created_at));
     return map;
   }, [commands.state.data]);
+  const latestCommandByAgent = useMemo(() => {
+    const map = new Map();
+    for (const [id, list] of commandsByAgent) map.set(id, list[0]);
+    return map;
+  }, [commandsByAgent]);
 
   const [exportState, setExportState] = useState({ status: "idle", error: null });
   async function handleExport() {
@@ -116,51 +155,59 @@ export default function VanitasDevicesTab({ vanitasNav }) {
     }
   }
 
+  const list = agents.state.data ?? [];
+  const vulnByAgent = useMemo(() => {
+    const map = new Map();
+    for (const a of list) map.set(a.id, vulnCounts(vulnerabilities.state[a.id]));
+    return map;
+  }, [list, vulnerabilities.state]);
+
+  const latestAgentVersion = useMemo(
+    () => list.map((a) => a.agent_version).filter(Boolean).sort(cmpVersion).pop() ?? null,
+    [list]
+  );
+
   const counts = useMemo(() => {
-    const list = agents.state.data ?? [];
-    const total = list.length;
-    const online = list.filter(isOnline).length;
-    const cert = list.filter((a) => {
+    const c = { total: list.length, online: 0, offline: 0, silent: 0, cert: 0, risk: 0, latest: 0, nogroup: 0 };
+    for (const a of list) {
+      c[connState(a)]++;
       const d = daysUntil(a.cert_not_after);
-      return d !== null && d < CERT_WARNING_DAYS;
-    }).length;
-    const stale = list.filter((a) => {
-      if (!a.last_seen) return true;
-      return (Date.now() - new Date(a.last_seen).getTime()) / 3_600_000 > STALE_HOURS;
-    }).length;
-    return { total, online, offline: total - online, cert, stale };
-  }, [agents.state.data]);
+      if (d !== null && d < CERT_WARNING_DAYS) c.cert++;
+      if (vulnByAgent.get(a.id)?.critical) c.risk++;
+      if (latestAgentVersion && a.agent_version === latestAgentVersion) c.latest++;
+      if (!(a.group_ids ?? []).length) c.nogroup++;
+    }
+    c.down = c.offline + c.silent;
+    return c;
+  }, [list, vulnByAgent, latestAgentVersion]);
 
   const rows = useMemo(() => {
-    const list = agents.state.data ?? [];
     const q = query.trim().toLowerCase();
     const filtered = list.filter((a) => {
       if (q && !a.hostname.toLowerCase().includes(q)) return false;
-      const online = isOnline(a);
-      if (filter === "online" && !online) return false;
-      if (filter === "offline" && online) return false;
+      const st = connState(a);
+      if ((filter === "online" || filter === "offline" || filter === "silent") && st !== filter) return false;
+      if (filter === "down" && st === "online") return false;
       if (filter === "cert") {
         const d = daysUntil(a.cert_not_after);
         if (!(d !== null && d < CERT_WARNING_DAYS)) return false;
       }
+      if (filter === "risk" && !vulnByAgent.get(a.id)?.critical) return false;
+      if (filter === "nogroup" && (a.group_ids ?? []).length) return false;
       return true;
     });
+    const risk = (a) => {
+      const v = vulnByAgent.get(a.id);
+      return v ? v.critical * 1e6 + v.high * 1e3 + v.medium : 0;
+    };
     return [...filtered].sort((a, b) => {
-      const va = sortVal(a, sortKey);
-      const vb = sortVal(b, sortKey);
-      if (typeof va === "string") return va.localeCompare(vb) * sortDir;
-      return (va - vb) * sortDir;
+      const flip = sortDir === (SORT_OPTIONS.find((o) => o.value === sortKey)?.dir ?? "desc") ? 1 : -1;
+      const va = sortVal(a, sortKey, risk(a));
+      const vb = sortVal(b, sortKey, risk(b));
+      if (typeof va === "string") return va.localeCompare(vb) * flip;
+      return (va - vb) * flip;
     });
-  }, [agents.state.data, query, filter, sortKey, sortDir]);
-
-  function handleSort(key) {
-    if (sortKey === key) {
-      setSortDir((d) => -d);
-    } else {
-      setSortKey(key);
-      setSortDir(1);
-    }
-  }
+  }, [list, query, filter, sortKey, sortDir, vulnByAgent]);
 
   function loadDetailCommands(agentId) {
     setDetailCommands({ status: "loading", data: [], error: null });
@@ -173,76 +220,59 @@ export default function VanitasDevicesTab({ vanitasNav }) {
     );
   }
 
-  function selectAgent(agentId) {
+  function openAgent(agentId) {
     setSelectedId(agentId);
+    setPreviewId(agentId);
     inventory.ensureLoaded(agentId);
     vulnerabilities.ensureLoaded(agentId);
     compliance.ensureLoaded(agentId);
     loadDetailCommands(agentId);
   }
 
-  // Navigation depuis la Vue d'ensemble (2026-09-11, "les blocs sont juste là mais ne renvoie
-  // sur aucune page") — `vanitasNav.payload` porte soit `selectAgentId` (ouvre directement la
-  // fiche d'un poste précis, ex. depuis "Postes à surveiller"), soit `filter` (applique une
-  // pastille de filtre déjà existante, ex. depuis la tuile "En ligne"). Gardé sur
-  // `vanitasNav?.token` (pas `.payload`) — voir bumpVanitasNav (../navigation.js) : incrémente
-  // à chaque clic, y compris vers la même cible, pour redéclencher même un reclic identique.
+  function previewAgent(agentId) {
+    setPreviewId(agentId);
+    setRemoveError(null);
+    if (detailRef.current && window.matchMedia?.("(max-width: 980px)").matches) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  // Navigation depuis la Vue d'ensemble / EOL — `selectAgentId` ouvre directement la fiche ;
+  // `filter` applique une pastille ("offline" de la Vue d'ensemble = tout ce qui n'est pas en
+  // ligne, depuis la séparation hors ligne / silencieux → filtre "down", les deux pastilles
+  // s'allument). Gardé sur `vanitasNav?.token` (voir bumpVanitasNav, ../navigation.js).
   useEffect(() => {
     if (!vanitasNav?.payload) return;
     const { selectAgentId, filter: navFilter } = vanitasNav.payload;
-    if (selectAgentId) selectAgent(selectAgentId);
-    if (navFilter) setFilter(navFilter);
+    if (selectAgentId) openAgent(selectAgentId);
+    if (navFilter) setFilter(navFilter === "offline" ? "down" : navFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vanitasNav?.token]);
 
-  // Groupes (2026-09-08, many-to-many) — assignation directement depuis la liste ("via la
-  // page avec tous les postes", demande explicite de Nicolas), en plus des cases à cocher déjà
-  // en place sur la fiche poste (VanitasDeviceDetail.jsx) — mêmes appels, même contrat d'erreur.
-  // Un poste peut désormais appartenir à PLUSIEURS groupes statiques à la fois.
-  async function handleAddToGroup(agentId, groupId) {
-    if (!groupId) return;
+  async function runAction(call) {
     setRemoveError(null);
     try {
-      const payload = await api.vanitas.addAgentToGroup(agentId, groupId);
-      if (isErrorPayload(payload)) {
-        setRemoveError(payload.message);
-      } else {
-        agents.refresh();
-      }
+      const payload = await call();
+      if (isErrorPayload(payload)) setRemoveError(payload.message);
+      else agents.refresh();
     } catch (err) {
       setRemoveError(err.message);
     }
   }
+  const handleAddToGroup = (agentId, groupId) => groupId && runAction(() => api.vanitas.addAgentToGroup(agentId, groupId));
+  const handleRemoveFromGroup = (agentId, groupId) => runAction(() => api.vanitas.removeAgentFromGroup(agentId, groupId));
+  const handleRemove = (agentId) => runAction(() => api.vanitas.removeAgent(agentId));
 
-  async function handleRemoveFromGroup(agentId, groupId) {
-    setRemoveError(null);
-    try {
-      const payload = await api.vanitas.removeAgentFromGroup(agentId, groupId);
-      if (isErrorPayload(payload)) {
-        setRemoveError(payload.message);
-      } else {
-        agents.refresh();
-      }
-    } catch (err) {
-      setRemoveError(err.message);
-    }
-  }
+  const selectedAgent = selectedId ? list.find((a) => a.id === selectedId) ?? null : null;
 
-  async function handleRemove(agentId) {
-    setRemoveError(null);
-    try {
-      const payload = await api.vanitas.removeAgent(agentId);
-      if (isErrorPayload(payload)) {
-        setRemoveError(payload.message);
-      } else {
-        agents.refresh();
-      }
-    } catch (err) {
-      setRemoveError(err.message);
-    }
-  }
-
-  const selectedAgent = selectedId ? agents.state.data.find((a) => a.id === selectedId) ?? null : null;
+  // Aperçu : chargement paresseux de l'inventaire (OS) et de la conformité du poste affiché.
+  const preview = rows.find((a) => a.id === previewId) ?? rows[0] ?? null;
+  useEffect(() => {
+    if (!preview || selectedAgent) return;
+    inventory.ensureLoaded(preview.id);
+    compliance.ensureLoaded(preview.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview?.id, selectedAgent]);
 
   if (selectedAgent) {
     return (
@@ -259,248 +289,336 @@ export default function VanitasDevicesTab({ vanitasNav }) {
         onBack={() => setSelectedId(null)}
         onRemoved={() => {
           setSelectedId(null);
+          setPreviewId(null);
           agents.refresh();
         }}
       />
     );
   }
 
+  const isOn = (k) => filter === k || (filter === "down" && (k === "offline" || k === "silent"));
+  const chips = [
+    ["all", tr("vd.f.all"), counts.total, "var(--hud-accent)"],
+    ["online", tr("vd.f.online"), counts.online, CONN_COLOR.online],
+    ["offline", tr("vd.f.offline"), counts.offline, CONN_COLOR.offline],
+    ["silent", tr("vd.f.silent"), counts.silent, CONN_COLOR.silent],
+    ["cert", tr("vd.f.cert"), counts.cert, CVE_SEVERITY_COLORS.Medium],
+    ["risk", tr("vd.f.risk"), counts.risk, CVE_SEVERITY_COLORS.Critical],
+    // "Sans groupe" (2026-10-23) — cible du lien du bandeau de "Groupes" ; affichée seulement
+    // quand il y en a (ou qu'elle est active), pour ne pas encombrer un parc entièrement rangé.
+    ...(counts.nogroup || filter === "nogroup" ? [["nogroup", tr("vd.f.nogroup"), counts.nogroup, "var(--hud-ink-faint)"]] : []),
+  ];
+
   return (
-    <div className="vanitas-hud">
+    <div className="vanitas-hud vdp">
       {agents.state.error && <p className="vanitas-hud-error">{agents.state.error}</p>}
-      {removeError && <p className="vanitas-hud-error">{removeError}</p>}
 
-      <div className="vanitas-hud-strip">
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
-          <div className="label">
-            {tr("vd.endpoints")}
-            <span className="tag">{tr("vd.total")}</span>
-          </div>
-          <div className="value">{counts.total}</div>
-          <div className="bar">
-            <i style={{ width: "100%" }} />
-          </div>
+      <section className="vdp-card vdp-sum" aria-label={tr("vd.sumAria")}>
+        <div className="vdp-sum-col">
+          <span className="vdp-lbl">{tr("vd.endpoints")}</span>
+          <span className="vdp-val accent">{counts.total}</span>
+          <span className="vdp-sub vdp-small">{tr("vd.enrolled")}</span>
         </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-good)" }}>
-          <div className="label">
-            {tr("vd.online")}
-            <span className="tag">LIVE</span>
-          </div>
-          <div className="value">{counts.online}</div>
-          <div className="bar">
-            <i style={{ width: counts.total ? `${Math.round((counts.online / counts.total) * 100)}%` : "0%" }} />
-          </div>
-        </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-warn)" }}>
-          <div className="label">
-            {tr("vd.certificate")}
-            <span className="tag">{tr("vd.certTag")}</span>
-          </div>
-          <div className="value">{counts.cert}</div>
-          <div className="bar">
-            <i style={{ width: counts.total ? `${Math.round((counts.cert / counts.total) * 100)}%` : "0%" }} />
-          </div>
-        </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
-          <div className="label">
-            {tr("vd.silent")}
-            <span className="tag">{tr("vd.silentTag")}</span>
-          </div>
-          <div className="value">{counts.stale}</div>
-          <div className="bar">
-            <i style={{ width: counts.total ? `${Math.round((counts.stale / counts.total) * 100)}%` : "0%" }} />
-          </div>
-        </div>
-      </div>
-
-      <div className="vanitas-hud-toolbar">
-        <div className="vanitas-hud-search">
-          <span className="prompt">&gt;</span>
-          <input
-            type="text"
-            placeholder="grep --hostname ..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-        <div className="vanitas-hud-chips">
-          <button type="button" className={`vanitas-hud-chip${filter === "all" ? " active" : ""}`} onClick={() => setFilter("all")}>
-            <span className="led" />
-            {tr("vd.chip.all")} <span className="n">{counts.total}</span>
-          </button>
-          <button type="button" className={`vanitas-hud-chip${filter === "online" ? " active" : ""}`} onClick={() => setFilter("online")}>
-            <span className="led" />
-            {tr("vd.chip.online")} <span className="n">{counts.online}</span>
-          </button>
-          <button
-            type="button"
-            className={`vanitas-hud-chip tone-high${filter === "offline" ? " active" : ""}`}
-            onClick={() => setFilter("offline")}
+        <div className="vdp-sum-state">
+          <span className="vdp-lbl">{tr("vd.connectivity")}</span>
+          <span
+            className="vdp-sum-bar"
+            role="img"
+            aria-label={`${tr("vd.leg.online", { count: counts.online })}, ${tr("vd.leg.offline", { count: counts.offline })}, ${tr("vd.leg.silent", { count: counts.silent })}`}
           >
-            <span className="led" />
-            {tr("vd.chip.silent")} <span className="n">{counts.offline}</span>
-          </button>
-          <button type="button" className={`vanitas-hud-chip tone-high${filter === "cert" ? " active" : ""}`} onClick={() => setFilter("cert")}>
-            <span className="led" />
-            {tr("vd.chip.cert")} <span className="n">{counts.cert}</span>
-          </button>
+            {["online", "offline", "silent"].map((k) => (
+              <i key={k} style={{ flex: counts[k], background: CONN_COLOR[k] }} />
+            ))}
+          </span>
+          <div className="vdp-legend">
+            {["online", "offline", "silent"].map((k) => (
+              <button key={k} type="button" className="vdp-leg" onClick={() => setFilter(k)}>
+                <i style={{ background: CONN_COLOR[k] }} />
+                {tr(`vd.leg.${k}`, { count: counts[k] })}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+        <div className="vdp-sum-col vdp-sum-third">
+          <span className="vdp-lbl">{tr("vd.certificates")}</span>
+          <span className="vdp-val" style={counts.cert ? { color: CVE_SEVERITY_COLORS.Medium } : undefined}>
+            {counts.cert}
+          </span>
+          <span className="vdp-sub vdp-small">{tr("vd.certSoon", { days: CERT_WARNING_DAYS })}</span>
+        </div>
+        <div className="vdp-sum-col vdp-sum-fourth">
+          <span className="vdp-lbl">{tr("vd.agentVersionLbl")}</span>
+          <span className="vdp-val vdp-val-sm">
+            {latestAgentVersion ? `v${latestAgentVersion}` : "—"}{" "}
+            <small>
+              {counts.latest}/{counts.total}
+            </small>
+          </span>
+          <span className="vdp-sub vdp-small">{tr("vd.behind", { count: counts.total - counts.latest })}</span>
+        </div>
+      </section>
 
-      <div className="vanitas-hud-card vanitas-hud-frame">
-        <div className="vanitas-hud-card-head">
-          <h2>{rows.length === counts.total ? tr("vd.countAll", { count: counts.total }) : tr("vd.countOf", { shown: rows.length, count: counts.total })}</h2>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span className="vanitas-hud-card-note">{tr("vd.clickRow")}</span>
+      <div className="vdp-split">
+        <section className="vdp-card vdp-list" aria-label={tr("vd.listTitle")}>
+          <div className="vdp-list-head">
+            <h2 className="vdp-h2">
+              {rows.length === counts.total ? tr("vd.listTitle") : tr("vd.listOf", { shown: rows.length, count: counts.total })}
+            </h2>
             <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
               <IconDownload />
               {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
             </button>
           </div>
-        </div>
-        {exportState.error && <p className="error-note" style={{ margin: "0 0 12px" }}>{exportState.error}</p>}
-        <div className="vanitas-hud-table-wrap">
-          <table className="vanitas-hud-table">
-            <thead>
-              <tr>
-                <th className={`sortable${sortKey === "hostname" ? " sorted" : ""}`} onClick={() => handleSort("hostname")}>
-                  {tr("vd.col.endpoint")} <span className="arrow">{sortKey === "hostname" && sortDir === -1 ? "▴" : "▾"}</span>
-                </th>
-                <th className={`sortable${sortKey === "lastSeen" ? " sorted" : ""}`} onClick={() => handleSort("lastSeen")}>
-                  {tr("vd.col.status")} <span className="arrow">{sortKey === "lastSeen" && sortDir === -1 ? "▴" : "▾"}</span>
-                </th>
-                <th className={`sortable${sortKey === "certDays" ? " sorted" : ""}`} onClick={() => handleSort("certDays")}>
-                  {tr("vd.col.certificate")} <span className="arrow">{sortKey === "certDays" && sortDir === -1 ? "▴" : "▾"}</span>
-                </th>
-                <th className={`sortable${sortKey === "apps" ? " sorted" : ""}`} onClick={() => handleSort("apps")}>
-                  {tr("vd.col.apps")} <span className="arrow">{sortKey === "apps" && sortDir === -1 ? "▴" : "▾"}</span>
-                </th>
-                <th>{tr("vd.col.group")}</th>
-                <th>{tr("vd.col.lastCommand")}</th>
-                <th></th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {agents.state.status === "loading" ? (
-                <tr className="vanitas-hud-empty">
-                  <td colSpan={8}>{tr("v.loading")}</td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr className="vanitas-hud-empty">
-                  <td colSpan={8}>
-                    {counts.total === 0 ? tr("vd.noAgent") : tr("vd.noMatch")}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((a) => {
-                  const online = isOnline(a);
-                  const days = daysUntil(a.cert_not_after);
-                  const tone = toneVar(certTone(days));
-                  const cmd = latestCommandByAgent.get(a.id);
-                  return (
-                    <tr key={a.id} tabIndex={0} role="button" aria-label={tr("vd.openAria", { host: a.hostname })} onClick={() => selectAgent(a.id)}>
-                      <td className="vanitas-hud-host">
-                        <span className="name">{a.hostname}</span>
-                        <span className="id">
-                          {a.id.slice(0, 12)}… · {tr("vd.agentVersion", { version: a.agent_version ? `v${a.agent_version}` : tr("vd.unknownVersion") })}
+          {exportState.error && <p className="error-note" style={{ margin: 0 }}>{exportState.error}</p>}
+          <div className="vdp-toolbar">
+            <label className="vdp-search-wrap">
+              <span className="vdp-sr">{tr("vd.searchShort")}</span>
+              <input type="search" className="vdp-search" placeholder={tr("vd.searchShort")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+            </label>
+            <SortMenu
+              options={SORT_OPTIONS.map((o) => ({ ...o, label: tr(`vd.sort.${o.key}`), hint: tr(`vd.sortHint.${o.key}`) }))}
+              value={sortKey}
+              dir={sortDir}
+              onChange={(v, d) => {
+                setSortKey(v);
+                setSortDir(d);
+              }}
+            />
+          </div>
+          <div className="vdp-chips" role="group" aria-label={tr("vd.filterAria")}>
+            {chips.map(([k, label, n, color]) => (
+              <button key={k} type="button" className={`vdp-chip${isOn(k) ? " on" : ""}`} aria-pressed={isOn(k)} onClick={() => setFilter(k)}>
+                <i className="dot" style={{ background: color }} />
+                {label} <b>{n}</b>
+              </button>
+            ))}
+          </div>
+
+          {agents.state.status === "loading" ? (
+            <p className="vdp-empty">{tr("v.loading")}</p>
+          ) : rows.length === 0 ? (
+            <p className="vdp-empty">{counts.total === 0 ? tr("vd.emptyNoAgent") : tr("vd.emptyNoMatch")}</p>
+          ) : (
+            <div className="vdp-rows">
+              {rows.map((a) => {
+                const st = connState(a);
+                const days = daysUntil(a.cert_not_after);
+                const v = vulnByAgent.get(a.id);
+                const isSel = preview?.id === a.id;
+                return (
+                  <button key={a.id} type="button" className={`vdp-row${isSel ? " sel" : ""}`} aria-pressed={isSel} onClick={() => previewAgent(a.id)}>
+                    <span className="vdp-dot" style={{ background: CONN_COLOR[st] }} title={tr(`vd.state.${st}`)} />
+                    <span className="vdp-host">{a.hostname}</span>
+                    <span className="vdp-flags">
+                      {v?.critical > 0 && (
+                        <span className="vdp-pill" style={{ "--c": CVE_SEVERITY_COLORS.Critical }}>
+                          {tr("vd.critBadge", { count: v.critical })}
                         </span>
-                      </td>
-                      <td>
-                        <div className="vanitas-hud-status">
-                          <span className={`vanitas-hud-pulse ${online ? "on" : "off"}`} />
-                          <span className={`lbl${online ? "" : " off"}`}>{tr(online ? "vd.chip.online" : "vd.chip.silent")}</span>
-                          <span className="meta">{fmtRelative(a.last_seen)}</span>
-                        </div>
-                      </td>
-                      <td className="vanitas-hud-cert">
-                        <CertSegBar days={days} />
-                        <span className="vanitas-hud-cert-days" style={{ color: tone }}>
-                          {days === null ? "—" : tr("vd.daysLeft", { n: Math.max(0, Math.round(days)) })}
+                      )}
+                      {days !== null && days < CERT_WARNING_DAYS && (
+                        <span className="vdp-pill" style={{ "--c": toneVar(certTone(days)) }}>
+                          {tr("vd.certBadge", { n: Math.max(0, Math.round(days)) })}
                         </span>
-                      </td>
-                      <td>
-                        <span className="vanitas-hud-apps-badge">{a.apps_count}</span>
-                      </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <div className="vanitas-hud-group-cell">
-                          {(a.group_ids ?? []).map((gid) => {
-                            const g = groupById.get(gid);
-                            if (!g) return null;
-                            const isDynamic = !!g.rules;
-                            return (
-                              <span
-                                key={gid}
-                                className={`vanitas-hud-group-chip${isDynamic ? " dynamic" : ""}`}
-                                title={isDynamic ? tr("vd.dynamicMember", { rule: summarizeGroupRules(g.rules) }) : g.name}
-                              >
-                                {g.name}
-                                {!isDynamic && (
-                                  <span className="rm" onClick={() => handleRemoveFromGroup(a.id, gid)}>
-                                    ×
-                                  </span>
-                                )}
-                              </span>
-                            );
-                          })}
-                          {staticGroups.filter((g) => !(a.group_ids ?? []).includes(g.id)).length > 0 && (
-                            <select
-                              className="vanitas-hud-group-add"
-                              value=""
-                              onChange={(e) => handleAddToGroup(a.id, e.target.value)}
-                            >
-                              <option value="">{tr("vd.addGroup")}</option>
-                              {staticGroups
-                                .filter((g) => !(a.group_ids ?? []).includes(g.id))
-                                .map((g) => (
-                                  <option key={g.id} value={g.id}>
-                                    {g.name}
-                                  </option>
-                                ))}
-                            </select>
-                          )}
-                        </div>
-                      </td>
-                      <td className="vanitas-hud-cmd">
-                        {cmd ? (
-                          <>
-                            <div className="cmd-name">{COMMAND_LABELS[cmd.command_type] ?? cmd.command_type}</div>
-                            <div className="cmd-meta">
-                              <span
-                                className={`vanitas-hud-status-pill ${
-                                  cmd.status === "pending" || cmd.status === "running" ? "pending" : cmd.success ? "ok" : "bad"
-                                }`}
-                              >
-                                {tr(cmd.status === "pending" || cmd.status === "running" ? "vd.cmd.inProgress" : cmd.success ? "vd.cmd.ok" : "vd.cmd.failed")}
-                              </span>
-                              <span>{fmtRelative(cmd.created_at)}</span>
-                            </div>
-                          </>
-                        ) : (
-                          <span className="vanitas-hud-cmd-none">{tr("vd.noCommand")}</span>
-                        )}
-                      </td>
-                      <td className="vanitas-hud-actions" onClick={(e) => e.stopPropagation()}>
-                        <ConfirmButton
-                          label={tr("vd.remove")}
-                          confirmLabel={tr("vd.confirm")}
-                          className="vanitas-hud-purge-btn"
-                          onConfirm={() => handleRemove(a.id)}
-                          title={tr("vd.removeTitle")}
-                        />
-                      </td>
-                      <td>
-                        <span className="vanitas-hud-chev">›</span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      )}
+                    </span>
+                    <span className="vdp-meta">
+                      <span>{fmtRelative(a.last_seen)}</span>
+                      <span>·</span>
+                      <span>{a.agent_version ? `v${a.agent_version}` : tr("vd.unknownVersion")}</span>
+                      <span>·</span>
+                      <span>{tr("vd.appsCount", { count: a.apps_count ?? 0 })}</span>
+                      {(a.group_ids ?? []).map((gid) => {
+                        const g = groupById.get(gid);
+                        return g ? (
+                          <span key={gid} className={`vdp-tag${g.rules ? " dyn" : ""}`}>
+                            {g.name}
+                          </span>
+                        ) : null;
+                      })}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div ref={detailRef} className="vdp-detail-slot">
+          {preview ? (
+            <DevicePreview
+              key={preview.id}
+              agent={preview}
+              inv={inventory.state[preview.id]}
+              vulns={vulnByAgent.get(preview.id)}
+              compliance={compliance.state[preview.id]}
+              commands={commandsByAgent.get(preview.id) ?? []}
+              groupById={groupById}
+              staticGroups={staticGroups}
+              error={removeError}
+              onOpen={() => openAgent(preview.id)}
+              onAddGroup={(gid) => handleAddToGroup(preview.id, gid)}
+              onRemoveGroup={(gid) => handleRemoveFromGroup(preview.id, gid)}
+              onRemove={() => handleRemove(preview.id)}
+            />
+          ) : (
+            <div className="vdp-card vdp-empty-panel">
+              <p className="vdp-sub">{tr("vd.pick")}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function DevicePreview({ agent, inv, vulns, compliance, commands, groupById, staticGroups, error, onOpen, onAddGroup, onRemoveGroup, onRemove }) {
+  const st = connState(agent);
+  const days = daysUntil(agent.cert_not_after);
+  const certColor = toneVar(certTone(days) === "neutral" ? "good" : certTone(days));
+  const certPct = days === null ? 0 : Math.max(0, Math.min(100, (days / CERT_VALIDITY_DAYS) * 100));
+  const os = inv?.data?.os_caption ? `${inv.data.os_caption.replace(/^Microsoft\s+/, "")}${inv.data.os_version ? ` (${inv.data.os_version})` : ""}` : null;
+  const results = compliance?.data?.results ?? [];
+  const fail = results.filter((r) => r.compliant === false).length;
+  const comp =
+    compliance?.status === "loading" || !compliance
+      ? { label: "…", color: undefined, sub: "" }
+      : results.length === 0
+        ? { label: tr("vd.comp.none"), color: undefined, sub: tr("vd.comp.noneSub") }
+        : fail > 0
+          ? { label: tr("vd.comp.ko"), color: CVE_SEVERITY_COLORS.Critical, sub: tr("vd.comp.failSub", { fail, count: results.length }) }
+          : { label: tr("vd.comp.ok"), color: CVE_SEVERITY_COLORS.Low, sub: tr("vd.comp.okSub", { count: results.length }) };
+  const diag = latestCommandResult(commands, "system_diagnostic");
+  const diskPct =
+    diag?.disk_total_bytes && diag?.disk_free_bytes != null ? Math.round((1 - diag.disk_free_bytes / diag.disk_total_bytes) * 100) : null;
+  const memberIds = agent.group_ids ?? [];
+  const addable = staticGroups.filter((g) => !memberIds.includes(g.id));
+
+  return (
+    <aside className="vdp-card vdp-detail" aria-label={tr("vd.previewAria")}>
+      <div className="vdp-detail-head">
+        <div className="vdp-detail-title">
+          <h2>{agent.hostname}</h2>
+          <span className="vdp-sub">
+            {os ? `${os} · ` : ""}
+            {tr("vd.agentVersion", { version: agent.agent_version ? `v${agent.agent_version}` : tr("vd.unknownVersion") })} · {agent.id.slice(0, 12)}…
+          </span>
+        </div>
+        <span className="vdp-pill vdp-pill-lg" style={{ "--c": CONN_COLOR[st] }}>
+          <i className="dot" style={{ background: CONN_COLOR[st] }} />
+          {tr(`vd.state.${st}`)}
+        </span>
+      </div>
+      {error && <p className="vanitas-hud-error" style={{ margin: 0 }}>{error}</p>}
+
+      <div className="vdp-tiles">
+        <div className="vdp-tile">
+          <span className="vdp-lbl">{tr("vd.tile.lastSeen")}</span>
+          <span className="vdp-tile-v">{fmtRelative(agent.last_seen)}</span>
+          <span className="vdp-sub vdp-small">{fmtDateTime(agent.last_seen)}</span>
+        </div>
+        <div className="vdp-tile">
+          <span className="vdp-lbl">{tr("vd.certificate")}</span>
+          <span className="vdp-tile-v" style={{ color: certColor }}>
+            {days === null ? "—" : tr("vd.daysShort", { n: Math.max(0, Math.round(days)) })}
+          </span>
+          <span className="vdp-seg">
+            <i style={{ width: `${certPct}%`, background: certColor }} />
+          </span>
+        </div>
+        <div className="vdp-tile">
+          <span className="vdp-lbl">{tr("vd.tile.apps")}</span>
+          <span className="vdp-tile-v">{agent.apps_count ?? 0}</span>
+          <span className="vdp-sub vdp-small">{inv?.data?.collected_at ? tr("vd.invAt", { when: fmtRelative(inv.data.collected_at) }) : "—"}</span>
+        </div>
+        <div className="vdp-tile">
+          <span className="vdp-lbl">{tr("vd.tile.vulns")}</span>
+          <span className="vdp-tile-v">{vulns ? vulns.total : "…"}</span>
+          <span className="vdp-seg">
+            <i style={{ flex: vulns?.critical ?? 0, background: CVE_SEVERITY_COLORS.Critical }} />
+            <i style={{ flex: vulns?.high ?? 0, background: CVE_SEVERITY_COLORS.High }} />
+            <i style={{ flex: vulns?.medium ?? 0, background: CVE_SEVERITY_COLORS.Medium }} />
+            <i style={{ flex: vulns?.low ?? 0, background: CVE_SEVERITY_COLORS.Low }} />
+          </span>
+        </div>
+        <div className="vdp-tile">
+          <span className="vdp-lbl">{tr("vd.tile.compliance")}</span>
+          <span className="vdp-tile-v" style={comp.color ? { color: comp.color } : undefined}>
+            {comp.label}
+          </span>
+          <span className="vdp-sub vdp-small">{comp.sub}</span>
+        </div>
+        <div className="vdp-tile">
+          <span className="vdp-lbl">{tr("vd.tile.disk")}</span>
+          <span className="vdp-tile-v">{diskPct === null ? "—" : `${diskPct} %`}</span>
+          {diskPct === null ? (
+            <span className="vdp-sub vdp-small">{tr("vd.noDiag")}</span>
+          ) : (
+            <span className="vdp-seg">
+              <i style={{ width: `${diskPct}%`, background: diskPct >= 90 ? CVE_SEVERITY_COLORS.Critical : "var(--hud-accent)" }} />
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="vdp-block">
+        <span className="vdp-lbl">{tr("vd.groups")}</span>
+        <div className="vdp-groups">
+          {memberIds.map((gid) => {
+            const g = groupById.get(gid);
+            if (!g) return null;
+            const isDynamic = !!g.rules;
+            return (
+              <span key={gid} className={`vdp-tag${isDynamic ? " dyn" : ""}`} title={isDynamic ? tr("vd.dynamicMember", { rule: summarizeGroupRules(g.rules) }) : g.name}>
+                {g.name}
+                {!isDynamic && (
+                  <button type="button" className="vdp-tag-x" aria-label={tr("vd.removeFromGroup", { group: g.name })} onClick={() => onRemoveGroup(gid)}>
+                    ×
+                  </button>
+                )}
+              </span>
+            );
+          })}
+          {memberIds.length === 0 && <span className="vdp-sub">{tr("vd.noGroup")}</span>}
+          {addable.length > 0 && (
+            <select className="vdp-select vdp-select-sm" value="" onChange={(e) => onAddGroup(e.target.value)} aria-label={tr("vd.addGroup")}>
+              <option value="">{tr("vd.addGroup")}</option>
+              {addable.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+
+      <div className="vdp-block">
+        <span className="vdp-lbl">{tr("vd.lastCommands")}</span>
+        {commands.length === 0 ? (
+          <span className="vdp-sub">{tr("vd.noCommandShort")}</span>
+        ) : (
+          commands.slice(0, 3).map((c) => {
+            const pending = c.status === "pending" || c.status === "running";
+            const color = pending ? "var(--hud-accent)" : c.success ? CVE_SEVERITY_COLORS.Low : CVE_SEVERITY_COLORS.Critical;
+            return (
+              <div key={c.id} className="vdp-cmd">
+                <span className="vdp-cmd-name">{COMMAND_LABELS[c.command_type] ?? c.command_type}</span>
+                <span className="vdp-pill" style={{ "--c": color }}>
+                  {tr(pending ? "vd.cmd.inProgress" : c.success ? "vd.cmd.ok" : "vd.cmd.failed")}
+                </span>
+                <span className="vdp-sub vdp-small">{fmtRelative(c.created_at)}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="vdp-foot">
+        <button type="button" className="vanitas-queue-btn" onClick={onOpen}>
+          {tr("vd.openFull")}
+        </button>
+        <ConfirmButton label={tr("vd.remove")} confirmLabel={tr("vd.confirm")} className="vanitas-hud-purge-btn" onConfirm={onRemove} title={tr("vd.removeTitle")} />
+      </div>
+    </aside>
   );
 }

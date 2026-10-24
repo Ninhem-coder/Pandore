@@ -327,11 +327,15 @@ export function fmtDateTime(value) {
   return value ? new Date(value).toLocaleString(currentLocale()) : "—";
 }
 
+// Unité choisie selon la taille (2026-10-23) : toujours en Go, un installeur de 5 Mo
+// s'affichait "0,0 Go" (catalogue d'applications, page Application).
 export function fmtBytes(bytes) {
   const n = Number(bytes);
   if (!bytes || Number.isNaN(n) || n <= 0) return "—";
-  const gb = n / 1_000_000_000;
-  return tr("v.gb", { n: gb.toLocaleString(currentLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) });
+  const fmt = (v, digits) => v.toLocaleString(currentLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  if (n >= 1_000_000_000) return tr("v.gb", { n: fmt(n / 1_000_000_000, 1) });
+  if (n >= 1_000_000) return tr("v.mb", { n: fmt(n / 1_000_000, n >= 10_000_000 ? 0 : 1) });
+  return tr("v.kb", { n: fmt(Math.max(1, n / 1_000), 0) });
 }
 
 export function daysUntil(isoDate) {

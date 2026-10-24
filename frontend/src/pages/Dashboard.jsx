@@ -344,7 +344,10 @@ export default function Dashboard() {
       : TAB_TITLES[activeTab] ?? TAB_TITLES.overview;
 
   return (
-    <div className="app-shell">
+    // `data-world` (2026-10-24) : dans Vanitas, toute la colonne principale — en-tête de page
+    // compris — prend le fond Vanitas (styles.css, `.app-shell[data-world="vanitas"]`), au lieu
+    // du bleu nuit Pandore visible au-dessus d'un bloc `.vanitas-hud` quasi noir.
+    <div className="app-shell" data-world={source === "vanitas" ? "vanitas" : "pandore"}>
       {/* Sidebar unifiée (refonte du 2026-10-21, voir Sidebar.jsx) : un seul composant pour les
           deux mondes — le rail bascule `source`, la colonne affiche l'arbre du monde actif. */}
       <Sidebar

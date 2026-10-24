@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import { IconDownload, IconShield } from "../components/icons.jsx";
 import { exportConformiteToExcel } from "../export.js";
@@ -320,25 +320,37 @@ function CreateRuleWizard({ onClose, onCreated }) {
   );
 }
 
+/** Décompte conformes / non conformes / erreur des résultats d'une règle. */
+function ruleCounts(devices) {
+  let ok = 0;
+  let ko = 0;
+  let err = 0;
+  for (const d of devices) {
+    if (d.compliant === true) ok++;
+    else if (d.compliant === false) ko++;
+    else err++;
+  }
+  return { ok, ko, err };
+}
+
 /**
- * Popup de détail d'une règle (2026-09-09, retour de Nicolas — "on pourrait pas juste mettre
- * les conformités [...] et le nombre réussi/échec et quand on clique dessus ça ouvre une page
- * avec les informations, les appareils et s'ils ont réussi ou quoi") : mini-KPI conformes/non
- * conformes/erreur, recherche par poste, tableau poste/statut/détail/dernier contrôle. `devices`
- * déjà en mémoire (dérivé de `byAgent`, voir plus bas) — aucun nouvel appel réseau pour ouvrir
- * cette popup.
+ * Panneau de détail d'une règle (refonte liste + détail du 2026-10-23, maquette validée par
+ * Nicolas — remplace la popup `RuleDetailModal`, même logique) : mini-KPI conformes/non
+ * conformes/erreur, filtres par résultat + recherche par poste, tableau poste/statut/détail/
+ * dernier contrôle. `devices` déjà en mémoire (dérivé de `byAgent`, voir plus bas) — aucun nouvel
+ * appel réseau pour sélectionner une règle.
  *
- * Gagne Activer/Désactiver/Modifier/Supprimer le même jour (retour de Nicolas — "supprime
- * Règles de conformité vu qu'on gère tout depuis Conformité") : cette popup devient la SEULE
- * surface de gestion du catalogue, plus seulement de consultation — la page "Règles de
- * conformité" (Administration) qui portait ces actions est retirée avec ce changement.
- * `script_content` n'est JAMAIS chargé pour la simple consultation (raison de sécurité déjà
- * documentée sur `useVanitasComplianceRulesSummary` — ce champ transporte du code qui
- * s'exécute en SYSTEM sur tout le parc) : `useVanitasComplianceRules()` (catalogue complet)
- * n'est sollicité qu'au clic explicite sur "Modifier", jamais à l'ouverture de la popup.
+ * SEULE surface de gestion du catalogue (2026-09-09, "on gère tout depuis Conformité") :
+ * Activer/Désactiver, Modifier (éditeur en place), Supprimer. `script_content` n'est JAMAIS
+ * chargé pour la simple consultation (raison de sécurité déjà documentée sur
+ * `useVanitasComplianceRulesSummary` — ce champ transporte du code qui s'exécute en SYSTEM sur
+ * tout le parc) : `useVanitasComplianceRules()` (catalogue complet) n'est sollicité qu'au clic
+ * explicite sur "Modifier". `key={rule.id}` posé par l'appelant : changer de règle repart d'un
+ * état propre (édition, filtres).
  */
-function RuleDetailModal({ rule, onClose, onChanged }) {
+function RuleDetailPanel({ rule, onChanged, onDeleted }) {
   const [query, setQuery] = useState("");
+  const [resultFilter, setResultFilter] = useState("all");
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(rule.name);
   const [scriptDraft, setScriptDraft] = useState("");
@@ -411,9 +423,9 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
       const payload = await api.vanitas.deleteComplianceRule(rule.id);
       if (isErrorPayload(payload)) {
         setError(payload.message);
+        setBusy(false);
       } else {
-        onChanged();
-        onClose();
+        onDeleted();
       }
     } catch (err) {
       setError(err.message);
@@ -421,186 +433,194 @@ function RuleDetailModal({ rule, onClose, onChanged }) {
     }
   }
 
-  const counts = useMemo(() => {
-    let compliant = 0;
-    let nonCompliant = 0;
-    let error = 0;
-    for (const d of rule.devices) {
-      if (d.compliant === true) compliant++;
-      else if (d.compliant === false) nonCompliant++;
-      else error++;
-    }
-    return { compliant, nonCompliant, error };
-  }, [rule.devices]);
+  const counts = useMemo(() => ruleCounts(rule.devices), [rule.devices]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rule.devices;
-    return rule.devices.filter((d) => d.hostname.toLowerCase().includes(q));
-  }, [rule.devices, query]);
+    // Non conformes puis erreurs puis conformes : ce qui demande une action en premier.
+    const rank = (d) => (d.compliant === false ? 0 : d.compliant === true ? 2 : 1);
+    return rule.devices
+      .filter((d) => {
+        if (resultFilter === "ko" && d.compliant !== false) return false;
+        if (resultFilter === "ok" && d.compliant !== true) return false;
+        if (resultFilter === "err" && (d.compliant === true || d.compliant === false)) return false;
+        return !q || d.hostname.toLowerCase().includes(q);
+      })
+      .sort((a, b) => rank(a) - rank(b) || a.hostname.localeCompare(b.hostname));
+  }, [rule.devices, query, resultFilter]);
 
   const hasStructured = useMemo(() => rule.devices.some((d) => parseStructuredDetail(d.detail)), [rule.devices]);
 
   return (
-    <VanitasWizardShell onClose={onClose} wide>
-      <div className="vanitas-wiz-header">
-        <div className="vanitas-wiz-header-icon">
-          <IconShield />
-        </div>
-        <div className="vanitas-wiz-header-text">
+    <aside className="vcp-card vcp-detail" aria-label={tr("vc.detailAria")}>
+      <div className="vcp-detail-head">
+        <div className="vcp-detail-title">
           <h2>{rule.name}</h2>
-          <p>
-            {tr(rule.enabled ? "vc.enabled" : "vc.disabled")}
-            {rule.devices.length > 0 ? tr("vc.evaluated", { count: rule.devices.length }) : tr("vc.notEvaluated")}
-          </p>
+          <span className="vcp-sub">
+            {rule.devices.length > 0 ? tr("vc.evalSummary", { count: rule.devices.length }) : tr("vc.neverEvaluated")}
+          </span>
         </div>
+        <span className={`vcp-pill ${rule.enabled ? "on" : "off"}`}>{tr(rule.enabled ? "vc.enabled" : "vc.disabled")}</span>
       </div>
-      <div className="vanitas-wiz-body">
-        {!editing && (
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button type="button" className="vanitas-queue-btn" onClick={handleToggleEnabled} disabled={busy}>
-              {tr(rule.enabled ? "vc.disable" : "vc.enable")}
-            </button>
-            <button type="button" className="vanitas-queue-btn" onClick={startEditing} disabled={busy}>
-              {tr("vc.edit")}
-            </button>
-            <ConfirmButton label={tr("vc.delete")} confirmLabel={tr("v.confirm")} className="vanitas-danger-btn" onConfirm={handleDelete} disabled={busy} />
-          </div>
-        )}
 
-        {error && <p className="error-note">{error}</p>}
+      {!editing && (
+        <div className="vcp-actions">
+          <button type="button" className="vanitas-queue-btn" onClick={handleToggleEnabled} disabled={busy}>
+            {tr(rule.enabled ? "vc.disable" : "vc.enable")}
+          </button>
+          <button type="button" className="vanitas-ghost-btn" onClick={startEditing} disabled={busy}>
+            {tr("vc.editScript")}
+          </button>
+          <ConfirmButton label={tr("vc.delete")} confirmLabel={tr("v.confirm")} className="vanitas-danger-btn" onConfirm={handleDelete} disabled={busy} />
+        </div>
+      )}
 
-        {editing ? (
-          !scriptLoaded ? (
-            <p className="vanitas-hud-empty-note">{tr("vc.loadingScript")}</p>
-          ) : (
-            <>
-              <div>
-                <p className="filter-chip-group-label">{tr("vc.name")}</p>
-                <input className="filter-input" style={{ flex: "none", width: "100%" }} type="text" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} disabled={busy} />
-              </div>
-              <div>
-                <p className="filter-chip-group-label">{tr("vc.psScript")}</p>
-                <textarea className="vanitas-rule-script-input" value={scriptDraft} onChange={(e) => setScriptDraft(e.target.value)} spellCheck={false} rows={14} disabled={busy} />
-              </div>
-              <div className="wizard-actions">
-                <button type="button" className="vanitas-ghost-btn" onClick={cancelEditing} disabled={busy}>
-                  {tr("vc.cancel")}
-                </button>
-                <button type="button" className="vanitas-wiz-primary-btn" disabled={!nameDraft.trim() || !scriptDraft.trim() || busy} onClick={handleSaveEdit}>
-                  {busy ? tr("vc.saving") : tr("vc.save")}
-                </button>
-              </div>
-            </>
-          )
+      {!rule.enabled && !editing && (
+        <div className="vcp-callout" role="note">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+            <path d="M10 3l8 14H2z" />
+            <path d="M10 8v4M10 14.5v.5" />
+          </svg>
+          <span>{tr("vc.disabledCallout")}</span>
+        </div>
+      )}
+
+      {error && <p className="error-note">{error}</p>}
+
+      {editing ? (
+        !scriptLoaded ? (
+          <p className="vanitas-hud-empty-note">{tr("vc.loadingScript")}</p>
         ) : (
-          <>
-            {rule.devices.length === 0 ? (
-              <p className="vanitas-hud-empty-note">
-                {rule.enabled
-                  ? tr("vc.noResultYet")
-                  : tr("vc.ruleDisabled")}
-              </p>
-            ) : (
-              <>
-                <div className="compliance-detail-kpis">
-                  <div className="compliance-detail-kpi good">
-                    <div className="lbl">{tr("vc.compliantPl")}</div>
-                    <div className="val">{counts.compliant}</div>
-                  </div>
-                  <div className="compliance-detail-kpi bad">
-                    <div className="lbl">{tr("vc.nonCompliantPl")}</div>
-                    <div className="val">{counts.nonCompliant}</div>
-                  </div>
-                  {counts.error > 0 && (
-                    <div className="compliance-detail-kpi warn">
-                      <div className="lbl">{tr("vc.error")}</div>
-                      <div className="val">{counts.error}</div>
-                    </div>
-                  )}
-                </div>
-                {hasStructured && (
-                  <p className="compliance-json-hint">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 10.5l4 4 8-9" />
-                    </svg>
-                    {tr("vc.structuredHint")}
-                  </p>
-                )}
-                <div className="vanitas-hud-search">
-                  <span className="prompt">&gt;</span>
-                  <input type="text" placeholder={tr("vc.filterEndpoint")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
-                </div>
-                <div className="compliance-detail-table-wrap">
-                  <table className="compliance-detail-table">
-                    <thead>
-                      <tr>
-                        <th>{tr("vc.col.endpoint")}</th>
-                        <th>{tr("vc.col.status")}</th>
-                        <th>{tr("vc.col.detail")}</th>
-                        <th>{tr("vc.col.lastCheck")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((d) => (
-                        <tr key={d.agentId}>
-                          <td className="host">{d.hostname}</td>
-                          <td>
-                            <CompliancePill compliant={d.compliant} />
-                          </td>
-                          <td>
-                            <DetailCell detail={d.detail} />
-                          </td>
-                          <td className="vanitas-hud-cmd-none">{d.collectedAt ? fmtRelative(d.collectedAt) : "—"}</td>
-                        </tr>
-                      ))}
-                      {filtered.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="vanitas-hud-cmd-none" style={{ padding: "16px" }}>
-                            {tr("vc.noFilterResult")}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-            <div className="wizard-actions">
-              <button type="button" className="vanitas-ghost-btn" onClick={onClose}>
-                {tr("vc.close")}
+          <div className="vcp-edit">
+            <label className="vcp-lbl" htmlFor="vcp-rule-name">
+              {tr("vc.name")}
+            </label>
+            <input id="vcp-rule-name" className="vcp-input" type="text" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} disabled={busy} />
+            <label className="vcp-lbl" htmlFor="vcp-rule-script">
+              {tr("vc.psScript")}
+            </label>
+            <textarea
+              id="vcp-rule-script"
+              className="vanitas-rule-script-input"
+              value={scriptDraft}
+              onChange={(e) => setScriptDraft(e.target.value)}
+              spellCheck={false}
+              rows={14}
+              disabled={busy}
+            />
+            <span className="vcp-sub">{tr("vc.saveNote")}</span>
+            <div className="vcp-actions vcp-actions-end">
+              <button type="button" className="vanitas-ghost-btn" onClick={cancelEditing} disabled={busy}>
+                {tr("vc.cancel")}
+              </button>
+              <button type="button" className="vanitas-wiz-primary-btn" disabled={!nameDraft.trim() || !scriptDraft.trim() || busy} onClick={handleSaveEdit}>
+                {busy ? tr("vc.saving") : tr("vc.save")}
               </button>
             </div>
-          </>
-        )}
-      </div>
-    </VanitasWizardShell>
+          </div>
+        )
+      ) : rule.devices.length === 0 ? (
+        <p className="vcp-empty">{rule.enabled ? tr("vc.noResultYet") : tr("vc.ruleDisabled")}</p>
+      ) : (
+        <>
+          <div className="vcp-kpis">
+            <div className="vcp-kpi">
+              <span className="vcp-lbl">{tr("vc.compliantPl")}</span>
+              <span className="vcp-val good">{counts.ok}</span>
+            </div>
+            <div className="vcp-kpi">
+              <span className="vcp-lbl">{tr("vc.nonCompliantPl")}</span>
+              <span className="vcp-val bad">{counts.ko}</span>
+            </div>
+            <div className="vcp-kpi">
+              <span className="vcp-lbl">{tr("vc.error")}</span>
+              <span className="vcp-val warn">{counts.err}</span>
+            </div>
+          </div>
+          {hasStructured && (
+            <p className="compliance-json-hint">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 10.5l4 4 8-9" />
+              </svg>
+              {tr("vc.structuredHint")}
+            </p>
+          )}
+          <div className="vcp-toolbar">
+            <label className="vcp-search-wrap">
+              <span className="vcp-sr">{tr("vc.filterEndpoint")}</span>
+              <input type="search" className="vcp-search" placeholder={tr("vc.filterEndpoint")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+            </label>
+            <div className="vcp-chips" role="group" aria-label={tr("vc.resultFilterAria")}>
+              {[
+                ["all", tr("vc.allM")],
+                ["ko", tr("vc.nonCompliantPl")],
+                ["err", tr("vc.error")],
+                ["ok", tr("vc.compliantPl")],
+              ].map(([key, label]) => (
+                <button key={key} type="button" className={`vcp-chip${resultFilter === key ? " on" : ""}`} aria-pressed={resultFilter === key} onClick={() => setResultFilter(key)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="vcp-table-wrap">
+            <table className="compliance-detail-table">
+              <thead>
+                <tr>
+                  <th>{tr("vc.col.endpoint")}</th>
+                  <th>{tr("vc.col.status")}</th>
+                  <th>{tr("vc.col.detail")}</th>
+                  <th>{tr("vc.col.lastCheck")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((d) => (
+                  <tr key={d.agentId}>
+                    <td className="host">{d.hostname}</td>
+                    <td>
+                      <CompliancePill compliant={d.compliant} />
+                    </td>
+                    <td>
+                      <DetailCell detail={d.detail} />
+                    </td>
+                    <td className="vanitas-hud-cmd-none">{d.collectedAt ? fmtRelative(d.collectedAt) : "—"}</td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="vanitas-hud-cmd-none" style={{ padding: "16px" }}>
+                      {tr("vc.noFilterResult")}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </aside>
   );
 }
 
 /**
- * "Vanitas" > Conformité (jalon 11) — vue fleet-wide, identité HUD déjà établie (`.vanitas-hud`,
- * mêmes classes que "Vue d'ensemble"/"Postes"). Règles = scripts PowerShell fournis par
+ * "Vanitas" > Conformité (jalon 11) — vue fleet-wide. Règles = scripts PowerShell fournis par
  * Nicolas, PAS des vérifications codées en dur — voir le `TEMPLATE` plus haut pour le contrat
  * exit-code/tri-état.
  *
- * Redessinée le 2026-09-09 (maquette validée par Nicolas) — quatre retours successifs :
- * 1. "Règles en échec" (classement par impact) → liste COMPLÈTE des règles (activées ou non)
- *    avec leurs compteurs réussi/échec directement visibles, clic → popup de détail par poste.
- * 2. Table des postes en bas de page retirée ("elle sert à rien on l'a dans les conformités") —
- *    son contenu est maintenant équivalent, transposé par règle plutôt que par poste.
- * 3. Bouton "+ Créer une règle" (popup 3 étapes, `CreateRuleWizard`) directement sur cette page.
- * 4. La page "Règles de conformité" (Administration, `VanitasComplianceRulesTab.jsx`) est
- *    RETIRÉE ("on gère tout depuis Conformité") — ses capacités de gestion (activer/désactiver/
- *    modifier/supprimer) ont été migrées dans `RuleDetailModal` ci-dessus, qui devient la SEULE
- *    surface d'administration du catalogue.
+ * Historique : 2026-09-09 (maquette validée) — liste COMPLÈTE des règles avec compteurs, table
+ * des postes retirée, "+ Créer une règle" (`CreateRuleWizard`), page "Règles de conformité"
+ * (Administration) retirée ("on gère tout depuis Conformité").
  *
- * Le détail par agent (`byAgent`, `useKeyedFetch` PAS utilisé ici) n'est PAS assez pour peupler
- * un TABLEAU de tous les postes d'un coup (il faut le résultat de CHAQUE agent, pas un seul à la
- * fois) — cette page fait donc ses propres appels `api.vanitas.agentCompliance(id)` pour chaque
- * agent connu, en état LOCAL, proportionné à l'échelle de ce projet (une poignée d'agents,
- * jamais des centaines). `byRule` (nouveau) transpose cette MÊME donnée par règle plutôt que par
- * poste — aucun nouvel appel réseau pour le popup de détail par règle.
+ * Refonte liste + détail (2026-10-23, maquette canvas validée par Nicolas) : bandeau de synthèse
+ * unique (taux, répartition des postes en une barre — y compris les postes "pas encore vérifiés",
+ * déjà calculés mais jamais affichés —, règles actives), règles filtrables à gauche avec barre
+ * empilée par règle, détail de la règle sélectionnée dans un panneau latéral (plus de popup).
+ * Classes `.vcp-*`.
+ *
+ * Le détail par agent n'est PAS servi pour tous les postes d'un coup côté serveur — cette page
+ * fait ses propres appels `api.vanitas.agentCompliance(id)` pour chaque agent connu, en état
+ * LOCAL, proportionné à l'échelle de ce projet. `rules` transpose cette MÊME donnée par règle —
+ * aucun nouvel appel réseau pour le détail d'une règle.
  */
 export default function VanitasComplianceTab() {
   const agents = useVanitasAgents();
@@ -609,7 +629,9 @@ export default function VanitasComplianceTab() {
 
   const [byAgent, setByAgent] = useState({}); // { [agentId]: { status, results, collected_at } }
   const [selectedRuleId, setSelectedRuleId] = useState(null);
+  const [ruleFilter, setRuleFilter] = useState("all");
   const [showCreateWizard, setShowCreateWizard] = useState(false);
+  const detailRef = useRef(null);
 
   useEffect(() => {
     agents.ensureLoaded();
@@ -639,8 +661,6 @@ export default function VanitasComplianceTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agents.state.data]);
 
-  const enabledRuleCount = (rulesSummary.state.data ?? []).filter((r) => r.enabled).length;
-
   const counts = useMemo(() => {
     const list = agents.state.data ?? [];
     let compliant = 0;
@@ -659,9 +679,21 @@ export default function VanitasComplianceTab() {
     return { total: list.length, compliant, nonCompliant, notYetChecked };
   }, [agents.state.data, byAgent]);
 
-  // Transpose `byAgent` (par poste) en `byRule` (par règle) — même donnée déjà chargée, jamais
-  // un 2e aller-retour réseau. Fusionné avec `rulesSummary` pour lister TOUTES les règles
-  // (activées ou non), pas seulement celles qui ont déjà des résultats.
+  // Taux = part des évaluations conformes, tous postes et toutes règles confondus — même calcul
+  // que la tuile "Conformité" de la Vue d'ensemble (`GET /compliance/summary`, un seul appel).
+  const complianceRate = useMemo(() => {
+    let ok = 0;
+    let total = 0;
+    for (const r of fleetSummary.state.data ?? []) {
+      ok += r.compliant_count ?? 0;
+      total += (r.compliant_count ?? 0) + (r.non_compliant_count ?? 0) + (r.error_count ?? 0);
+    }
+    return total ? Math.round((ok / total) * 100) : null;
+  }, [fleetSummary.state.data]);
+
+  // Transpose `byAgent` (par poste) en règles (par règle) — même donnée déjà chargée, jamais un
+  // 2e aller-retour réseau. Fusionné avec `rulesSummary` pour lister TOUTES les règles (activées
+  // ou non), pas seulement celles qui ont déjà des résultats.
   const rules = useMemo(() => {
     const hostnameById = Object.fromEntries((agents.state.data ?? []).map((a) => [a.id, a.hostname]));
     const devicesByRule = {};
@@ -677,15 +709,38 @@ export default function VanitasComplianceTab() {
         });
       }
     }
-    return (rulesSummary.state.data ?? []).map((r) => ({
-      id: r.id,
-      name: r.name,
-      enabled: r.enabled,
-      devices: devicesByRule[r.id] ?? [],
-    }));
+    return (rulesSummary.state.data ?? []).map((r) => {
+      const devices = devicesByRule[r.id] ?? [];
+      return { id: r.id, name: r.name, enabled: r.enabled, devices, counts: ruleCounts(devices) };
+    });
   }, [rulesSummary.state.data, byAgent, agents.state.data]);
 
-  const selectedRule = selectedRuleId ? rules.find((r) => r.id === selectedRuleId) ?? null : null;
+  const enabledRuleCount = rules.filter((r) => r.enabled).length;
+  const failing = (r) => r.counts.ko + r.counts.err > 0;
+  const ruleFilterCounts = {
+    all: rules.length,
+    on: enabledRuleCount,
+    off: rules.length - enabledRuleCount,
+    fail: rules.filter(failing).length,
+  };
+
+  // Règles en échec d'abord (le plus d'échecs en tête), puis par nom.
+  const visibleRules = useMemo(
+    () =>
+      rules
+        .filter((r) => (ruleFilter === "on" ? r.enabled : ruleFilter === "off" ? !r.enabled : ruleFilter === "fail" ? failing(r) : true))
+        .sort((a, b) => b.counts.ko + b.counts.err - (a.counts.ko + a.counts.err) || a.name.localeCompare(b.name)),
+    [rules, ruleFilter]
+  );
+
+  const selectedRule = visibleRules.find((r) => r.id === selectedRuleId) ?? visibleRules[0] ?? null;
+
+  function selectRule(id) {
+    setSelectedRuleId(id);
+    if (detailRef.current && window.matchMedia?.("(max-width: 980px)").matches) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 
   const [exportState, setExportState] = useState({ status: "idle", error: null });
   async function handleExport() {
@@ -703,108 +758,149 @@ export default function VanitasComplianceTab() {
 
   if (loading) {
     return (
-      <div className="vanitas-hud">
+      <div className="vanitas-hud vcp">
         <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
       </div>
     );
   }
 
+  const ringDash = complianceRate === null ? 0 : (complianceRate / 100) * 226.2;
+
   return (
-    <div className="vanitas-hud">
+    <div className="vanitas-hud vcp">
       {error && <p className="vanitas-hud-error">{error}</p>}
 
-      <div className="vanitas-hud-strip">
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
-          <div className="label">
-            {tr("vc.kpi.endpoints")}
-            <span className="tag">{tr("vc.kpi.total")}</span>
-          </div>
-          <div className="value">{counts.total}</div>
-          <div className="bar">
-            <i style={{ width: "100%" }} />
-          </div>
-        </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-good)" }}>
-          <div className="label">
-            {tr("vc.kpi.compliant")}
-            <span className="tag">100%</span>
-          </div>
-          <div className="value">{counts.compliant}</div>
-          <div className="bar">
-            <i style={{ width: counts.total ? `${Math.round((counts.compliant / counts.total) * 100)}%` : "0%" }} />
+      <section className="vcp-card vcp-sum" aria-label={tr("vc.sumAria")}>
+        <div className="vcp-sum-rate">
+          <svg width="56" height="56" viewBox="0 0 84 84" aria-hidden="true">
+            <circle cx="42" cy="42" r="36" fill="none" stroke="var(--hud-line)" strokeWidth="9" />
+            <circle cx="42" cy="42" r="36" fill="none" stroke="var(--hud-good)" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${ringDash} 226.2`} transform="rotate(-90 42 42)" />
+          </svg>
+          <div className="vcp-sum-col">
+            <span className="vcp-lbl">{tr("vc.rate")}</span>
+            <span className="vcp-val good">{complianceRate === null ? "—" : `${complianceRate} %`}</span>
+            <span className="vcp-sub vcp-small">{tr("vc.rateSub")}</span>
           </div>
         </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
-          <div className="label">
-            {tr("vc.kpi.nonCompliant")}
-            <span className="tag">≥ 1</span>
-          </div>
-          <div className="value">{counts.nonCompliant}</div>
-          <div className="bar">
-            <i style={{ width: counts.total ? `${Math.round((counts.nonCompliant / counts.total) * 100)}%` : "0%" }} />
+
+        <div className="vcp-sum-fleet">
+          <span className="vcp-lbl">{tr("vc.fleetSplit", { count: counts.total })}</span>
+          <span
+            className="vcp-sum-bar"
+            role="img"
+            aria-label={`${tr("vc.leg.compliant", { count: counts.compliant })}, ${tr("vc.leg.nonCompliant", { count: counts.nonCompliant })}, ${tr("vc.leg.unchecked", { count: counts.notYetChecked })}`}
+          >
+            <i className="good" style={{ flex: counts.compliant }} />
+            <i className="bad" style={{ flex: counts.nonCompliant }} />
+            <i className="none" style={{ flex: counts.notYetChecked }} />
+          </span>
+          <div className="vcp-legend">
+            <span className="vcp-leg">
+              <i className="good" />
+              {tr("vc.leg.compliant", { count: counts.compliant })} <span className="vcp-sub">· {tr("vc.leg.compliantHint")}</span>
+            </span>
+            <button type="button" className="vcp-leg vcp-leg-btn" onClick={() => setRuleFilter("fail")}>
+              <i className="bad" />
+              {tr("vc.leg.nonCompliant", { count: counts.nonCompliant })} <span className="vcp-sub">· {tr("vc.leg.nonCompliantHint")}</span>
+            </button>
+            <span className="vcp-leg">
+              <i className="none" />
+              {tr("vc.leg.unchecked", { count: counts.notYetChecked })}
+            </span>
           </div>
         </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent2)" }}>
-          <div className="label">
-            {tr("vc.kpi.rules")}
-            <span className="tag">{tr("vc.kpi.active")}</span>
+
+        <div className="vcp-sum-col">
+          <span className="vcp-lbl">{tr("vc.rulesActive")}</span>
+          <span className="vcp-val accent">
+            {enabledRuleCount} <small>/ {rules.length}</small>
+          </span>
+          {rules.length - enabledRuleCount > 0 && (
+            <button type="button" className="vcp-leg vcp-leg-btn" onClick={() => setRuleFilter("off")}>
+              <i className="none" />
+              {tr("vc.disabledCount", { count: rules.length - enabledRuleCount })}
+            </button>
+          )}
+        </div>
+      </section>
+
+      <div className="vcp-split">
+        <section className="vcp-card vcp-rules" aria-label={tr("vc.rules")}>
+          <div className="vcp-rules-head">
+            <h2 className="vcp-h2">{tr("vc.rules")}</h2>
+            <div className="vcp-actions">
+              <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
+                <IconDownload />
+                {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
+              </button>
+              <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowCreateWizard(true)}>
+                {tr("vc.newRule")}
+              </button>
+            </div>
           </div>
-          <div className="value">{enabledRuleCount}</div>
-          <div className="bar">
-            <i style={{ width: enabledRuleCount ? "100%" : "0%" }} />
+          {exportState.error && <p className="error-note" style={{ margin: 0 }}>{exportState.error}</p>}
+          <div className="vcp-chips" role="group" aria-label={tr("vc.filterAria")}>
+            {["all", "on", "off", "fail"].map((key) => (
+              <button key={key} type="button" className={`vcp-chip${ruleFilter === key ? " on" : ""}`} aria-pressed={ruleFilter === key} onClick={() => setRuleFilter(key)}>
+                {tr(`vc.filter.${key}`)} <b>{ruleFilterCounts[key]}</b>
+              </button>
+            ))}
           </div>
+          {rules.length === 0 ? (
+            <p className="vcp-empty">{tr("vc.noRule")}</p>
+          ) : visibleRules.length === 0 ? (
+            <p className="vcp-empty">{tr("vc.noFilterResult")}</p>
+          ) : (
+            <div className="vcp-rule-list">
+              {visibleRules.map((r) => {
+                const total = r.devices.length;
+                const isSel = selectedRule?.id === r.id;
+                return (
+                  <button key={r.id} type="button" className={`vcp-rule${isSel ? " sel" : ""}`} aria-pressed={isSel} onClick={() => selectRule(r.id)}>
+                    <span className="vcp-rule-name">{r.name}</span>
+                    <span className={`vcp-pill ${r.enabled ? "on" : "off"}`}>{tr(r.enabled ? "vc.enabled" : "vc.disabled")}</span>
+                    {total > 0 ? (
+                      <>
+                        <span className="vcp-stack" role="img" aria-label={tr("vc.stackAria", { ok: r.counts.ok, ko: r.counts.ko, err: r.counts.err })}>
+                          <i className="good" style={{ flex: r.counts.ok }} />
+                          <i className="bad" style={{ flex: r.counts.ko }} />
+                          <i className="warn" style={{ flex: r.counts.err }} />
+                        </span>
+                        <span className="vcp-counts">
+                          <span>{trRich("vc.cnt.ok", { count: r.counts.ok, n: <b className="good">{r.counts.ok}</b> })}</span>
+                          {r.counts.ko > 0 && <span>{trRich("vc.cnt.ko", { count: r.counts.ko, n: <b className="bad">{r.counts.ko}</b> })}</span>}
+                          {r.counts.err > 0 && <span>{trRich("vc.cnt.err", { count: r.counts.err, n: <b className="warn">{r.counts.err}</b> })}</span>}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="vcp-counts">{tr("vc.neverRuns")}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div ref={detailRef} className="vcp-detail-slot">
+          {selectedRule ? (
+            <RuleDetailPanel
+              key={selectedRule.id}
+              rule={selectedRule}
+              onChanged={() => rulesSummary.refresh()}
+              onDeleted={() => {
+                setSelectedRuleId(null);
+                rulesSummary.refresh();
+              }}
+            />
+          ) : (
+            <div className="vcp-card vcp-empty-panel">
+              <p className="vcp-sub">{tr("vc.pickRule")}</p>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="vanitas-hud-card vanitas-hud-frame">
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("vc.rules")}</h2>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span className="vanitas-hud-card-note">{tr("vc.clickDetail")}</span>
-            <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
-              <IconDownload />
-              {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
-            </button>
-            <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowCreateWizard(true)}>
-              {tr("vc.newRule")}
-            </button>
-          </div>
-        </div>
-        {exportState.error && <p className="error-note" style={{ margin: "0 0 12px" }}>{exportState.error}</p>}
-        {rules.length === 0 ? (
-          <p className="vanitas-hud-empty-note">{tr("vc.noRule")}</p>
-        ) : (
-          <div>
-            {rules.map((r) => {
-              const compliantCount = r.devices.filter((d) => d.compliant === true).length;
-              const nonCompliantCount = r.devices.filter((d) => d.compliant === false).length;
-              const errorCount = r.devices.filter((d) => d.compliant !== true && d.compliant !== false).length;
-              return (
-                <div className="compliance-rule-row" key={r.id} onClick={() => setSelectedRuleId(r.id)}>
-                  <div className="compliance-rule-main">
-                    <span className="compliance-rule-name">{r.name}</span>
-                    <span className={`compliance-rule-badge ${r.enabled ? "on" : "off"}`}>{tr(r.enabled ? "vc.enabled" : "vc.disabled")}</span>
-                  </div>
-                  {r.devices.length > 0 ? (
-                    <div className="compliance-rule-counts">
-                      <span className="good">✓ {compliantCount}</span>
-                      {nonCompliantCount > 0 && <span className="bad">✗ {nonCompliantCount}</span>}
-                      {errorCount > 0 && <span className="warn">⚠ {errorCount}</span>}
-                    </div>
-                  ) : (
-                    <span className="compliance-rule-none">{tr("vc.notEvaluatedShort")}</span>
-                  )}
-                  <span className="vanitas-hud-chev">›</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {selectedRule && (
-        <RuleDetailModal rule={selectedRule} onClose={() => setSelectedRuleId(null)} onChanged={() => rulesSummary.refresh()} />
-      )}
       {showCreateWizard && (
         <CreateRuleWizard onClose={() => setShowCreateWizard(false)} onCreated={() => rulesSummary.refresh()} />
       )}

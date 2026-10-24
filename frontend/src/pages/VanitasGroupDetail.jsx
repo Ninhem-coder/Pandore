@@ -2,8 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { invalidateCache } from "../cache.js";
 import { isErrorPayload, useVanitasAgentPackages, useVanitasInstallers } from "../hooks/useDashboardData.js";
-import { ConfirmButton, GroupRuleBuilder, isOnline, summarizeGroupRules } from "./vanitasShared.jsx";
-import { tr } from "../i18n/core.js";
+import { CVE_SEVERITY_COLORS } from "../theme.js";
+import { ConfirmButton, GroupRuleBuilder, fmtDate, isOnline, summarizeGroupRules } from "./vanitasShared.jsx";
+import { currentLocale, tr } from "../i18n/core.js";
+
+function fmtNumber(n, digits) {
+  return n.toLocaleString(currentLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
 
 /**
  * Détail d'un groupe de postes (2026-09-08, demande de Nicolas). Deux métriques agrégées,
@@ -17,22 +22,30 @@ import { tr } from "../i18n/core.js";
  * parent via `useVanitasAgentVulnerabilities`, un appel par membre — jamais plus qu'une
  * poignée d'agents à l'échelle de ce projet, même philosophie que
  * `VanitasVulnerabilitiesTab.jsx`). Aucune route d'agrégat dédiée côté serveur Vanitas.
+ *
+ * Refonte liste + détail (2026-10-23, maquette canvas validée par Nicolas) : ce n'est plus une
+ * page plein écran mais le PANNEAU latéral de VanitasGroupsTab.jsx (clé = group.id), en trois
+ * onglets — Membres (nouveau : ajout d'un poste à un groupe statique, jusqu'ici seulement depuis
+ * "Postes"), Actions (pousser une application / la mise à jour de l'agent), Sous-groupes. Les
+ * membres sont dérivés de `agent.group_ids` (résolus côté serveur : règle, adhésion manuelle,
+ * sous-groupes — `group_ids_for_agents`). Classes `.vgp-*`.
  */
 export default function VanitasGroupDetail({
   group,
   allGroups,
   agents,
-  membersLoading = false,
+  allAgents,
   vulnerabilities,
-  onBack,
   onChanged,
   onDeleted,
+  onNavigateVanitas,
 }) {
   const isDynamic = !!group.rules;
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(group.name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [tab, setTab] = useState("members");
 
   // Édition de la règle dynamique (2026-09-10, absente jusqu'ici — seul le nom se modifiait) —
   // `draftRules` initialisé à `null` (pas encore ouvert) plutôt que `group.rules` directement :
@@ -248,59 +261,69 @@ export default function VanitasGroupDetail({
     }
   }
 
-  return (
-    <div className="vanitas-hud">
-      <button type="button" className="vanitas-detail-back" onClick={onBack}>
-        {tr("vgd.back")}
-      </button>
+  async function handleAddMember(agentId) {
+    if (!agentId) return;
+    setError(null);
+    try {
+      const payload = await api.vanitas.addAgentToGroup(agentId, group.id);
+      if (isErrorPayload(payload)) setError(payload.message);
+      else onChanged();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
-      <div className="vanitas-hud-card-head" style={{ marginBottom: "16px" }}>
-        {renaming ? (
-          <form onSubmit={handleRename} style={{ display: "flex", gap: "8px" }}>
-            <input className="filter-input" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} autoFocus />
-            <button type="submit" className="vanitas-queue-btn" disabled={busy}>
-              {tr("vgd.save")}
-            </button>
-          </form>
-        ) : (
-          <h2 style={{ fontSize: "18px" }}>
-            {group.name}{" "}
-            <span className={`vanitas-hud-status-pill ${isDynamic ? "pending" : "ok"}`} style={{ marginLeft: "6px" }}>
-              {tr(isDynamic ? "vg.dynamic" : "vg.static")}
-            </span>{" "}
-            <button type="button" className="vanitas-ov-tile-link" onClick={() => setRenaming(true)}>
-              {tr("vgd.rename")}
-            </button>
-            {isDynamic && !editingRules && (
-              <button type="button" className="vanitas-ov-tile-link" onClick={startEditingRules}>
-                {tr("vgd.editRule")}
+  const memberIds = new Set(agents.map((a) => a.id));
+  const addableAgents = (allAgents ?? []).filter((a) => !memberIds.has(a.id));
+  const onlineCount = agents.filter(isOnline).length;
+  const riskColor = avgRiskRate >= 7 ? CVE_SEVERITY_COLORS.High : avgRiskRate >= 4 ? CVE_SEVERITY_COLORS.Medium : undefined;
+  const behindCount = latestAgentPackage ? agents.filter((a) => a.agent_version && a.agent_version !== latestAgentPackage.version).length : 0;
+
+  return (
+    <aside className="vgp-card vgp-detail" aria-label={tr("vgp.detailAria")}>
+      <div className="vgp-detail-head">
+        <div className="vgp-detail-title">
+          {renaming ? (
+            <form onSubmit={handleRename} className="vgp-rename">
+              <input className="vgp-input" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} autoFocus aria-label={tr("vgp.nameAria")} />
+              <button type="submit" className="vanitas-queue-btn" disabled={busy}>
+                {tr("vgd.save")}
               </button>
-            )}
-          </h2>
+              <button type="button" className="vanitas-ghost-btn" onClick={() => setRenaming(false)} disabled={busy}>
+                {tr("vgd.cancel")}
+              </button>
+            </form>
+          ) : (
+            <h2>{group.name}</h2>
+          )}
+          <span className="vgp-sub">
+            {tr(isDynamic ? "vgp.typeDynamic" : "vgp.typeStatic")} · {tr("vgp.updated", { date: fmtDate(group.updated_at) })}
+          </span>
+        </div>
+        {!renaming && (
+          <button type="button" className="vanitas-ghost-btn" onClick={() => setRenaming(true)}>
+            {tr("vgp.rename")}
+          </button>
         )}
-        <ConfirmButton
-          label={tr("vgd.delete")}
-          confirmLabel={tr("v.confirm")}
-          className="vanitas-danger-btn"
-          disabled={busy}
-          onConfirm={handleDelete}
-        />
+        <ConfirmButton label={tr("vg.delete")} confirmLabel={tr("v.confirm")} className="vanitas-danger-btn" disabled={busy} onConfirm={handleDelete} />
       </div>
-      {error && <p className="error-note">{error}</p>}
+      {error && <p className="error-note" style={{ margin: 0 }}>{error}</p>}
 
       {isDynamic && !editingRules && (
-        <p className="cve-small" style={{ marginTop: "-10px", marginBottom: "16px" }}>
-          {tr("vgd.rule", { rule: summarizeGroupRules(group.rules) })}
-        </p>
+        <div className="vgp-rulebox">
+          <span className="vgp-lbl vgp-accent">{tr("vgp.ruleLbl")}</span>
+          <span className="vgp-rule-text">{summarizeGroupRules(group.rules)}</span>
+          <button type="button" className="vanitas-ghost-btn" onClick={startEditingRules}>
+            {tr("vgd.editRuleTitle")}
+          </button>
+        </div>
       )}
       {isDynamic && editingRules && (
-        <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginBottom: "20px" }}>
-          <div className="vanitas-hud-card-head">
-            <h2>{tr("vgd.editRuleTitle")}</h2>
-          </div>
+        <div className="vgp-box">
+          <span className="vgp-lbl">{tr("vgd.editRuleTitle")}</span>
           <GroupRuleBuilder rules={draftRules} onChange={setDraftRules} disabled={rulesBusy} />
-          {rulesError && <p className="error-note" style={{ marginTop: "10px" }}>{rulesError}</p>}
-          <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+          {rulesError && <p className="error-note" style={{ margin: 0 }}>{rulesError}</p>}
+          <div className="vgp-row vgp-row-end">
             <button type="button" className="vanitas-ghost-btn" onClick={() => setEditingRules(false)} disabled={rulesBusy}>
               {tr("vgd.cancel")}
             </button>
@@ -316,238 +339,201 @@ export default function VanitasGroupDetail({
         </div>
       )}
 
-      <div className="vanitas-hud-strip">
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-accent)" }}>
-          <div className="label">
-            {tr("vgd.kpi.endpoints")}
-            <span className="tag">{tr("vgd.kpi.group")}</span>
-          </div>
-          <div className="value">{agents.length}</div>
-          <div className="bar">
-            <i style={{ width: "100%" }} />
-          </div>
+      <div className="vgp-stats">
+        <div className="vgp-tile">
+          <span className="vgp-lbl">{tr("vgd.kpi.endpoints")}</span>
+          <span className="vgp-tile-v">{agents.length}</span>
+          <span className="vgp-sub vgp-small">{tr("vgp.onlineCount", { count: onlineCount })}</span>
         </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-warn)" }}>
-          <div className="label">
-            {tr("vgd.kpi.avgVulns")}
-            <span className="tag">{tr("vgd.kpi.perEndpoint")}</span>
-          </div>
-          <div className="value">{avgVulnCount.toFixed(1)}</div>
-          <div className="bar">
-            <i style={{ width: avgVulnCount ? "100%" : "0%" }} />
-          </div>
+        <div className="vgp-tile" title={tr("vgd.method", { count: agents.length })}>
+          <span className="vgp-lbl">{tr("vgp.cvePerEndpoint")}</span>
+          <span className="vgp-tile-v">{stillCollecting ? "…" : fmtNumber(avgVulnCount, 1)}</span>
+          <span className="vgp-sub vgp-small">{tr("vgp.average")}</span>
         </div>
-        <div className="vanitas-hud-kpi vanitas-hud-frame" style={{ "--tone": "var(--hud-high)" }}>
-          <div className="label">
-            {tr("vgd.kpi.avgRisk")}
-            <span className="tag">CVSS 0-10</span>
-          </div>
-          <div className="value">{avgRiskRate.toFixed(1)}</div>
-          <div className="bar">
-            <i style={{ width: `${Math.min(100, avgRiskRate * 10)}%` }} />
-          </div>
+        <div className="vgp-tile" title={tr("vgd.method", { count: agents.length })}>
+          <span className="vgp-lbl">{tr("vgp.avgCvss")}</span>
+          <span className="vgp-tile-v" style={riskColor && !stillCollecting ? { color: riskColor } : undefined}>
+            {stillCollecting ? "…" : fmtNumber(avgRiskRate, 1)}
+          </span>
+          <span className="vgp-sub vgp-small">{tr("vgp.perEndpointAvg")}</span>
+        </div>
+        <div className="vgp-tile">
+          <span className="vgp-lbl">{tr("vgp.patchWindow")}</span>
+          <span className="vgp-tile-v vgp-tile-v-sm">
+            {group.patch_enabled && group.patch_window_start ? `${group.patch_window_start} – ${group.patch_window_end}` : tr("vgp.none")}
+          </span>
+          <button type="button" className="vgp-link" onClick={() => onNavigateVanitas?.("vanitas-patch")}>
+            {group.patch_enabled ? tr("vgp.grace", { count: group.patch_grace_days ?? 0 }) : tr("vgp.setPatch")}
+          </button>
         </div>
       </div>
-      <p className="cve-small" style={{ marginTop: "-10px", marginBottom: "16px" }}>
-        {tr("vgd.method", { count: agents.length })}
-        {stillCollecting && tr("vgd.collecting")}
-      </p>
 
-      {/* Groupes imbriqués (2026-09-10, revue de la fonctionnalité comparée à Intune/Jamf/
-          Tanium — "pas de groupes imbriqués") : un groupe, statique OU dynamique, peut
-          contenir d'autres groupes — leurs membres résolus s'ajoutent toujours à l'union (voir
-          la barre "Postes" du bandeau KPI ci-dessus, qui compte déjà ces membres imbriqués). */}
-      <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginBottom: "20px" }}>
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("vgd.subgroups")}</h2>
-          <span className="vanitas-hud-card-note">{tr("vgd.subgroupsNote")}</span>
+      <div className="vgp-tabs" role="tablist" aria-label={tr("vgp.tabsAria")}>
+        {[
+          ["members", tr("vgp.tab.members", { count: agents.length })],
+          ["actions", tr("vgp.tab.actions")],
+          ["nested", tr("vgp.tab.nested", { count: (group.child_group_ids ?? []).length })],
+        ].map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} className={`vgp-tab${tab === k ? " on" : ""}`} onClick={() => setTab(k)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "members" && (
+        <div className="vgp-members" role="tabpanel">
+          {agents.length === 0 ? (
+            <p className="vgp-sub" style={{ margin: 0 }}>
+              {isDynamic ? tr("vgd.noMatchRule", { rule: summarizeGroupRules(group.rules) }) : tr("vgp.noMember")}
+            </p>
+          ) : (
+            memberStats.map((m) => {
+              const on = isOnline(m.agent);
+              return (
+                <div key={m.agent.id} className="vgp-mem">
+                  <span className="vgp-dot" style={{ background: on ? CVE_SEVERITY_COLORS.Low : CVE_SEVERITY_COLORS.Medium }} title={tr(on ? "vgd.online" : "vgp.offline")} />
+                  <button type="button" className="vgp-mem-host" onClick={() => onNavigateVanitas?.("vanitas-devices", { selectAgentId: m.agent.id })}>
+                    {m.agent.hostname}
+                  </button>
+                  <span className="vgp-sub vgp-small vgp-hide-s">{m.loading ? "…" : tr("vgp.cveCount", { count: m.vulnCount })}</span>
+                  <span className="vgp-sub vgp-small vgp-hide-s">{m.loading ? "…" : `CVSS ${fmtNumber(m.avgCvss, 1)}`}</span>
+                  {isDynamic ? (
+                    <span className="vgp-tag dyn" title={tr("vgd.autoMember")}>
+                      {tr("vgp.auto")}
+                    </span>
+                  ) : (
+                    <button type="button" className="vanitas-ghost-btn vgp-btn-xs" onClick={() => handleRemoveMember(m.agent.id)}>
+                      {tr("vgp.removeMember")}
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+          {!isDynamic && addableAgents.length > 0 && (
+            <select className="vgp-select vgp-add" value="" onChange={(e) => handleAddMember(e.target.value)} aria-label={tr("vgp.addMember")}>
+              <option value="">{tr("vgp.addMember")}</option>
+              {addableAgents.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.hostname}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
-        {(group.child_group_ids ?? []).length === 0 ? (
-          <p className="vanitas-hud-empty-note">{tr("vgd.noSubgroup")}</p>
-        ) : (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "12px" }}>
-            {group.child_group_ids.map((childId) => (
-              <span key={childId} className="vanitas-hud-chip active">
-                <span className="led" />
-                {groupNameById.get(childId) ?? childId}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveChild(childId)}
-                  style={{ marginLeft: "6px", background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0 }}
-                  aria-label={tr("vgd.removeSubgroupAria")}
+      )}
+
+      {tab === "actions" && (
+        <div className="vgp-actions" role="tabpanel">
+          <div className="vgp-box">
+            <span className="vgp-lbl">{tr("vgd.pushApp")}</span>
+            <span className="vgp-sub">{tr("vgp.pushAppHint")}</span>
+            {installers.state.data.length === 0 ? (
+              <span className="vgp-sub">{tr("vgd.noInstaller")}</span>
+            ) : (
+              <div className="vgp-row">
+                <select
+                  className="vgp-select vgp-grow"
+                  value={selectedInstallerId}
+                  onChange={(e) => {
+                    setSelectedInstallerId(e.target.value);
+                    setPushResult(null);
+                  }}
+                  disabled={pushBusy}
+                  aria-label={tr("vgd.chooseInstaller")}
                 >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        {childError && <p className="error-note" style={{ marginBottom: "10px" }}>{childError}</p>}
-        {eligibleChildGroups.length > 0 && (
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <select
-              className="filter-input"
-              style={{ flex: "none", width: "260px" }}
-              value={selectedChildId}
-              onChange={(e) => setSelectedChildId(e.target.value)}
-              disabled={childBusy}
-            >
-              <option value="">{tr("vgd.chooseNest")}</option>
-              {eligibleChildGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="vanitas-queue-btn" onClick={handleAddChild} disabled={childBusy || !selectedChildId}>
-              {childBusy ? tr("vgd.adding") : tr("vgd.nest")}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginBottom: "20px" }}>
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("vgd.pushApp")}</h2>
-          <span className="vanitas-hud-card-note">{tr("vgd.pushAppNote")}</span>
-        </div>
-        {installers.state.data.length === 0 ? (
-          <p className="vanitas-hud-empty-note">
-            {tr("vgd.noInstaller")}
-          </p>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-            <select
-              className="filter-input"
-              style={{ flex: "none", width: "260px" }}
-              value={selectedInstallerId}
-              onChange={(e) => {
-                setSelectedInstallerId(e.target.value);
-                setPushResult(null);
-              }}
-              disabled={pushBusy}
-            >
-              <option value="">{tr("vgd.chooseInstaller")}</option>
-              {installers.state.data.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                  {i.version ? ` · v${i.version}` : ""}
-                </option>
-              ))}
-            </select>
-            <ConfirmButton
-              label={tr("vgd.pushToGroup")}
-              confirmLabel={tr("v.confirm")}
-              className="vanitas-danger-btn"
-              disabled={pushBusy || !selectedInstallerId}
-              onConfirm={handlePushInstall}
-              title={tr("vgd.pushInstallTitle")}
-            />
+                  <option value="">{tr("vgd.chooseInstaller")}</option>
+                  {installers.state.data.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                      {i.version ? ` · v${i.version}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <ConfirmButton
+                  label={tr("vgp.deployTo", { count: agents.length })}
+                  confirmLabel={tr("v.confirm")}
+                  className="vanitas-danger-btn"
+                  disabled={pushBusy || !selectedInstallerId || agents.length === 0}
+                  onConfirm={handlePushInstall}
+                  title={tr("vgd.pushInstallTitle")}
+                />
+              </div>
+            )}
+            {pushError && <p className="error-note" style={{ margin: 0 }}>{pushError}</p>}
             {pushResult !== null && (
-              <span className="vanitas-hud-status-pill ok">
-                {tr("vgd.queued", { count: pushResult })}
+              <span className="vgp-sub">
+                <b className="vgp-ok">{tr("vgd.queued", { count: pushResult })}</b> — {tr("vgd.resultsCommands")}
               </span>
             )}
           </div>
-        )}
-        {pushError && <p className="error-note" style={{ marginTop: "10px" }}>{pushError}</p>}
-        {pushResult !== null && (
-          <p className="cve-small" style={{ marginTop: "10px" }}>
-            {tr("vgd.resultsCommands")}
-          </p>
-        )}
-      </div>
 
-      <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginBottom: "20px" }}>
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("vgd.pushUpdate")}</h2>
-          <span className="vanitas-hud-card-note">{tr("vgd.pushUpdateNote")}</span>
-        </div>
-        {!latestAgentPackage ? (
-          <p className="vanitas-hud-empty-note">
-            {tr("vgd.noPackage")}
-          </p>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-            <span className="vanitas-hud-status-pill pending">v{latestAgentPackage.version}</span>
-            <ConfirmButton
-              label={tr("vgd.pushToGroup")}
-              confirmLabel={tr("v.confirm")}
-              className="vanitas-danger-btn"
-              disabled={pushUpdateBusy}
-              onConfirm={handlePushUpdate}
-              title={tr("vgd.pushUpdateTitle")}
-            />
+          <div className="vgp-box">
+            <span className="vgp-lbl">{tr("vgp.updateAgent")}</span>
+            {!latestAgentPackage ? (
+              <span className="vgp-sub">{tr("vgd.noPackage")}</span>
+            ) : (
+              <>
+                <span className="vgp-sub">{tr("vgp.updateHint", { version: latestAgentPackage.version, count: behindCount })}</span>
+                <div className="vgp-row">
+                  <ConfirmButton
+                    label={tr("vgp.pushVersion", { version: latestAgentPackage.version })}
+                    confirmLabel={tr("v.confirm")}
+                    className="vanitas-danger-btn"
+                    disabled={pushUpdateBusy || agents.length === 0}
+                    onConfirm={handlePushUpdate}
+                    title={tr("vgd.pushUpdateTitle")}
+                  />
+                </div>
+              </>
+            )}
+            {pushUpdateError && <p className="error-note" style={{ margin: 0 }}>{pushUpdateError}</p>}
             {pushUpdateResult !== null && (
-              <span className="vanitas-hud-status-pill ok">
-                {tr("vgd.queued", { count: pushUpdateResult })}
+              <span className="vgp-sub">
+                <b className="vgp-ok">{tr("vgd.queued", { count: pushUpdateResult })}</b> — {tr("vgd.resultsLog")}
               </span>
             )}
           </div>
-        )}
-        {pushUpdateError && <p className="error-note" style={{ marginTop: "10px" }}>{pushUpdateError}</p>}
-        {pushUpdateResult !== null && (
-          <p className="cve-small" style={{ marginTop: "10px" }}>
-            {tr("vgd.resultsLog")}
-          </p>
-        )}
-      </div>
-
-      <div className="vanitas-hud-card vanitas-hud-frame">
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("vgd.members")}</h2>
         </div>
-        {membersLoading ? (
-          <p className="vanitas-hud-empty-note">{tr("vgd.loadingMembers")}</p>
-        ) : agents.length === 0 ? (
-          <p className="vanitas-hud-empty-note">
-            {isDynamic
-              ? tr("vgd.noMatchRule", { rule: summarizeGroupRules(group.rules) })
-              : tr("vgd.noMember")}
-          </p>
-        ) : (
-          <div className="vanitas-hud-table-wrap">
-            <table className="vanitas-hud-table">
-              <thead>
-                <tr>
-                  <th>{tr("vgd.col.endpoint")}</th>
-                  <th>{tr("vgd.col.status")}</th>
-                  <th>{tr("vgd.col.vulns")}</th>
-                  <th>{tr("vgd.col.avgCvss")}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {memberStats.map((m) => (
-                  <tr key={m.agent.id}>
-                    <td className="vanitas-hud-host">
-                      <span className="name">{m.agent.hostname}</span>
-                    </td>
-                    <td>
-                      <span className={`vanitas-hud-status-pill ${isOnline(m.agent) ? "ok" : "bad"}`}>
-                        {tr(isOnline(m.agent) ? "vgd.online" : "vgd.silent")}
-                      </span>
-                    </td>
-                    <td>{m.loading ? "…" : m.vulnCount}</td>
-                    <td className="cve-mono cve-small">{m.loading ? "…" : m.avgCvss.toFixed(1)}</td>
-                    <td>
-                      {isDynamic ? (
-                        <span className="cve-small" style={{ color: "var(--ink-faint)" }}>
-                          {tr("vgd.autoMember")}
-                        </span>
-                      ) : (
-                        <button type="button" className="vanitas-queue-btn" onClick={() => handleRemoveMember(m.agent.id)}>
-                          {tr("vgd.removeFromGroup")}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      )}
+
+      {/* Groupes imbriqués (2026-09-10) : les membres résolus des sous-groupes s'ajoutent à
+          l'union — déjà comptés dans "Postes" ci-dessus (`group_ids` résolus côté serveur). */}
+      {tab === "nested" && (
+        <div className="vgp-actions" role="tabpanel">
+          <span className="vgp-sub">{tr("vgp.nestedHint")}</span>
+          <div className="vgp-row">
+            {(group.child_group_ids ?? []).length === 0 ? (
+              <span className="vgp-sub">{tr("vgd.noSubgroup")}</span>
+            ) : (
+              group.child_group_ids.map((childId) => (
+                <span key={childId} className="vgp-tag">
+                  {groupNameById.get(childId) ?? childId}
+                  <button type="button" className="vgp-tag-x" onClick={() => handleRemoveChild(childId)} aria-label={tr("vgd.removeSubgroupAria")}>
+                    ×
+                  </button>
+                </span>
+              ))
+            )}
           </div>
-        )}
-      </div>
-    </div>
+          {childError && <p className="error-note" style={{ margin: 0 }}>{childError}</p>}
+          {eligibleChildGroups.length > 0 && (
+            <div className="vgp-row">
+              <select className="vgp-select vgp-grow" value={selectedChildId} onChange={(e) => setSelectedChildId(e.target.value)} disabled={childBusy} aria-label={tr("vgd.chooseNest")}>
+                <option value="">{tr("vgd.chooseNest")}</option>
+                {eligibleChildGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="vanitas-queue-btn" onClick={handleAddChild} disabled={childBusy || !selectedChildId}>
+                {childBusy ? tr("vgd.adding") : tr("vgd.nest")}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </aside>
   );
 }

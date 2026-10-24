@@ -8,9 +8,11 @@ import {
   useVanitasAgentPackages,
   useVanitasAgents,
   useVanitasGroups,
+  useVanitasInstallerDeployments,
   useVanitasInstallers,
 } from "../hooks/useDashboardData.js";
-import { ConfirmButton, VanitasWizardShell, fmtBytes, fmtDateTime } from "./vanitasShared.jsx";
+import CopyButton from "../components/CopyButton.jsx";
+import { ConfirmButton, VanitasWizardShell, fmtBytes, fmtDateTime, fmtRelative } from "./vanitasShared.jsx";
 import { currentLocale, localizedTable, tr } from "../i18n/core.js";
 import { trRich } from "../i18n/rich.jsx";
 
@@ -971,6 +973,164 @@ function UploadAgentPackageModal({ onClose, onUploaded }) {
   );
 }
 
+// État de déploiement d'un installeur (refonte 2026-10-24) — mêmes statuts par poste que
+// "Applications déployées" (`ok`/`bad`/`pending`, tentative la plus récente côté serveur).
+function deployCounts(deployment) {
+  const c = { ok: 0, pending: 0, bad: 0, total: 0 };
+  for (const d of deployment?.devices ?? []) {
+    if (c[d.status] !== undefined) c[d.status]++;
+    c.total++;
+  }
+  return c;
+}
+
+const DEPLOY_COLOR = { ok: "var(--hud-good)", pending: "var(--hud-accent)", bad: "var(--hud-high)" };
+
+function DeployBadge({ counts }) {
+  if (!counts.total) return <span className="vin-sub vin-small">{tr("vin.never")}</span>;
+  const tone = counts.bad ? "bad" : counts.pending ? "pending" : "ok";
+  const label = counts.bad
+    ? tr("vin.badge.fail", { count: counts.bad })
+    : counts.pending
+      ? tr("vin.badge.pending", { ok: counts.ok, count: counts.total })
+      : tr("vin.badge.ok", { ok: counts.ok, count: counts.total });
+  return (
+    <span className="vin-pill" style={{ "--c": DEPLOY_COLOR[tone] }}>
+      {label}
+    </span>
+  );
+}
+
+function SplitBar({ counts }) {
+  return (
+    <span className="vin-bar">
+      {["ok", "pending", "bad"].map((k) => (counts[k] ? <i key={k} style={{ flex: counts[k], background: DEPLOY_COLOR[k] }} /> : null))}
+    </span>
+  );
+}
+
+function InstallerPanel({ installer, deployment, onDeploy, onEdit, onDelete, onNavigateVanitas }) {
+  const type = sourceTypeFromFileName(installer.original_filename);
+  const meta = TYPE_META[type];
+  const counts = deployCounts(deployment);
+  return (
+    <aside className="vin-card vin-detail" style={{ "--type-c": meta.color, "--type-dim": meta.dim }} aria-label={tr("vin.detailAria")}>
+      <div className="vin-detail-head">
+        <span className="vin-ico lg" aria-hidden="true">
+          <meta.Icon />
+        </span>
+        <div className="vin-detail-title">
+          <h2>
+            {installer.name} {installer.version && <span className="vin-ver">v{installer.version}</span>}
+          </h2>
+          <span className="vin-sub">{tr("vin.typeAdded", { type: tr(`vin.typeLong.${type}`), date: fmtDateTime(installer.uploaded_at) })}</span>
+        </div>
+        <button type="button" className="vanitas-wiz-primary-btn" onClick={() => onDeploy(installer)}>
+          {tr("vin.deployEllipsis")}
+        </button>
+      </div>
+
+      <div className="vin-block">
+        <span className="vin-lbl">{tr("vin.installCmd")}</span>
+        <div className="vin-code">
+          <code>{installer.install_command}</code>
+          <CopyButton className="vanitas-enroll-copy-btn" text={installer.install_command} />
+        </div>
+        <span className="vin-sub vin-small">{tr("vin.cmdHint")}</span>
+      </div>
+
+      <dl className="vin-kv">
+        <dt>{tr("vin.file")}</dt>
+        <dd className="vin-mono">{installer.original_filename}</dd>
+        <dt>{tr("vin.size")}</dt>
+        <dd>{fmtBytes(installer.size_bytes)}</dd>
+        <dt>SHA-256</dt>
+        <dd className="vin-mono vin-muted">{installer.sha256}</dd>
+      </dl>
+
+      <div className="vin-box">
+        <div className="vin-box-head">
+          <span className="vin-lbl">{tr("vin.deployments")}</span>
+          {counts.total > 0 && (
+            <button type="button" className="vanitas-ghost-btn" onClick={() => onNavigateVanitas?.("vanitas-deployed-apps")}>
+              {tr("vin.viewDeployed")}
+            </button>
+          )}
+        </div>
+        {counts.total > 0 ? (
+          <>
+            <SplitBar counts={counts} />
+            <span className="vin-sub">
+              {tr("vin.deployLine", { ok: counts.ok, pending: counts.pending, bad: counts.bad })}
+              {deployment?.targets?.length ? ` — ${tr("vin.target")} : ${deployment.targets.join(", ")}` : ""}
+            </span>
+          </>
+        ) : (
+          <span className="vin-sub">{tr("vin.neverHint")}</span>
+        )}
+      </div>
+
+      <div className="vin-foot">
+        <button type="button" className="vanitas-ghost-btn" onClick={() => onEdit(installer)}>
+          {tr("vin.editLong")}
+        </button>
+        <ConfirmButton label={tr("vin.delete")} confirmLabel={tr("v.confirm")} className="vanitas-danger-btn" onConfirm={() => onDelete(installer.id)} />
+      </div>
+    </aside>
+  );
+}
+
+function AgentPackagePanel({ pkg, isLatest, agents, onDelete }) {
+  const onVersion = agents.filter((a) => a.agent_version === pkg.version);
+  const behind = isLatest ? agents.filter((a) => a.agent_version && a.agent_version !== pkg.version) : [];
+  return (
+    <aside className="vin-card vin-detail" aria-label={tr("vin.pkgAria")}>
+      <div className="vin-detail-head">
+        <div className="vin-detail-title">
+          <h2>
+            Endpoint Agent <span className="vin-ver">v{pkg.version}</span>
+          </h2>
+          <span className="vin-sub">{tr("vin.uploadedOn", { date: fmtDateTime(pkg.uploaded_at) })}</span>
+        </div>
+        <span className="vin-pill" style={{ "--c": isLatest ? "var(--hud-good)" : "var(--vin-muted)" }}>
+          {tr(isLatest ? "vin.pkgLatest" : "vin.pkgOld")}
+        </span>
+      </div>
+
+      <div className="vin-box">
+        <span className="vin-lbl">{tr("vin.adoption")}</span>
+        {agents.length === 0 ? (
+          <span className="vin-sub">{tr("vin.noAgent")}</span>
+        ) : (
+          <>
+            <span className="vin-bar">
+              {onVersion.length > 0 && <i style={{ flex: onVersion.length, background: "var(--hud-good)" }} />}
+              {agents.length - onVersion.length > 0 && <i style={{ flex: agents.length - onVersion.length, background: "var(--hud-warn)" }} />}
+            </span>
+            <span className="vin-sub">
+              {tr("vin.onVersion", { count: onVersion.length, total: agents.length })}
+              {isLatest && behind.length > 0 && <> — {tr("vin.behind", { hosts: behind.slice(0, 4).map((a) => a.hostname).join(", ") + (behind.length > 4 ? "…" : "") })}</>}
+            </span>
+          </>
+        )}
+      </div>
+
+      <dl className="vin-kv">
+        <dt>{tr("vin.file")}</dt>
+        <dd className="vin-mono">{pkg.original_filename}</dd>
+        <dt>{tr("vin.size")}</dt>
+        <dd>{fmtBytes(pkg.size_bytes)}</dd>
+        <dt>SHA-256</dt>
+        <dd className="vin-mono vin-muted">{pkg.sha256}</dd>
+      </dl>
+
+      <div className="vin-foot">
+        <ConfirmButton label={tr("vin.deleteVersion")} confirmLabel={tr("v.confirm")} className="vanitas-danger-btn" onConfirm={() => onDelete(pkg.id)} />
+      </div>
+    </aside>
+  );
+}
+
 /**
  * "Vanitas" > Administration > Applications (2026-09-08, demande de Nicolas — "un push
  * d'application un peu comme dans Pandore, via les groupes"). Catalogue persistant d'installeurs
@@ -989,215 +1149,313 @@ function UploadAgentPackageModal({ onClose, onUploaded }) {
  * mêmes routes serveur, jamais divergé. La LECTURE seule du catalogue (parcourir les
  * applications déjà publiées, sans droits d'écriture) vit à part, voir
  * `VanitasAppCatalogTab.jsx` (remonté sous "Vue d'ensemble").
+ *
+ * Refonte liste + détail (2026-10-24, maquette canvas validée par Nicolas) : bandeau de synthèse
+ * (formats en barre avec légende cliquable, installeurs déjà déployés, version de l'agent et
+ * adoption), bascule "Installeurs / Agent Vanitas" en tête de liste (même motif que Mises à
+ * jour), détail dans un panneau latéral au lieu des grilles de cartes. Nouveau : état de
+ * déploiement par installeur (`useVanitasInstallerDeployments`, même cache qu'"Applications
+ * déployées") et adoption de chaque version de l'agent (`agent.agent_version`). Les popups
+ * (ajout en 5 étapes, déploiement, modification, envoi d'une version) sont inchangées. Classes
+ * `.vin-*` ; `InstallerCard` reste utilisé par l'aperçu final de l'assistant d'ajout.
  */
 export default function VanitasInstallersTab({ onNavigateVanitas }) {
   const installers = useVanitasInstallers();
+  const deployments = useVanitasInstallerDeployments();
   const groups = useVanitasGroups();
   const agents = useVanitasAgents();
-  const [deleteError, setDeleteError] = useState(null);
+  const agentPackages = useVanitasAgentPackages();
+  const [mode, setMode] = useState("installers");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [selectedId, setSelectedId] = useState(null);
+  const [selectedPkgId, setSelectedPkgId] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const [showAddWizard, setShowAddWizard] = useState(false);
   const [editingInstaller, setEditingInstaller] = useState(null);
   const [deployingInstaller, setDeployingInstaller] = useState(null);
-
-  // Catalogue de mise à jour de l'agent (2026-09-11, revu — remplace la page dédiée "Mise à
-  // jour de l'agent", qui ne faisait plus que ça).
-  const agentPackages = useVanitasAgentPackages();
   const [showUploadAgentPackage, setShowUploadAgentPackage] = useState(false);
-  const [agentPackageError, setAgentPackageError] = useState(null);
+  const detailRef = useRef(null);
 
   useEffect(() => {
     installers.ensureLoaded();
+    deployments.ensureLoaded();
     groups.ensureLoaded();
     agents.ensureLoaded();
     agentPackages.ensureLoaded();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleDeleteAgentPackage(packageId) {
-    setAgentPackageError(null);
-    try {
-      const payload = await api.vanitas.deleteAgentPackage(packageId);
-      if (isErrorPayload(payload)) {
-        setAgentPackageError(payload.message);
-      } else {
-        agentPackages.refresh();
-      }
-    } catch (err) {
-      setAgentPackageError(err.message);
-    }
-  }
+  const all = installers.state.data;
+  const agentList = agents.state.data ?? [];
+  const packages = agentPackages.state.data;
+  const latestPkg = packages[0] ?? null;
+
+  const deploymentById = useMemo(() => {
+    const m = new Map();
+    for (const d of deployments.state.data ?? []) m.set(d.installer_id, d);
+    return m;
+  }, [deployments.state.data]);
 
   const counts = useMemo(() => {
     const c = { msi: 0, powershell: 0, other: 0 };
-    installers.state.data.forEach((i) => {
+    all.forEach((i) => {
       c[sourceTypeFromFileName(i.original_filename)]++;
     });
     return c;
-  }, [installers.state.data]);
+  }, [all]);
+  const totalBytes = all.reduce((n, i) => n + (Number(i.size_bytes) || 0), 0);
+  const deployedCount = all.filter((i) => deployCounts(deploymentById.get(i.id)).total > 0).length;
+  const upToDate = latestPkg ? agentList.filter((a) => a.agent_version === latestPkg.version).length : 0;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return installers.state.data.filter((i) => {
-      if (typeFilter !== "all" && sourceTypeFromFileName(i.original_filename) !== typeFilter) return false;
-      if (!q) return true;
-      return [i.name, i.version, i.original_filename, i.install_command]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
-  }, [installers.state.data, query, typeFilter]);
+    return all
+      .filter((i) => {
+        if (typeFilter !== "all" && sourceTypeFromFileName(i.original_filename) !== typeFilter) return false;
+        if (!q) return true;
+        return [i.name, i.version, i.original_filename, i.install_command].filter(Boolean).join(" ").toLowerCase().includes(q);
+      })
+      .sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at));
+  }, [all, query, typeFilter]);
 
-  async function handleDelete(installerId) {
-    setDeleteError(null);
-    try {
-      const payload = await api.vanitas.deleteInstaller(installerId);
-      if (isErrorPayload(payload)) {
-        setDeleteError(payload.message);
-      } else {
-        if (editingInstaller?.id === installerId) setEditingInstaller(null);
-        installers.refresh();
-      }
-    } catch (err) {
-      setDeleteError(err.message);
+  const selected = filtered.find((i) => i.id === selectedId) ?? filtered[0] ?? null;
+  const selectedPkg = packages.find((p) => p.id === selectedPkgId) ?? latestPkg;
+
+  function select(setter, id) {
+    setter(id);
+    if (detailRef.current && window.matchMedia?.("(max-width: 980px)").matches) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
+  async function runDelete(call, onDone) {
+    setActionError(null);
+    try {
+      const payload = await call();
+      if (isErrorPayload(payload)) setActionError(payload.message);
+      else onDone();
+    } catch (err) {
+      setActionError(err.message);
+    }
+  }
+  const handleDelete = (installerId) =>
+    runDelete(
+      () => api.vanitas.deleteInstaller(installerId),
+      () => {
+        if (editingInstaller?.id === installerId) setEditingInstaller(null);
+        installers.refresh();
+      }
+    );
+  const handleDeleteAgentPackage = (packageId) => runDelete(() => api.vanitas.deleteAgentPackage(packageId), () => agentPackages.refresh());
+
+  const loading = installers.state.status === "loading";
+
   return (
-    <div className="vanitas-hud">
+    <div className="vanitas-hud vin">
       {installers.state.error && <p className="vanitas-hud-error">{installers.state.error}</p>}
-      {deleteError && <p className="vanitas-hud-error">{deleteError}</p>}
+      {actionError && <p className="vanitas-hud-error">{actionError}</p>}
 
-      <div className="vanitas-hud-toolbar" style={{ marginBottom: "16px" }}>
-        <div className="vanitas-hud-search">
-          <span className="prompt">&gt;</span>
-          <input
-            type="text"
-            placeholder={tr("vin.searchPlaceholder")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-          />
+      <section className="vin-card vin-sum" aria-label={tr("vin.sumAria")}>
+        <div className="vin-col">
+          <span className="vin-lbl">{tr("vin.installers")}</span>
+          <span className="vin-val accent">{all.length}</span>
+          <span className="vin-sub vin-small">{tr("vin.totalSize", { size: fmtBytes(totalBytes) })}</span>
         </div>
-        <div className="vanitas-hud-chips">
-          <button type="button" className={`vanitas-hud-chip${typeFilter === "all" ? " active" : ""}`} onClick={() => setTypeFilter("all")}>
-            <span className="led" />
-            {tr("vin.all")}<span className="n">{installers.state.data.length}</span>
-          </button>
-          <button type="button" className={`vanitas-hud-chip${typeFilter === "msi" ? " active" : ""}`} onClick={() => setTypeFilter("msi")}>
-            <span className="led" />
-            MSI<span className="n">{counts.msi}</span>
-          </button>
-          <button
-            type="button"
-            className={`vanitas-hud-chip tone-accent2${typeFilter === "powershell" ? " active" : ""}`}
-            onClick={() => setTypeFilter("powershell")}
-          >
-            <span className="led" />
-            PowerShell<span className="n">{counts.powershell}</span>
-          </button>
-          <button type="button" className={`vanitas-hud-chip tone-warn${typeFilter === "other" ? " active" : ""}`} onClick={() => setTypeFilter("other")}>
-            <span className="led" />
-            {tr("vin.type.other")}<span className="n">{counts.other}</span>
-          </button>
+        <div className="vin-sum-state">
+          <span className="vin-lbl">{tr("vin.byFormat")}</span>
+          <span className="vin-bar" role="img" aria-label={TYPE_ORDER.map((k) => `${counts[k]} ${TYPE_META[k].label}`).join(", ")}>
+            {TYPE_ORDER.map((k) => (counts[k] ? <i key={k} style={{ flex: counts[k], background: TYPE_META[k].color }} /> : null))}
+          </span>
+          <div className="vin-legend">
+            {TYPE_ORDER.map((k) => (
+              <button
+                key={k}
+                type="button"
+                className="vin-leg"
+                onClick={() => {
+                  setMode("installers");
+                  setTypeFilter(k);
+                }}
+              >
+                <i style={{ background: TYPE_META[k].color }} />
+                <b>{counts[k]}</b> {tr(`vin.typeLong.${k}`)}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+        <div className="vin-col vin-sum-third">
+          <span className="vin-lbl">{tr("vin.deployedLbl")}</span>
+          <span className="vin-val">
+            {deployedCount} <small>/ {all.length}</small>
+          </span>
+          <span className="vin-sub vin-small">{tr("vin.deployedSub")}</span>
+        </div>
+        <div className="vin-col vin-sum-fourth">
+          <span className="vin-lbl">{tr("vin.agentLbl")}</span>
+          {latestPkg ? (
+            <>
+              <button type="button" className="vin-agent-btn" onClick={() => setMode("agent")}>
+                v{latestPkg.version}
+              </button>
+              <span className="vin-sub vin-small">{tr("vin.upToDate", { count: upToDate, total: agentList.length })}</span>
+            </>
+          ) : (
+            <span className="vin-sub">—</span>
+          )}
+        </div>
+      </section>
 
-      <div className="vanitas-hud-card vanitas-hud-frame">
-        <div className="vanitas-hud-card-head">
-          <h2>
-            {tr("vin.count", { filtered: filtered.length, count: installers.state.data.length })}
-          </h2>
-          <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowAddWizard(true)}>
-            {tr("vin.addInstaller")}
-          </button>
-        </div>
-        {installers.state.status === "loading" ? (
-          <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
-        ) : installers.state.data.length === 0 ? (
-          <p className="vanitas-hud-empty-note">{tr("vin.empty")}</p>
-        ) : filtered.length === 0 ? (
-          <p className="vanitas-hud-empty-note">{tr("vin.noResult")}</p>
-        ) : (
-          <div className="installer-grid">
-            {filtered.map((i) => (
-              <InstallerCard
-                key={i.id}
-                installer={i}
+      <div className="vin-split">
+        <section className="vin-card vin-list" aria-label={tr("vin.listAria")}>
+          <div className="vin-list-head">
+            <span className="vin-seg" role="tablist" aria-label={tr("vin.listAria")}>
+              <button type="button" role="tab" aria-selected={mode === "installers"} className={mode === "installers" ? "on" : ""} onClick={() => setMode("installers")}>
+                {tr("vin.mode.installers")}
+              </button>
+              <button type="button" role="tab" aria-selected={mode === "agent"} className={mode === "agent" ? "on" : ""} onClick={() => setMode("agent")}>
+                {tr("vin.mode.agent")}
+              </button>
+            </span>
+            {mode === "installers" ? (
+              <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowAddWizard(true)}>
+                {tr("vin.addInstaller")}
+              </button>
+            ) : (
+              <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowUploadAgentPackage(true)}>
+                {tr("vin.uploadVersion")}
+              </button>
+            )}
+          </div>
+
+          {mode === "installers" ? (
+            <>
+              <label className="vin-search-wrap">
+                <span className="vin-sr">{tr("vin.searchPlaceholder")}</span>
+                <input type="search" className="vin-input" placeholder={tr("vin.searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+              </label>
+              <span className="vin-chips" role="group" aria-label={tr("vin.formatAria")}>
+                {["all", ...TYPE_ORDER].map((k) => (
+                  <button key={k} type="button" className={`vin-chip${typeFilter === k ? " on" : ""}`} aria-pressed={typeFilter === k} onClick={() => setTypeFilter(k)}>
+                    <i className="dot" style={{ background: k === "all" ? "var(--vin-muted)" : TYPE_META[k].color }} />
+                    {k === "all" ? tr("vin.all") : k === "powershell" ? "PowerShell" : TYPE_META[k].label} <b>{k === "all" ? all.length : counts[k]}</b>
+                  </button>
+                ))}
+              </span>
+              {loading ? (
+                <p className="vin-empty">{tr("v.loading")}</p>
+              ) : all.length === 0 ? (
+                <p className="vin-empty">{tr("vin.empty")}</p>
+              ) : filtered.length === 0 ? (
+                <p className="vin-empty">{tr("vin.noResult")}</p>
+              ) : (
+                <div className="vin-rows">
+                  {filtered.map((i) => {
+                    const meta = TYPE_META[sourceTypeFromFileName(i.original_filename)];
+                    const isSel = selected?.id === i.id;
+                    return (
+                      <button
+                        key={i.id}
+                        type="button"
+                        className={`vin-it${isSel ? " sel" : ""}`}
+                        style={{ "--type-c": meta.color, "--type-dim": meta.dim }}
+                        aria-pressed={isSel}
+                        onClick={() => select(setSelectedId, i.id)}
+                      >
+                        <span className="vin-ico" aria-hidden="true">
+                          <meta.Icon />
+                        </span>
+                        <span className="vin-name">
+                          {i.name} {i.version && <span className="vin-ver">v{i.version}</span>}
+                        </span>
+                        <DeployBadge counts={deployCounts(deploymentById.get(i.id))} />
+                        <span className="vin-meta">
+                          <span className="vin-mono vin-ellipsis">{i.original_filename}</span>
+                          <span>·</span>
+                          <span>{fmtBytes(i.size_bytes)}</span>
+                          <span>·</span>
+                          <span>{tr("vin.addedRel", { when: fmtRelative(i.uploaded_at) })}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="vin-sub">{tr("vin.agentIntro")}</span>
+              {agentPackages.state.status === "loading" ? (
+                <p className="vin-empty">{tr("v.loading")}</p>
+              ) : packages.length === 0 ? (
+                <p className="vin-empty">{trRich("vin.noPackage", { path: <code>Installer/Installer.wixproj</code> })}</p>
+              ) : (
+                <div className="vin-rows">
+                  {packages.map((p, idx) => {
+                    const isSel = selectedPkg?.id === p.id;
+                    const on = agentList.filter((a) => a.agent_version === p.version).length;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`vin-it${isSel ? " sel" : ""}`}
+                        style={{ "--type-c": "var(--hud-accent)", "--type-dim": "var(--hud-accent-dim)" }}
+                        aria-pressed={isSel}
+                        onClick={() => select(setSelectedPkgId, p.id)}
+                      >
+                        <span className="vin-ico" aria-hidden="true">
+                          <IconRefresh />
+                        </span>
+                        <span className="vin-name">
+                          Endpoint Agent <span className="vin-ver">v{p.version}</span>
+                        </span>
+                        <span className="vin-pill" style={{ "--c": idx === 0 ? "var(--hud-good)" : "var(--vin-muted)" }}>
+                          {tr(idx === 0 ? "vin.pkgLatest" : "vin.pkgOld")}
+                        </span>
+                        <span className="vin-meta">
+                          <span>{tr("vin.onThis", { count: on })}</span>
+                          <span>·</span>
+                          <span>{fmtBytes(p.size_bytes)}</span>
+                          <span>·</span>
+                          <span>{tr("vin.publishedRel", { when: fmtRelative(p.uploaded_at) })}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <div ref={detailRef} className="vin-detail-slot">
+          {mode === "installers" ? (
+            selected ? (
+              <InstallerPanel
+                key={selected.id}
+                installer={selected}
+                deployment={deploymentById.get(selected.id)}
+                onDeploy={setDeployingInstaller}
                 onEdit={setEditingInstaller}
                 onDelete={handleDelete}
-                onDeploy={setDeployingInstaller}
+                onNavigateVanitas={onNavigateVanitas}
               />
-            ))}
-          </div>
-        )}
-        {filtered.length > 0 && (
-          <p className="vanitas-hud-card-note" style={{ display: "block", padding: "0 16px 16px" }}>
-            {tr("vin.deployHint")}
-          </p>
-        )}
-      </div>
-
-      <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginTop: "16px" }}>
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("vin.agentUpdate", { count: agentPackages.state.data.length })}</h2>
-          <button type="button" className="vanitas-wiz-primary-btn" onClick={() => setShowUploadAgentPackage(true)}>
-            {tr("vin.uploadVersion")}
-          </button>
-        </div>
-        {agentPackageError && <p className="vanitas-hud-error">{agentPackageError}</p>}
-        {agentPackages.state.status === "loading" ? (
-          <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
-        ) : agentPackages.state.data.length === 0 ? (
-          <p className="vanitas-hud-empty-note">
-            {trRich("vin.noPackage", { path: <code>Installer/Installer.wixproj</code> })}
-          </p>
-        ) : (
-          <div className="installer-grid">
-            {agentPackages.state.data.map((p, i) => (
-              <div
-                key={p.id}
-                className="installer-card"
-                style={{ "--type-c": i === 0 ? "var(--hud-accent)" : "var(--hud-ink-faint)", "--type-dim": i === 0 ? "var(--hud-accent-dim)" : "var(--hud-warn-soft)" }}
-              >
-                <div className="installer-card-top">
-                  <div className="installer-card-icon">
-                    <IconRefresh />
-                  </div>
-                  <div className="installer-card-id">
-                    <div className="installer-card-name">Endpoint Agent</div>
-                    <div className="installer-card-version">v{p.version}</div>
-                  </div>
-                  {i === 0 && <span className="installer-card-badge">{tr("vin.latest")}</span>}
-                </div>
-                <div className="installer-card-file">{p.original_filename}</div>
-                <div className="installer-card-cmd">SHA-256 · {p.sha256.slice(0, 16)}…</div>
-                <div className="installer-card-meta">
-                  <span>{fmtBytes(p.size_bytes)}</span>
-                  <span>{tr("vin.uploadedOn", { date: fmtDateTime(p.uploaded_at) })}</span>
-                </div>
-                <div className="installer-card-actions">
-                  <ConfirmButton
-                    label={tr("vin.delete")}
-                    confirmLabel={tr("v.confirm")}
-                    className="vanitas-danger-btn"
-                    onConfirm={() => handleDeleteAgentPackage(p.id)}
-                  />
-                </div>
+            ) : (
+              <div className="vin-card vin-empty-panel">
+                <p className="vin-sub">{tr("vin.pick")}</p>
               </div>
-            ))}
-          </div>
-        )}
+            )
+          ) : selectedPkg ? (
+            <AgentPackagePanel key={selectedPkg.id} pkg={selectedPkg} isLatest={selectedPkg.id === latestPkg?.id} agents={agentList} onDelete={handleDeleteAgentPackage} />
+          ) : (
+            <div className="vin-card vin-empty-panel">
+              <p className="vin-sub">{tr("vin.pickPkg")}</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {showAddWizard && (
-        <AddInstallerWizard
-          onClose={() => setShowAddWizard(false)}
-          onAdded={() => installers.refresh()}
-        />
-      )}
+      {showAddWizard && <AddInstallerWizard onClose={() => setShowAddWizard(false)} onAdded={() => installers.refresh()} />}
       {editingInstaller && (
         <EditInstallerModal
           key={editingInstaller.id}
@@ -1216,7 +1474,7 @@ export default function VanitasInstallersTab({ onNavigateVanitas }) {
           groups={groups.state.data}
           agents={agents.state.data}
           onClose={() => setDeployingInstaller(null)}
-          onDeployed={() => {}}
+          onDeployed={() => deployments.refresh()}
           onNavigateVanitas={onNavigateVanitas}
         />
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useVanitasAgentEol,
   useVanitasAgents,
@@ -12,6 +12,8 @@ import {
   useVanitasSuspiciousEventsSummary,
   useVanitasTopVulnerabilities,
 } from "../hooks/useDashboardData.js";
+import useReorderableZone from "../hooks/useReorderableZone.js";
+import { IconGrip } from "../components/icons.jsx";
 import { computeVanitasTrend } from "../selectors.js";
 import {
   CERT_WARNING_DAYS,
@@ -48,33 +50,7 @@ const WATCHLIST_MAX = 8;
 const SIGNALS_MAX = 8;
 const FEED_MAX = 9;
 const RECENT_DAYS = 7;
-const CHART_W = 560;
-const CHART_H = 220;
 const DAY_MS = 86_400_000;
-
-/** Tracé lissé (Catmull-Rom → bézier cubique) — un simple polyligne droit entre 7 points donne
- * un aspect "graphique de tableur compressé" (retour de Nicolas, "on dirait un vieux jpeg") ;
- * la courbe lissée se lit mieux sur une série aussi courte. */
-function buildActivityChart(values, width, height) {
-  const max = Math.max(1, ...values);
-  const stepX = values.length > 1 ? width / (values.length - 1) : width;
-  const points = values.map((v, i) => [i * stepX, height - 10 - (v / max) * (height - 30)]);
-
-  let line = `M${points[0][0].toFixed(1)},${points[0][1].toFixed(1)}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] || points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[i + 2] || p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    line += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
-  }
-  const area = `${line} L${width.toFixed(1)},${height} L0,${height} Z`;
-  return { line, area, points };
-}
 
 /**
  * "Vanitas" > Vue d'ensemble — refonte HUD (2026-09-06), maquette validée par Nicolas ("ca me
@@ -104,40 +80,53 @@ function buildActivityChart(values, width, height) {
  * un vrai texte, pas une valeur inventée) et graphique "Activité" (main, volume de commandes
  * RÉEL par jour sur `RECENT_DAYS`, agrégé côté client depuis `commands.state.data` déjà chargé
  * pour "Activité récente" juste en dessous).
+ *
+ * Refonte "bento" (2026-10-23, maquette canvas validée par Nicolas après plusieurs passes de
+ * densité — "les blocs sont trop gros") : PRÉSENTATION seule, mêmes hooks et mêmes calculs.
+ * En tête, fixe : posture (score + 2 sous-signaux) et 6 tuiles KPI qui absorbent l'ancien
+ * bandeau "Tendances" (variation 7 j + mini-courbe dans la tuile mesurée). Dessous, deux zones
+ * réordonnables comme la Vue d'ensemble Pandore (`useReorderableZone`) : colonne principale
+ * (activité, top CVE, signaux, flux — largeur réglable) et colonne de droite (patch,
+ * criticité, groupes, alertes — ordre seul). Classes `.vov-*`, scopées à cette page.
  */
-/** Mini-courbe SVG normalisée (jalon "tendances Vanitas", 2026-09-17) — monochrome, hérite de la
- * couleur du conteneur via `currentColor`, donc thème-safe sans lib de graphe. Une série plate
+// Zones réordonnables (refonte bento 2026-10-23) — même mécanique que la Vue d'ensemble Pandore
+// (`useReorderableZone`, poignée + aperçu en direct + persistance par navigateur) : la colonne
+// principale se réordonne ET se redimensionne (largeur en sixièmes : 1/3, 1/2, 2/3, pleine),
+// la colonne de droite se réordonne seule (une colonne, une largeur fixe).
+const MAIN_SPANS = [2, 3, 4, 6];
+const MAIN_DEFAULT_ORDER = ["activity", "top-vulns", "signals", "feed"];
+// Activité en 1/3 (7 barres tiennent largement), top CVE en 2/3 (ID + produit + CVSS + postes).
+const MAIN_DEFAULT_SIZES = { activity: 0, "top-vulns": 2, signals: 3, feed: 3 };
+const RAIL_DEFAULT_ORDER = ["patch", "criticality", "groups", "alerts"];
+
+/** Mini-courbe d'une tuile KPI — étirée sur la largeur restante (`preserveAspectRatio="none"`
+ * + `vectorEffect` pour garder un trait net), couleur héritée (`currentColor`). Une série plate
  * (min == max) est tracée en ligne médiane plutôt que de diviser par zéro. */
-function Sparkline({ series, width = 132, height = 34 }) {
-  const pad = 3;
+function Sparkline({ series, title }) {
   if (!Array.isArray(series) || series.length < 2) return null;
   const min = Math.min(...series);
   const max = Math.max(...series);
   const span = max - min || 1;
-  const stepX = (width - pad * 2) / (series.length - 1);
   const points = series
-    .map((v, i) => {
-      const x = pad + i * stepX;
-      const y = pad + (height - pad * 2) * (1 - (v - min) / span);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
+    .map((v, i) => `${((i / (series.length - 1)) * 96 + 2).toFixed(1)},${(28 - ((v - min) / span) * 24).toFixed(1)}`)
     .join(" ");
-  const lastX = pad + (series.length - 1) * stepX;
-  const lastY = pad + (height - pad * 2) * (1 - (series[series.length - 1] - min) / span);
   return (
-    <svg className="vanitas-trend-spark" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true">
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r="2.4" fill="currentColor" />
+    <svg className="vov-spark" viewBox="0 0 100 30" preserveAspectRatio="none" role="img" aria-label={title}>
+      <title>{title}</title>
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
 
-/** Une carte de tendance : libellé, valeur courante, delta sur 7 j (coloré selon que la direction
- * est FAVORABLE ou non — hausse de conformité = bon/vert, hausse d'événements suspects = mauvais/
- * rouge), et la mini-courbe. `favorable` : "up" (monter est bon) ou "down" (baisser est bon). */
-function TrendSparkCard({ label, metric, unit = "", favorable, tone }) {
+/** Tuile KPI du bento : libellé + étiquette (remplacée au survol par la destination), valeur et
+ * mini-courbe sur la même ligne, puis sous-titre et variation sur 7 j. La tendance (jalon
+ * 2026-09-17, ancien bandeau "Tendances") est fusionnée ICI dans la tuile qu'elle mesure :
+ * `metric` = `{ current, delta7, series }` de `computeVanitasTrend`, `favorable` "up"/"down"
+ * décide si une hausse est verte ou rouge. Le dernier relevé historique (`current`) reste
+ * lisible dans l'infobulle de la courbe. `extra` remplace la courbe quand la tuile n'en a pas. */
+function KpiTile({ label, tag, dest, value, tone, quiet, sub, metric, favorable, unit = "", extra, onClick }) {
   const { current, delta7, series } = metric || {};
-  if (current == null) return null;
+  const hasSeries = Array.isArray(series) && series.length >= 2;
   let deltaClass = "flat";
   if (typeof delta7 === "number" && delta7 !== 0) {
     const good = favorable === "up" ? delta7 > 0 : delta7 < 0;
@@ -145,20 +134,84 @@ function TrendSparkCard({ label, metric, unit = "", favorable, tone }) {
   }
   const deltaLabel =
     typeof delta7 === "number" && delta7 !== 0
-      ? tr("vo.deltaWeek", { arrow: delta7 > 0 ? "▲" : "▼", value: Math.abs(delta7), unit: unit ?? "" })
+      ? tr("vo.deltaWeek", { arrow: delta7 > 0 ? "▲" : "▼", value: Math.abs(delta7), unit })
       : tr("vo.stableWeek");
   return (
-    <div className="vanitas-trend-card" style={tone ? { "--tone": tone } : undefined}>
-      <div className="vanitas-trend-card-head">
-        <span className="vanitas-trend-card-label">{label}</span>
-        <span className={`vanitas-trend-delta ${deltaClass}`}>{deltaLabel}</span>
+    <button type="button" className="vov-card vov-kpi" style={{ "--tone": tone }} onClick={onClick}>
+      <span className="vov-kpi-head">
+        <span className="vov-lbl">{label}</span>
+        <span className="vov-tag">{tag}</span>
+        <span className="vov-tag vov-tag-hover">{dest}</span>
+      </span>
+      <span className="vov-kpi-main">
+        <span className={`vov-val${quiet ? " quiet" : ""}`}>{value}</span>
+        {extra && <span className="vov-kpi-extra">{extra}</span>}
+        {!extra && hasSeries && <Sparkline series={series} title={tr("vo.lastSnapshot", { value: `${current}${unit}` })} />}
+      </span>
+      <span className="vov-kpi-foot">
+        <span className="vov-sub">{sub}</span>
+        {hasSeries && <span className={`vov-chip ${deltaClass}`}>{deltaLabel}</span>}
+      </span>
+    </button>
+  );
+}
+
+/** Coque d'une tuile de zone (colonne principale ou de droite) : titre, badge/lien optionnels,
+ * boutons de largeur (zone principale seulement) et poignée de glisser-déposer. Toute la carte
+ * est la cible de drop, seule la poignée démarre le drag. */
+function ZoneTile({ zone, tileKey, title, badge, action, span, sizeIndex, children }) {
+  const resizable = typeof sizeIndex === "number";
+  return (
+    <section
+      ref={(node) => zone.registerNode(tileKey, node)}
+      className={`vov-card vov-tile${zone.draggingKey === tileKey ? " dragging" : ""}`}
+      style={span ? { gridColumn: `span ${span}` } : undefined}
+      aria-label={title}
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnter={() => zone.onDragEnter(tileKey)}
+      onDrop={(e) => {
+        e.preventDefault();
+        zone.onDrop();
+      }}
+    >
+      <div className="vov-tile-head">
+        <span className="vov-tile-title">
+          <h2 className="vov-h2">{title}</h2>
+          {badge}
+        </span>
+        <span className="vov-tile-ctls">
+          {action}
+          {resizable && (
+            <>
+              <button
+                type="button"
+                className="vov-ctl vov-size-btn"
+                onClick={() => zone.resize(tileKey, -1)}
+                disabled={sizeIndex <= 0}
+                title={tr("overview.shrinkTile")}
+                aria-label={tr("overview.shrinkTile")}
+              >
+                −
+              </button>
+              <button
+                type="button"
+                className="vov-ctl vov-size-btn"
+                onClick={() => zone.resize(tileKey, 1)}
+                disabled={sizeIndex >= MAIN_SPANS.length - 1}
+                title={tr("overview.growTile")}
+                aria-label={tr("overview.growTile")}
+              >
+                +
+              </button>
+            </>
+          )}
+          <span className="vov-ctl vov-grip" title={tr("common.dragToReorder")} {...zone.dragHandleProps(tileKey)}>
+            <IconGrip />
+          </span>
+        </span>
       </div>
-      <div className="vanitas-trend-card-value">
-        {current}
-        {unit}
-      </div>
-      <Sparkline series={series} />
-    </div>
+      {children}
+    </section>
   );
 }
 
@@ -202,31 +255,6 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
     onNavigateVanitas?.("vanitas-devices", { selectAgentId: agentId });
   }
 
-  // Le graphique "Activité" doit épouser la largeur RÉELLE de la carte (pas une largeur de
-  // viewBox arbitraire étirée non-uniformément via `preserveAspectRatio="none"`, qui donnait
-  // un tracé flou/"jpeg" — retour de Nicolas). Mesure SYNCHRONE (`useLayoutEffect` +
-  // `getBoundingClientRect`, pas `ResizeObserver` seul) : la 1ʳᵉ observation d'un
-  // `ResizeObserver` n'est pas garantie de se déclencher avant la peinture sur toutes les
-  // implémentations, ce qui aurait laissé la valeur de repli (`CHART_W`) — et donc la
-  // distorsion — sur le tout premier rendu. `ResizeObserver` reste branché en complément pour
-  // les redimensionnements ultérieurs (fenêtre, repli de la sidebar).
-  const chartWrapRef = useRef(null);
-  const [chartWidth, setChartWidth] = useState(CHART_W);
-  useLayoutEffect(() => {
-    const el = chartWrapRef.current;
-    if (el) setChartWidth(el.getBoundingClientRect().width);
-  }, []);
-  useEffect(() => {
-    const el = chartWrapRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect?.width;
-      if (w) setChartWidth(w);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   useEffect(() => {
     agents.ensureLoaded();
     commands.ensureLoaded();
@@ -242,13 +270,6 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
 
   // 30 derniers points, calculés une fois par changement d'historique (voir computeVanitasTrend).
   const trend = useMemo(() => computeVanitasTrend(history.state.data ?? [], 30), [history.state.data]);
-  // Au moins 2 points sur une métrique = une vraie courbe à montrer ; sinon la section reste
-  // masquée (un seul jour d'historique ne raconte aucune tendance).
-  const hasTrend = useMemo(
-    () => Object.values(trend).some((m) => (m.series?.length ?? 0) >= 2),
-    [trend]
-  );
-
   // Bloc de synthèse (2026-09-08, demande de Nicolas — "un bloc dans la vue d'ensemble pour
   // voir les informations aussi") : tuiles "Postes silencieux (alerte)"/"Logiciels EOL" +
   // liste "Alertes récentes", voir plus bas dans le JSX.
@@ -507,36 +528,273 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
     return buckets;
   }, [commands.state.data]);
 
-  const activityChart = useMemo(
-    () => buildActivityChart(activitySeries.map((b) => b.count), chartWidth, CHART_H),
-    [activitySeries, chartWidth]
-  );
   const activityTotal = activitySeries.reduce((sum, b) => sum + b.count, 0);
+  const activityMax = Math.max(1, ...activitySeries.map((b) => b.count));
 
+  // Zones réordonnables — hooks appelés AVANT le retour anticipé de chargement (règle des hooks).
+  const main = useReorderableZone(MAIN_DEFAULT_ORDER, MAIN_DEFAULT_SIZES, "vanitasOverviewMain-v1", {
+    sizeCount: MAIN_SPANS.length,
+    defaultSize: 1,
+  });
+  const rail = useReorderableZone(RAIL_DEFAULT_ORDER, {}, "vanitasOverviewRail-v1");
 
   const loading = agents.state.status === "loading" || commands.state.status === "loading";
-  const error = agents.state.error || commands.state.error || topVulns.state.error;
+  const error = agents.state.error || commands.state.error;
 
+  // Points de rupture sur la largeur RÉELLE de la page (pas celle de la fenêtre : la sidebar
+  // repliable la change à fenêtre égale) — `data-size` lu par styles.css (`.vov[data-size]`).
+  // Re-branché quand le squelette de chargement laisse place à la page (autre nœud racine).
+  const rootRef = useRef(null);
+  const [size, setSize] = useState("l");
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect?.width ?? 0;
+      setSize(w < 480 ? "xs" : w < 700 ? "s" : w < 1000 ? "m" : "l");
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading]);
+
+  // Chargement : squelettes au gabarit des vraies cartes (charte §10 — pulsation cyan, coupée
+  // par prefers-reduced-motion) plutôt qu'un simple texte, pour que la page ne "saute" pas.
   if (loading) {
     return (
-      <div className="vanitas-hud vanitas-ov">
-        <p className="vanitas-hud-empty-note">{tr("vo.loading")}</p>
+      <div className="vanitas-hud vov" aria-busy="true" ref={rootRef} data-size={size}>
+        <p className="vov-sr">{tr("vo.loading")}</p>
+        <div className="vov-bento">
+          <div className="vov-card vov-posture">
+            <span className="vov-sk" style={{ width: 68, height: 68, borderRadius: 999 }} />
+            <span className="vov-sk" style={{ flex: 1, height: 52 }} />
+          </div>
+          {Array.from({ length: 6 }, (_, i) => (
+            <div className="vov-card vov-kpi" key={i}>
+              <span className="vov-sk" style={{ width: "50%", height: 12 }} />
+              <span className="vov-sk" style={{ width: "70%", height: 28 }} />
+              <span className="vov-sk" style={{ width: "60%", height: 12 }} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
+  const suspiciousHigh = suspiciousSummary.state.data?.by_severity?.high ?? 0;
+  // `by_status`/`by_severity` sont des objets creux (clé absente = zéro) : on n'affiche "—" que
+  // si le résumé n'est pas encore chargé du tout, jamais pour un parc sans aucun événement.
+  const suspiciousUntriaged = suspiciousSummary.state.data ? suspiciousSummary.state.data.by_status?.new ?? 0 : null;
+  const patchArc = (n) => (patchCounts.total ? (n / patchCounts.total) * 226.2 : 0);
+  const sevMax = Math.max(1, sevCounts.high, sevCounts.med, sevCounts.low);
+
+  const mainBody = {
+    activity: (
+      <>
+        <div className="vov-bars" role="img" aria-label={tr("vo.chartAria", { list: activitySeries.map((b) => b.count).join(", ") })}>
+          {activitySeries.map((b) => (
+            <div className="vov-bar" key={b.date.getTime()}>
+              <span className="vov-tip">
+                {tr("vo.barTip", {
+                  count: b.count,
+                  date: b.date.toLocaleDateString(currentLocale(), { weekday: "short", day: "numeric", month: "short" }),
+                })}
+              </span>
+              <i style={{ height: `${Math.max(4, Math.round((b.count / activityMax) * 100))}%` }} />
+            </div>
+          ))}
+        </div>
+        <div className="vov-axis">
+          {activitySeries.map((b) => (
+            <span key={b.date.getTime()}>
+              {b.date.toLocaleDateString(currentLocale(), { weekday: "short" }).replace(".", "").slice(0, 3).toUpperCase()}
+            </span>
+          ))}
+        </div>
+      </>
+    ),
+    "top-vulns": topVulns.state.error ? (
+      <p className="vov-error" role="alert">{topVulns.state.error}</p>
+    ) : (topVulns.state.data ?? []).length === 0 ? (
+      <p className="vov-empty">{tr("vo.noCve")}</p>
+    ) : (
+      <div>
+        {topVulns.state.data.map((v) => (
+          <button
+            type="button"
+            className="vov-row vov-cve-row"
+            key={v.cve_id}
+            onClick={() => onNavigateVanitas?.("vanitas-vulnerabilities", { cveId: v.cve_id })}
+          >
+            <span className="vov-mono">{v.cve_id}</span>
+            <span className="vov-ellipsis">{v.product_name}</span>
+            <span className="vov-mono vov-muted">{v.cvss_score != null ? tr("vo.cvss", { score: v.cvss_score }) : "—"}</span>
+            <span className={`vov-chip ${severityTone(v.severity)}`}>{tr("vo.groupCount", { count: v.device_count })}</span>
+          </button>
+        ))}
+      </div>
+    ),
+    // "Signaux à traiter" — un seul canal de couleur par ligne (la sévérité : liseré + mot
+    // coloré), le type de signal reste neutre (retour de Nicolas : "deux badges qui se battent").
+    signals:
+      signals.length === 0 ? (
+        <p className="vov-empty">{tr("vo.noSignalToHandle")}</p>
+      ) : (
+        <div>
+          {signals.map((s) => (
+            <button type="button" className="vov-row vov-signal-row" key={s.key} style={{ "--tone": toneVar(s.tone) }} onClick={s.onClick}>
+              <span className="vov-type">{s.category}</span>
+              <span className="vov-signal-main">
+                <span className="vov-mono">{s.host}</span>
+                <span className="vov-ellipsis vov-muted">{s.detail}</span>
+              </span>
+              <span className={`vov-sev ${s.tone}`}>{s.sevLabel}</span>
+              <span className="vov-time">{s.time ? fmtRelative(s.time) : s.metric ?? ""}</span>
+            </button>
+          ))}
+        </div>
+      ),
+    feed:
+      recentCommands.length === 0 ? (
+        <p className="vov-empty">{tr("vo.noCommand", { days: RECENT_DAYS })}</p>
+      ) : (
+        <div>
+          {recentCommands.slice(0, FEED_MAX).map((c) => {
+            const state = c.status === "pending" || c.status === "running" ? "pending" : c.success ? "ok" : "bad";
+            return (
+              <button type="button" className="vov-row vov-feed-row" key={c.id} onClick={() => gotoAgent(c.agent_id)}>
+                <span className="vov-time">{fmtRelative(c.created_at)}</span>
+                <span className="vov-mono">{c.hostname}</span>
+                <span className="vov-ellipsis">{COMMAND_LABELS[c.command_type] ?? c.command_type}</span>
+                <span className={`vanitas-hud-status-pill ${state}`}>
+                  {tr(state === "pending" ? "vo.inProgress" : state === "ok" ? "vo.ok" : "vo.failed")}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ),
+  };
+
+  const mainMeta = {
+    activity: { title: tr("vo.activityCommands"), badge: <span className="vov-note">{tr("vo.activityCount", { count: activityTotal, days: RECENT_DAYS })}</span> },
+    "top-vulns": {
+      title: tr("vo.topVulns"),
+      action: (
+        <button type="button" className="vov-link" onClick={() => onNavigateVanitas?.("vanitas-vulnerabilities")}>
+          {tr("vo.seeAll")}
+        </button>
+      ),
+    },
+    signals: { title: tr("vo.signalsTitle"), badge: <span className="vov-note">{tr("vo.signalsNote", { count: signals.length })}</span> },
+    feed: {
+      title: tr("vo.recentActivity"),
+      action: (
+        <button type="button" className="vov-link" onClick={() => onNavigateVanitas?.("vanitas-commands")}>
+          {tr("vo.seeJournal")}
+        </button>
+      ),
+    },
+  };
+
+  const arrow = (dest, label) => (
+    <button type="button" className="vov-link" aria-label={label} title={label} onClick={() => onNavigateVanitas?.(dest)}>
+      →
+    </button>
+  );
+
+  const railBody = {
+    patch: (
+      <div className="vov-patch">
+        <svg
+          width="64"
+          height="64"
+          viewBox="0 0 92 92"
+          role="img"
+          aria-label={tr("vo.patchAria", { ok: patchCounts.ok, pending: patchCounts.pending, off: patchCounts.off, total: patchCounts.total })}
+        >
+          <circle cx="46" cy="46" r="36" fill="none" stroke="var(--hud-line)" strokeWidth="11" />
+          <circle cx="46" cy="46" r="36" fill="none" stroke="var(--hud-good)" strokeWidth="11" strokeDasharray={`${patchArc(patchCounts.ok)} 226.2`} transform="rotate(-90 46 46)" />
+          <circle cx="46" cy="46" r="36" fill="none" stroke="var(--hud-warn)" strokeWidth="11" strokeDasharray={`${patchArc(patchCounts.pending)} 226.2`} strokeDashoffset={-patchArc(patchCounts.ok)} transform="rotate(-90 46 46)" />
+          <circle cx="46" cy="46" r="36" fill="none" stroke="var(--vov-neutral)" strokeWidth="11" strokeDasharray={`${patchArc(patchCounts.off)} 226.2`} strokeDashoffset={-patchArc(patchCounts.ok + patchCounts.pending)} transform="rotate(-90 46 46)" />
+          <text x="46" y="50" textAnchor="middle" className="vov-donut-n">{patchCounts.total}</text>
+          <text x="46" y="64" textAnchor="middle" className="vov-donut-l">{tr("vo.endpointsWord").toUpperCase()}</text>
+        </svg>
+        <div className="vov-legend">
+          <span><i style={{ background: "var(--hud-good)" }} />{tr("vo.upToDate")} <b>{patchCounts.ok}</b></span>
+          <span><i style={{ background: "var(--hud-warn)" }} />{tr("vo.pending")} <b>{patchCounts.pending}</b></span>
+          <span><i style={{ background: "var(--vov-neutral)" }} />{tr("vo.offPolicy")} <b>{patchCounts.off}</b></span>
+        </div>
+      </div>
+    ),
+    criticality: (
+      <div className="vov-crit">
+        {[
+          { k: "high", label: tr("vo.sev.high"), tone: "var(--hud-high)", n: sevCounts.high },
+          { k: "med", label: tr("vo.sev.med"), tone: "var(--hud-warn)", n: sevCounts.med },
+          { k: "low", label: tr("vo.sev.low"), tone: "var(--hud-good)", n: sevCounts.low },
+        ].map((r) => (
+          <div className="vov-crit-row" key={r.k}>
+            <span className="vov-muted">{r.label}</span>
+            <span className="vov-track"><i style={{ width: `${Math.round((r.n / sevMax) * 100)}%`, background: r.tone }} /></span>
+            <b>{r.n}</b>
+          </div>
+        ))}
+      </div>
+    ),
+    groups:
+      groupRows.length === 0 ? (
+        <button type="button" className="vov-empty vov-empty-link" onClick={() => onNavigateVanitas?.("vanitas-groups")}>
+          {tr("vo.noGroup")}
+        </button>
+      ) : (
+        <div>
+          {groupRows.map((g) => (
+            <button type="button" className="vov-row" key={g.id} onClick={() => onNavigateVanitas?.("vanitas-groups")}>
+              <span className="vov-ellipsis">{g.name}</span>
+              <span className="vov-mono vov-muted">{tr("vo.groupCount", { count: g.device_count })}</span>
+            </button>
+          ))}
+        </div>
+      ),
+    // "Alertes récentes" — SEULE surface visible tant que le SMTP n'est pas configuré
+    // (backend/common/notify.py) : jamais masquée, un état vide explicite plutôt que rien.
+    alerts:
+      alerts.state.status === "loading" ? (
+        <p className="vov-empty">{tr("vo.loading")}</p>
+      ) : (alerts.state.recent ?? []).length === 0 ? (
+        <p className="vov-empty">{tr("vo.noRecentAlert")}</p>
+      ) : (
+        <div>
+          {alerts.state.recent.map((a, i) => (
+            <button type="button" className="vov-row vov-alert-row" key={`${a.agent_id}-${a.at}-${i}`} onClick={() => gotoAgent(a.agent_id)}>
+              <span className="vov-time">{fmtRelative(a.at)}</span>
+              <span className="vov-alert-main">
+                <span>{ALERT_TYPE_LABEL[a.type] ?? a.type}</span>
+                <span className="vov-mono vov-muted">{a.hostname}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      ),
+  };
+
+  const railMeta = {
+    patch: { title: tr("vo.patchPosture"), action: arrow("vanitas-patch", tr("vo.openPatch")) },
+    criticality: { title: tr("vo.byCriticality"), action: arrow("vanitas-suspicious-activity", tr("vo.openSuspicious")) },
+    groups: { title: tr("vo.groups"), action: arrow("vanitas-groups", tr("vo.openGroups")) },
+    alerts: { title: tr("vo.recentAlerts") },
+  };
+
   return (
-    <div className="vanitas-hud vanitas-ov">
+    <div className="vanitas-hud vov" ref={rootRef} data-size={size}>
       {error && <p className="vanitas-hud-error">{error}</p>}
 
-      {/* Bande de posture (refonte 2026-09-17, maquette validée par Nicolas) — verdict glanceable
-          en tête : un anneau de score + les signaux qui pèsent. Principe SOC : l'overview doit
-          dire en 2 s si le parc va bien, avant le détail. Score = heuristique indicative dont les
-          facteurs sont listés en toutes lettres juste dessous (voir le memo `posture`). */}
-      <div className="vanitas-ov-posture-band">
-        <div className="vanitas-hud-card vanitas-ov-posture" style={{ "--tone": toneVar(posture.tone) }}>
-          <div className="vanitas-ov-ring">
-            <svg width="84" height="84" viewBox="0 0 84 84">
+      {/* Bento (refonte 2026-10-23, maquette validée par Nicolas) — posture + 6 tuiles KPI, fixe :
+          c'est le résumé qu'on lit en premier, il ne se réordonne pas. */}
+      <section className="vov-bento" aria-label={tr("vo.fleetPosture")}>
+        <div className="vov-card vov-posture" style={{ "--tone": toneVar(posture.tone) }}>
+          <div className="vov-posture-main">
+            <svg width="68" height="68" viewBox="0 0 84 84" role="img" aria-label={tr("vo.scoreAria", { score: posture.score })}>
               <circle cx="42" cy="42" r="36" fill="none" stroke="var(--hud-line)" strokeWidth="8" />
               <circle
                 cx="42"
@@ -550,454 +808,135 @@ export default function VanitasOverviewTab({ onNavigateVanitas }) {
                 strokeDashoffset={226.2 * (1 - posture.score / 100)}
                 transform="rotate(-90 42 42)"
               />
+              <text x="42" y="47" textAnchor="middle" className="vov-score">{posture.score}</text>
             </svg>
-            <div className="score">
-              <b>{posture.score}</b>
-              <small>{tr("vo.posture")}</small>
+            <div className="vov-posture-txt">
+              <span className="vov-lbl">{tr("vo.fleetPosture")}</span>
+              <span className="vov-posture-word">{posture.word}</span>
+              <span className="vov-sub">{posture.sub}</span>
             </div>
           </div>
-          <div className="vanitas-ov-posture-txt">
-            <div className="vanitas-ov-posture-word">{posture.word}</div>
-            <div className="vanitas-ov-posture-sub">{posture.sub}</div>
+          <div className="vov-posture-sigs">
+            <button type="button" className="vov-sig" onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}>
+              <span className={`vov-val${highUntreated > 0 ? "" : " quiet"}`} style={{ "--tone": "var(--hud-high)" }}>{highUntreated}</span>
+              <span className="vov-sig-txt"><span className="vov-lbl">{tr("vo.highSuspects")}</span><span className="vov-sub">{tr("vo.untriagedLower")}</span></span>
+            </button>
+            <button type="button" className="vov-sig" onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}>
+              <span className={`vov-val${isolatedCount > 0 ? "" : " quiet"}`} style={{ "--tone": "var(--hud-accent2)" }}>{isolatedCount}</span>
+              <span className="vov-sig-txt"><span className="vov-lbl">{tr("vo.isolated")}</span><span className="vov-sub">{tr("vo.cutOffShort")}</span></span>
+            </button>
           </div>
         </div>
 
-        <div className="vanitas-ov-signal-tiles">
-          <div
-            className="vanitas-hud-kpi"
-            style={{ "--tone": highUntreated > 0 ? "var(--hud-high)" : "var(--hud-good)" }}
-            role="button"
-            tabIndex={0}
-            onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}
-          >
-            <div className="label"><span className="label-text">{tr("vo.highSuspects")}</span><span className="tag">{tr("vo.untriaged")}</span></div>
-            <div className="value">{highUntreated}</div>
-            <div className="kpi-sub">{tr("vo.investigateFirst")}</div>
-          </div>
-          <div
-            className="vanitas-hud-kpi"
-            style={{ "--tone": isolatedCount > 0 ? "var(--hud-high)" : "var(--hud-ink-faint)" }}
-            role="button"
-            tabIndex={0}
-            onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}
-          >
-            <div className="label"><span className="label-text">{tr("vo.isolated")}</span><span className="tag">{tr("vo.containment")}</span></div>
-            <div className="value">{isolatedCount}</div>
-            <div className="kpi-sub">{tr("vo.cutOff")}</div>
-          </div>
-          <div
-            className="vanitas-hud-kpi"
-            style={{ "--tone": counts.stale > 0 ? "var(--hud-warn)" : "var(--hud-good)" }}
-            role="button"
-            tabIndex={0}
-            onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "offline" })}
-          >
-            <div className="label"><span className="label-text">{tr("vo.silent")}</span><span className="tag">&gt; {STALE_HOURS}H</span></div>
-            <div className="value">{counts.stale}</div>
-            <div className="kpi-sub">{tr("vo.noRecentContact")}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bandeau KPI resserré à 6 tuiles (refonte 2026-09-14, maquette validée par Nicolas —
-          en était à 9, illisible en desktop large, voir historique de ce fichier). Ne garde que
-          ce qui appelle une décision ; "Commandes" et "Applications" redescendent en stats
-          secondaires dans le rail plutôt que d'occuper une tuile héros chacune. */}
-      <div className="vanitas-hud-strip">
-        <div
-          className="vanitas-hud-kpi"
-          style={{ "--tone": "var(--hud-accent)" }}
-          role="button"
-          tabIndex={0}
+        <KpiTile
+          label={tr("vo.endpoints")}
+          tag={tr("vo.total")}
+          dest={tr("vo.toEndpoints")}
+          value={counts.total}
+          tone="var(--hud-accent)"
+          sub={tr("vo.online", { count: counts.online })}
+          metric={trend.onlineAgents}
+          favorable="up"
           onClick={() => onNavigateVanitas?.("vanitas-devices")}
-        >
-          <div className="label">
-            <span className="label-text">{tr("vo.endpoints")}</span><span className="tag">{tr("vo.total")}</span><span className="tag-hover">{tr("vo.toEndpoints")}</span>
-          </div>
-          <div className="value">{counts.total}</div>
-          <div className="kpi-sub">{tr("vo.online", { count: counts.online })}</div>
-        </div>
-        <div
-          className="vanitas-hud-kpi"
-          style={{ "--tone": (suspiciousSummary.state.data?.by_severity?.high ?? 0) > 0 ? "var(--hud-high)" : "var(--hud-warn)" }}
-          role="button"
-          tabIndex={0}
-          onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}
-        >
-          <div className="label">
-            <span className="label-text">{tr("vo.suspicious")}</span><span className="tag">{tr("vo.untriaged")}</span><span className="tag-hover">{tr("vo.toActivity")}</span>
-          </div>
-          <div className="value">
-            {/* `by_status`/`by_severity` sont des objets creux (clé absente = zéro, pas de zéros
-                explicites — voir routes/suspicious_activity.py) : un simple `?? "—"` afficherait
-                un tiret tant que le parc n'a JAMAIS eu d'événement, au lieu d'un vrai "0". On ne
-                retombe sur "—" que si le résumé n'est pas encore chargé du tout. */}
-            {suspiciousSummary.state.data ? suspiciousSummary.state.data.by_status?.new ?? 0 : "—"}
-          </div>
-          <div className="kpi-sub">
-            {(suspiciousSummary.state.data?.by_severity?.high ?? 0) > 0
-              ? tr("vo.highCount", { count: suspiciousSummary.state.data.by_severity.high })
-              : tr("vo.noHigh")}
-          </div>
-        </div>
-        <div
-          className="vanitas-hud-kpi"
-          style={{ "--tone": "var(--hud-high)" }}
-          role="button"
-          tabIndex={0}
-          onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "offline" })}
-        >
-          <div className="label">
-            <span className="label-text">{tr("vo.silent")}</span>
-            <span className="tag">{alertStaleCount === null ? "…" : `< ${alerts.state.staleThresholdHours}H`}</span>
-            <span className="tag-hover">{tr("vo.toEndpoints")}</span>
-          </div>
-          <div className="value">{alertStaleCount ?? "—"}</div>
-          <div className="kpi-sub">{tr("vo.alertThreshold")}</div>
-        </div>
-        <div
-          className="vanitas-hud-kpi"
-          style={{ "--tone": "var(--hud-warn)" }}
-          role="button"
-          tabIndex={0}
-          onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "cert" })}
-        >
-          <div className="label">
-            <span className="label-text">{tr("vo.certificate")}</span><span className="tag">{tr("vo.certTag", { days: CERT_WARNING_DAYS })}</span><span className="tag-hover">{tr("vo.toEndpoints")}</span>
-          </div>
-          <div className="value">{counts.cert}</div>
-          <div className="kpi-sub">{tr("vo.renewSoon")}</div>
-        </div>
-        <div
-          className="vanitas-hud-kpi"
-          style={{ "--tone": "var(--hud-warn)" }}
-          role="button"
-          tabIndex={0}
-          onClick={() => onNavigateVanitas?.("vanitas-eol")}
-        >
-          <div className="label">
-            <span className="label-text">{tr("vo.eolSoftware")}</span><span className="tag">{tr("vo.fleet")}</span><span className="tag-hover">{tr("vo.toEol")}</span>
-          </div>
-          <div className="value">{eolCount}</div>
-          <div className="kpi-sub">{tr("vo.eolSub")}</div>
-        </div>
-        <div
-          className="vanitas-hud-kpi"
-          style={{ "--tone": "var(--hud-good)" }}
-          role="button"
-          tabIndex={0}
+        />
+        <KpiTile
+          label={tr("vo.compliance")}
+          tag={tr("vo.rate")}
+          dest={tr("vo.toCompliance")}
+          value={complianceRate === null ? "—" : `${complianceRate}%`}
+          tone="var(--hud-good)"
+          sub={tr("vo.compliantEvals")}
+          metric={trend.complianceRate}
+          unit="%"
+          favorable="up"
           onClick={() => onNavigateVanitas?.("vanitas-compliance")}
+        />
+        <KpiTile
+          label={tr("vo.suspicious")}
+          tag={tr("vo.untriaged")}
+          dest={tr("vo.toActivity")}
+          value={suspiciousUntriaged ?? "—"}
+          quiet={!suspiciousUntriaged}
+          tone={suspiciousHigh > 0 ? "var(--hud-high)" : "var(--hud-warn)"}
+          sub={suspiciousHigh > 0 ? tr("vo.highCount", { count: suspiciousHigh }) : tr("vo.noHigh")}
+          metric={trend.suspiciousNew}
+          favorable="down"
+          onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}
+        />
+        <KpiTile
+          label={tr("vo.eolSoftware")}
+          tag={tr("vo.fleet")}
+          dest={tr("vo.toEol")}
+          value={eolCount}
+          quiet={!eolCount}
+          tone="var(--hud-warn)"
+          sub={tr("vo.eolSub")}
+          metric={trend.eolOccurrences}
+          favorable="down"
+          onClick={() => onNavigateVanitas?.("vanitas-eol")}
+        />
+        {/* Les DEUX seuils "silencieux" réunis dans une seule tuile (ils s'affichaient avant
+            dans deux tuiles séparées, source de confusion) : le seuil d'ALERTE (backend,
+            `stale_threshold_hours`, 12 h par défaut) en valeur, le seuil de surveillance
+            (`STALE_HOURS`, 7 j) en complément. */}
+        <KpiTile
+          label={tr("vo.silent")}
+          tag={alertStaleCount === null ? "…" : `< ${alerts.state.staleThresholdHours}H`}
+          dest={tr("vo.toEndpoints")}
+          value={alertStaleCount ?? "—"}
+          quiet={!alertStaleCount}
+          tone="var(--hud-high)"
+          sub={tr("vo.alertThreshold")}
+          extra={tr("vo.staleLong", { count: counts.stale, hours: STALE_HOURS })}
+          onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "offline" })}
+        />
+        <KpiTile
+          label={tr("vo.certificate")}
+          tag={tr("vo.certTag", { days: CERT_WARNING_DAYS })}
+          dest={tr("vo.toEndpoints")}
+          value={counts.cert}
+          quiet={!counts.cert}
+          tone="var(--hud-warn)"
+          sub={tr("vo.renewSoon")}
+          onClick={() => onNavigateVanitas?.("vanitas-devices", { filter: "cert" })}
+        />
+      </section>
+
+      <div className="vov-layout-bar">
+        <p className="vov-hint">
+          <IconGrip />
+          {tr("vo.layoutHint")}
+        </p>
+        <button
+          type="button"
+          className="vov-link"
+          onClick={() => {
+            main.resetLayout();
+            rail.resetLayout();
+          }}
         >
-          <div className="label">
-            <span className="label-text">{tr("vo.compliance")}</span><span className="tag">{tr("vo.rate")}</span><span className="tag-hover">{tr("vo.toCompliance")}</span>
-          </div>
-          <div className="value">{complianceRate === null ? "—" : `${complianceRate}%`}</div>
-          <div className="kpi-sub">{tr("vo.compliantEvals")}</div>
-        </div>
+          {tr("vo.resetLayout")}
+        </button>
       </div>
 
-      {hasTrend && (
-        <div className="vanitas-hud-card vanitas-trend-band">
-          <div className="vanitas-hud-card-head">
-            <h2>{tr("vo.trends")}</h2>
-            <span className="vanitas-hud-card-note">{tr("vo.trendsNote")}</span>
-          </div>
-          <div className="vanitas-trend-grid">
-            <TrendSparkCard label={tr("vo.compliance")} metric={trend.complianceRate} unit="%" favorable="up" tone="var(--hud-good)" />
-            <TrendSparkCard label={tr("vo.trend.suspiciousNew")} metric={trend.suspiciousNew} favorable="down" tone="var(--hud-high)" />
-            <TrendSparkCard label={tr("vo.eolSoftware")} metric={trend.eolOccurrences} favorable="down" tone="var(--hud-warn)" />
-            <TrendSparkCard label={tr("vo.trend.online")} metric={trend.onlineAgents} favorable="up" tone="var(--hud-accent)" />
-          </div>
-        </div>
-      )}
-
-      <div className="vanitas-hud-layout">
-        <div className="vanitas-hud-main">
-          <div className="vanitas-hud-card">
-            <div className="vanitas-hud-card-head">
-              <h2>{tr("vo.activityCommands")}</h2>
-              <span className="vanitas-hud-card-note">
-                {tr("vo.activityCount", { count: activityTotal, days: RECENT_DAYS })}
-              </span>
-            </div>
-            <div className="vanitas-ov-chart-body">
-              <svg
-                ref={chartWrapRef}
-                className="vanitas-ov-chart"
-                viewBox={`0 0 ${chartWidth} ${CHART_H}`}
-                shapeRendering="geometricPrecision"
-              >
-                <defs>
-                  <linearGradient id="ovActivityFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--hud-accent)" stopOpacity="0.32" />
-                    <stop offset="100%" stopColor="var(--hud-accent)" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <g stroke="var(--hud-line)" strokeWidth="1">
-                  <line x1="0" y1={CHART_H * 0.25} x2={chartWidth} y2={CHART_H * 0.25} />
-                  <line x1="0" y1={CHART_H * 0.65} x2={chartWidth} y2={CHART_H * 0.65} />
-                </g>
-                <path d={activityChart.area} fill="url(#ovActivityFill)" />
-                <path
-                  d={activityChart.line}
-                  fill="none"
-                  stroke="var(--hud-accent)"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {activityChart.points.map((p, i) => (
-                  <circle key={i} cx={p[0]} cy={p[1]} r="4" fill="var(--hud-panel)" stroke="var(--hud-accent)" strokeWidth="2.4" />
-                ))}
-              </svg>
-              <div className="vanitas-ov-chart-axis">
-                {activitySeries.map((b, i) => (
-                  <span key={i}>{b.date.toLocaleDateString(currentLocale(), { weekday: "short" }).replace(".", "").slice(0, 3).toUpperCase()}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* "Signaux à traiter" (refonte 2026-09-14) — remplace les 3 cartes séparées
-              "Postes à surveiller" / "Top vulnérabilités" / "Logiciels EOL" par une seule liste
-              triée par urgence réelle, activités suspectes incluses. Un seul canal de couleur
-              par ligne (la sévérité, liseré gauche + mot coloré) — le type de signal reste
-              neutre pour ne pas faire concurrence à la sévérité (retour de Nicolas sur la
-              maquette : "deux badges qui se battent"). */}
-          <div className="vanitas-hud-card">
-            <div className="vanitas-hud-card-head">
-              <h2>{tr("vo.signalsTitle")}</h2>
-              <span className="vanitas-hud-card-note">
-                {tr("vo.signalsNote", { count: signals.length })}
-              </span>
-            </div>
-            {signals.length === 0 ? (
-              <p className="vanitas-hud-empty-note">{tr("vo.noSignalToHandle")}</p>
-            ) : (
-              <div>
-                {signals.map((s) => (
-                  <div
-                    className="vanitas-ov-signal-row"
-                    key={s.key}
-                    style={{ "--tone": toneVar(s.tone) }}
-                    role="button"
-                    tabIndex={0}
-                    onClick={s.onClick}
-                  >
-                    <span className="vanitas-ov-signal-type">{s.category}</span>
-                    <div className="vanitas-ov-signal-main">
-                      <span className="host">{s.host}</span>
-                      <span className="detail">{s.detail}</span>
-                    </div>
-                    <div className="vanitas-ov-signal-side">
-                      <span className={`vanitas-ov-sev-word ${s.tone}`}>{s.sevLabel}</span>
-                      <span className="vanitas-ov-signal-time">{s.time ? fmtRelative(s.time) : (s.metric ?? "")}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="vanitas-hud-card">
-            <div className="vanitas-hud-card-head">
-              <h2>{tr("vo.recentActivity")}</h2>
-              <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-commands")}>
-                {tr("vo.seeLog")}
-              </button>
-            </div>
-            {recentCommands.length === 0 ? (
-              <p className="vanitas-hud-empty-note">{tr("vo.noCommand", { days: RECENT_DAYS })}</p>
-            ) : (
-              <div>
-                {recentCommands.slice(0, FEED_MAX).map((c) => (
-                  <div
-                    className="vanitas-hud-feed-row"
-                    key={c.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => gotoAgent(c.agent_id)}
-                  >
-                    <span className="vanitas-hud-feed-time">{fmtRelative(c.created_at)}</span>
-                    <span className="vanitas-hud-feed-host">{c.hostname}</span>
-                    <span className="vanitas-hud-feed-cmd">{COMMAND_LABELS[c.command_type] ?? c.command_type}</span>
-                    <span
-                      className={`vanitas-hud-status-pill ${
-                        c.status === "pending" || c.status === "running" ? "pending" : c.success ? "ok" : "bad"
-                      }`}
-                    >
-                      {tr(c.status === "pending" || c.status === "running" ? "vo.inProgress" : c.success ? "vo.ok" : "vo.failed")}
-                    </span>
-                    <span className="vanitas-hud-chev">›</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      <div className="vov-zones">
+        <div className="vov-main">
+          {main.order.map((key) => {
+            const sizeIndex = main.sizes[key] ?? 1;
+            return (
+              <ZoneTile key={key} zone={main} tileKey={key} span={MAIN_SPANS[sizeIndex]} sizeIndex={sizeIndex} {...mainMeta[key]}>
+                {mainBody[key]}
+              </ZoneTile>
+            );
+          })}
         </div>
 
-        <aside className="vanitas-hud-rail">
-          <div className="vanitas-hud-rail-title">{tr("vo.signals")}</div>
-
-          {/* Cartes-signaux façon rail "Signaux" de la Vue d'ensemble Pandore (2026-09-17) :
-              répartitions/agrégats fleet-wide déjà chargés, aucun nouvel appel. */}
-          <div className="vanitas-hud-card vanitas-ov-rail-card">
-            <div className="vanitas-ov-rail-section">
-              <div className="vanitas-ov-rail-head">
-                <h3>{tr("vo.patchPosture")}</h3>
-                <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-patch")}>→</button>
-              </div>
-              <div className="vanitas-hud-donut-wrap">
-                <div
-                  className="vanitas-hud-donut"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onNavigateVanitas?.("vanitas-patch")}
-                  style={{
-                    background: patchCounts.total
-                      ? `conic-gradient(var(--hud-good) 0 ${(patchCounts.ok / patchCounts.total) * 360}deg, var(--hud-warn) ${(patchCounts.ok / patchCounts.total) * 360}deg ${((patchCounts.ok + patchCounts.pending) / patchCounts.total) * 360}deg, rgba(255,255,255,.08) ${((patchCounts.ok + patchCounts.pending) / patchCounts.total) * 360}deg 360deg)`
-                      : "rgba(255,255,255,.08)",
-                  }}
-                >
-                  <div className="vanitas-hud-donut-center"><b>{patchCounts.total}</b><span>{tr("vo.endpointsWord")}</span></div>
-                </div>
-                <div className="vanitas-hud-donut-legend">
-                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "var(--hud-good)" }} />
-                    {tr("vo.upToDate")}
-                    <span className="n">{patchCounts.ok}</span></div>
-                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "var(--hud-warn)" }} />
-                    {tr("vo.pending")}
-                    <span className="n">{patchCounts.pending}</span></div>
-                  <div className="vanitas-hud-donut-legend-row"><span className="vanitas-hud-donut-dot" style={{ background: "rgba(255,255,255,.25)" }} />
-                    {tr("vo.offPolicy")}
-                    <span className="n">{patchCounts.off}</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="vanitas-ov-rail-section">
-              <div className="vanitas-ov-rail-head">
-                <h3>{tr("vo.byCriticality")}</h3>
-                <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-suspicious-activity")}>→</button>
-              </div>
-              <div className="vanitas-hud-stat-bars">
-                {[
-                  { k: "high", label: tr("vo.sev.high"), tone: "var(--hud-high)", n: sevCounts.high },
-                  { k: "med", label: tr("vo.sev.med"), tone: "var(--hud-warn)", n: sevCounts.med },
-                  { k: "low", label: tr("vo.sev.low"), tone: "var(--hud-good)", n: sevCounts.low },
-                ].map((r) => {
-                  const max = Math.max(1, sevCounts.high, sevCounts.med, sevCounts.low);
-                  return (
-                    <div className="vanitas-hud-stat-row" key={r.k} style={{ color: r.tone }}>
-                      <span className="vanitas-hud-stat-label">{r.label}</span>
-                      <div className="vanitas-hud-stat-track"><div className="vanitas-hud-stat-fill" style={{ width: `${Math.round((r.n / max) * 100)}%`, background: r.tone }} /></div>
-                      <span className="vanitas-hud-stat-n">{r.n}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="vanitas-ov-rail-section">
-              <div className="vanitas-ov-rail-head">
-                <h3>{tr("vo.topVulns")}</h3>
-                <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-vulnerabilities")}>→</button>
-              </div>
-              {(topVulns.state.data ?? []).length === 0 ? (
-                <p className="vanitas-hud-empty-note">{tr("vo.noCve")}</p>
-              ) : (
-                <div className="vanitas-hud-stat-bars">
-                  {(() => {
-                    const rows = topVulns.state.data ?? [];
-                    const max = Math.max(1, ...rows.map((v) => v.device_count ?? 0));
-                    return rows.map((v) => {
-                      const t = toneVar(severityTone(v.severity));
-                      return (
-                        <div
-                          className="vanitas-hud-stat-row"
-                          key={v.cve_id}
-                          style={{ color: t, cursor: "pointer" }}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => onNavigateVanitas?.("vanitas-vulnerabilities", { cveId: v.cve_id })}
-                        >
-                          <span className="vanitas-hud-stat-label">{v.cve_id}</span>
-                          <div className="vanitas-hud-stat-track"><div className="vanitas-hud-stat-fill" style={{ width: `${Math.round(((v.device_count ?? 0) / max) * 100)}%`, background: t }} /></div>
-                          <span className="vanitas-hud-stat-n">{v.device_count}</span>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Carte consolidée "contexte" — Groupes + Alertes récentes. UNE carte à sections
-              divisées (retour de Nicolas : "une seule source de lumière"). */}
-          <div className="vanitas-hud-card vanitas-ov-rail-card">
-            <div className="vanitas-ov-rail-section">
-              <div className="vanitas-ov-rail-head">
-                <h3>{tr("vo.groups")}</h3>
-                <button type="button" className="vanitas-hud-card-link" onClick={() => onNavigateVanitas?.("vanitas-groups")}>
-                  →
-                </button>
-              </div>
-              {groupRows.length === 0 ? (
-                <p className="vanitas-hud-empty-note">{tr("vo.noGroup")}</p>
-              ) : (
-                <div>
-                  {groupRows.map((g) => (
-                    <div
-                      className="vanitas-hud-group-row"
-                      key={g.id}
-                      onClick={() => onNavigateVanitas?.("vanitas-groups")}
-                    >
-                      <span className="vanitas-hud-group-dot" />
-                      <span className="vanitas-hud-group-name">{g.name}</span>
-                      <span className="vanitas-hud-group-n">
-                        {tr("vo.groupCount", { count: g.device_count })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* "Alertes récentes" (2026-09-08) — journal des alertes déclenchées par les
-                boucles de fond (agent silencieux / nouvelle vuln critique / nouvel échec de
-                conformité, voir vanitas/alert_state.py). C'est la SEULE surface visible tant que
-                le SMTP n'est pas configuré (backend/common/notify.py) — jamais laisser cette
-                section disparaître silencieusement, un état vide explicite vaut mieux que rien. */}
-            <div className="vanitas-ov-rail-section">
-              <div className="vanitas-ov-rail-head">
-                <h3>{tr("vo.recentAlerts")}</h3>
-              </div>
-              {alerts.state.status === "loading" ? (
-                <p className="vanitas-hud-empty-note">{tr("vo.loading")}</p>
-              ) : (alerts.state.recent ?? []).length === 0 ? (
-                <p className="vanitas-hud-empty-note">{tr("vo.noRecentAlert")}</p>
-              ) : (
-                <div>
-                  {alerts.state.recent.map((a, i) => (
-                    <div
-                      className="vanitas-hud-feed-row"
-                      key={`${a.agent_id}-${a.at}-${i}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => gotoAgent(a.agent_id)}
-                    >
-                      <span className="vanitas-hud-feed-time">{fmtRelative(a.at)}</span>
-                      <span className="vanitas-hud-feed-host">{a.hostname}</span>
-                      <span className="vanitas-hud-feed-cmd">{ALERT_TYPE_LABEL[a.type] ?? a.type}</span>
-                      <span className="vanitas-hud-chev">›</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+        <aside className="vov-rail" aria-label={tr("vo.signals")}>
+          {rail.order.map((key) => (
+            <ZoneTile key={key} zone={rail} tileKey={key} {...railMeta[key]}>
+              {railBody[key]}
+            </ZoneTile>
+          ))}
         </aside>
       </div>
     </div>

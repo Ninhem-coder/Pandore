@@ -1,5 +1,6 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { isErrorPayload, useOverviewSignals, useHistoryTrend, useDefenderAlerts } from "../hooks/useDashboardData.js";
+import useReorderableZone from "../hooks/useReorderableZone.js";
 import {
   secureScoreLevel,
   EXPOSURE_LEVEL_COLORS,
@@ -332,117 +333,6 @@ const MAIN_DEFAULT_SIZES = {
 };
 const RAIL_DEFAULT_ORDER = ["secure-score", "criticality", "cve-watch", "anssi", "compliance-state"];
 
-/** Glisser-déposer EN DIRECT (reorder dès `dragenter`, pas seulement au `drop`) + animation
- * FLIP — extrait pour être utilisé DEUX FOIS (zone `.ov2-main` ET zone `.ov2-rail`,
- * indépendamment l'une de l'autre, voir le commentaire d'en-tête de fichier). `sizes` est
- * optionnel : la zone `.ov2-rail` ne s'en sert pas (une seule colonne, redimensionner la
- * largeur n'a pas de sens), seule `.ov2-main` l'utilise. */
-function useReorderableZone(defaultOrder, defaultSizes, storageKey) {
-  const [layout, setLayout] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
-      if (saved && Array.isArray(saved.order) && saved.order.length === defaultOrder.length && defaultOrder.every((k) => saved.order.includes(k))) {
-        return { order: saved.order, sizes: saved.sizes || defaultSizes };
-      }
-    } catch {
-      // localStorage indisponible/corrompu — agencement par défaut, pas bloquant.
-    }
-    return { order: defaultOrder, sizes: defaultSizes };
-  });
-
-  const nodesRef = useRef(new Map());
-  const rectsRef = useRef(new Map());
-  const dragKeyRef = useRef(null);
-  const [draggingKey, setDraggingKey] = useState(null);
-
-  function registerNode(key, node) {
-    if (node) nodesRef.current.set(key, node);
-    else nodesRef.current.delete(key);
-  }
-
-  function captureRects() {
-    const map = new Map();
-    nodesRef.current.forEach((node, key) => map.set(key, node.getBoundingClientRect()));
-    rectsRef.current = map;
-  }
-
-  useLayoutEffect(() => {
-    nodesRef.current.forEach((node, key) => {
-      const before = rectsRef.current.get(key);
-      if (!before) return;
-      const after = node.getBoundingClientRect();
-      const dx = before.left - after.left;
-      const dy = before.top - after.top;
-      if (!dx && !dy) return;
-      node.style.transition = "none";
-      node.style.transform = `translate(${dx}px, ${dy}px)`;
-      // eslint-disable-next-line no-unused-expressions
-      node.offsetHeight; // force le reflow avant de relâcher
-      node.style.transition = "transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1)";
-      node.style.transform = "";
-    });
-    rectsRef.current = new Map();
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(layout));
-    } catch {
-      // best effort
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout]);
-
-  function moveBefore(sourceKey, targetKey) {
-    if (sourceKey === targetKey) return;
-    captureRects();
-    setLayout((prev) => {
-      const next = prev.order.filter((k) => k !== sourceKey);
-      next.splice(next.indexOf(targetKey), 0, sourceKey);
-      return { ...prev, order: next };
-    });
-  }
-
-  function resize(key, delta) {
-    captureRects();
-    setLayout((prev) => {
-      const current = prev.sizes[key] ?? 3;
-      const nextIndex = Math.max(0, Math.min(SIZE_STEPS.length - 1, current + delta));
-      return { ...prev, sizes: { ...prev.sizes, [key]: nextIndex } };
-    });
-  }
-
-  return {
-    order: layout.order,
-    sizes: layout.sizes,
-    registerNode,
-    draggingKey,
-    resize,
-    dragHandleProps: (key) => ({
-      draggable: true,
-      onDragStart: () => {
-        dragKeyRef.current = key;
-        setDraggingKey(key);
-      },
-      onDragEnd: () => {
-        dragKeyRef.current = null;
-        setDraggingKey(null);
-      },
-    }),
-    // Réordonne DÈS l'entrée sur une autre tuile — c'est ce qui donne la sensation de
-    // preview en direct demandée par Nicolas : les autres tuiles se décalent immédiatement,
-    // avant même de relâcher le clic.
-    onDragEnter: (key) => {
-      if (dragKeyRef.current) moveBefore(dragKeyRef.current, key);
-    },
-    onDrop: () => {
-      dragKeyRef.current = null;
-      setDraggingKey(null);
-    },
-    resetLayout: () => {
-      captureRects();
-      setLayout({ order: defaultOrder, sizes: defaultSizes });
-    },
-  };
-}
-
 export default function OverviewTab({ data, onNavigate }) {
   const defenderError = isErrorPayload(data.defenderSummary) ? data.defenderSummary : null;
   const intuneError = isErrorPayload(data.intuneSummary) ? data.intuneSummary : null;
@@ -548,7 +438,10 @@ export default function OverviewTab({ data, onNavigate }) {
   // bloc (`saved.sizes || defaultSizes`, pas de fusion clé par clé), le correctif serait donc
   // resté invisible pour lui sans ce changement de clé. Même convention déjà en place dans ce
   // projet pour un changement de FORME du layout persisté (ex. "overviewTestBentoLayout-v2").
-  const main = useReorderableZone(MAIN_DEFAULT_ORDER, MAIN_DEFAULT_SIZES, "overviewMainLayout-v2");
+  const main = useReorderableZone(MAIN_DEFAULT_ORDER, MAIN_DEFAULT_SIZES, "overviewMainLayout-v2", {
+    sizeCount: SIZE_STEPS.length,
+    defaultSize: 3,
+  });
   const rail = useReorderableZone(RAIL_DEFAULT_ORDER, {}, "overviewRailOrder-v1");
 
   const mainBody = {

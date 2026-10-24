@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
-import SummaryCard from "../components/SummaryCard.jsx";
 import { IconDownload } from "../components/icons.jsx";
 import { exportSuspiciousEventsToExcel } from "../export.js";
 import {
@@ -13,7 +12,7 @@ import {
 import { ALERT_SEVERITY_COLORS, ALERT_SEVERITY_LABEL } from "../theme.js";
 import { api } from "../api.js";
 import { ConfirmButton, fmtDateTime, fmtRelative, hasVanitasAccess, VanitasWizardShell } from "./vanitasShared.jsx";
-import { localizedTable, tr } from "../i18n/core.js";
+import { currentLocale, localizedTable, tr } from "../i18n/core.js";
 import { trRich } from "../i18n/rich.jsx";
 
 /**
@@ -457,11 +456,16 @@ function ContainmentControls({ event, onIsolationChanged }) {
 }
 
 /**
- * Panneau de détail — JSON `detail` formaté lisiblement, `matched_rule`, historique de triage
- * (`handled_by`/`handled_at`/`handled_note`), corrélation Defender lazy, 3 actions gatées en
- * écriture. Réutilisé tel quel par la fiche poste (`VanitasDeviceDetail.jsx`).
+ * Détail d'un événement — JSON `detail` formaté lisiblement, `matched_rule`, historique de triage
+ * (`handled_by`/`handled_at`/`handled_note`), corrélation Defender lazy, confinement, 3 actions
+ * de triage gatées en écriture. Deux habillages (refonte 2026-10-23) :
+ * - `variant="modal"` : popup `VanitasWizardShell`, réutilisée TELLE QUELLE par la fiche poste
+ *   (`VanitasDeviceDetail.jsx`) et la fiche 360° Pandore (`DeviceOverviewTab.jsx`) via
+ *   `SuspiciousEventDetailModal` ;
+ * - `variant="panel"` : panneau latéral de la page "Activités suspectes" (liste + détail), triage
+ *   et confinement remontés en tête — c'est ce qu'on vient y faire.
  */
-export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolationChanged }) {
+function SuspiciousEventDetail({ event, onClose, onUpdated, onIsolationChanged, variant }) {
   const { user } = useAuth();
   const canWrite = hasVanitasAccess(user, "activites_suspectes", "write");
   const [note, setNote] = useState("");
@@ -519,6 +523,129 @@ export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolat
   // activer — le serveur reste la seule source de vérité (400 si jamais désynchronisé).
   const canTransitionFurther = current.status === "new" || current.status === "acknowledged";
 
+  const meta = (
+    <div className="vanitas-cmd-detail-meta">
+      {variant === "modal" && <StatusPill status={current.status} />}
+      <span className="vanitas-cmd-detail-meta-item">{trRich("vs.rule", { rule: <b>{current.matched_rule}</b> })}</span>
+      <span className="vanitas-cmd-detail-meta-item">
+        {trRich("vs.occurredOn", { date: <b>{fmtDateTime(current.occurred_at)}</b> })}
+      </span>
+      <span className="vanitas-cmd-detail-meta-item">
+        {trRich("vs.receivedOn", { date: <b>{fmtDateTime(current.received_at)}</b> })}
+      </span>
+    </div>
+  );
+
+  const history = current.handled_by && (
+    <>
+      <p className="vanitas-cmd-detail-section-title">{tr("vs.triageHistory")}</p>
+      <p className="vanitas-hud-card-note">
+        {trRich("vs.handledBy", { by: <b>{current.handled_by}</b>, date: fmtDateTime(current.handled_at) })}
+        {current.handled_note ? tr("vs.quotedNote", { note: current.handled_note }) : ""}
+      </p>
+    </>
+  );
+
+  const detail = (
+    <>
+      <p className="vanitas-cmd-detail-section-title">{tr("vs.detail")}</p>
+      {detailText ? (
+        <pre className="vanitas-cmd-detail-pre">{detailText}</pre>
+      ) : (
+        <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
+          {tr("vs.noDetail")}
+        </p>
+      )}
+    </>
+  );
+
+  const context = (
+    <>
+      <p className="vanitas-cmd-detail-section-title">{tr("vs.prior", { hours: PRIOR_ALERTS_WINDOW_HOURS })}</p>
+      <PriorAlertsBlock event={current} />
+      <p className="vanitas-cmd-detail-section-title">{tr("vs.defender")}</p>
+      <DefenderCorrelationBlock eventId={current.id} />
+    </>
+  );
+
+  const containment = <ContainmentControls event={current} onIsolationChanged={onIsolationChanged} />;
+
+  const triage = canWrite && (
+    <>
+      <p className="vanitas-cmd-detail-section-title">{tr("vs.handle")}</p>
+      <textarea
+        className="filter-input"
+        style={{ width: "100%", minHeight: "60px", marginBottom: "10px" }}
+        placeholder={tr("vs.notePlaceholder")}
+        aria-label={tr("vs.notePlaceholder")}
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        disabled={busy !== null}
+      />
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        {/* Transitions valides côté serveur (routes/suspicious_activity.py::
+            _ALLOWED_TRANSITIONS) : new -> {acknowledged, false_positive, escalated},
+            acknowledged -> {false_positive, escalated} — "Accuser réception" n'a de sens
+            QUE depuis "new" (rien à accuser une 2e fois) ; "Faux positif"/"Escalader"
+            restent possibles depuis "new" ET "acknowledged". `false_positive`/`escalated`
+            sont TERMINAUX — les 3 boutons se désactivent depuis ces deux statuts. */}
+        <button
+          type="button"
+          className="vanitas-queue-btn"
+          onClick={() => applyStatus("acknowledged")}
+          disabled={busy !== null || current.status !== "new"}
+        >
+          {busy === "acknowledged" ? tr("vs.sending") : tr("vs.ack")}
+        </button>
+        <button
+          type="button"
+          className="vanitas-ghost-btn"
+          onClick={() => applyStatus("false_positive")}
+          disabled={busy !== null || !canTransitionFurther}
+        >
+          {busy === "false_positive" ? tr("vs.sending") : tr("vs.fp")}
+        </button>
+        <button
+          type="button"
+          className="vanitas-danger-btn"
+          onClick={() => applyStatus("escalated")}
+          disabled={busy !== null || !canTransitionFurther}
+        >
+          {busy === "escalated" ? tr("vs.sending") : tr("vs.escalate")}
+        </button>
+      </div>
+      {!canTransitionFurther && (
+        <p className="vanitas-hud-card-note" style={{ marginTop: "8px" }}>
+          {tr("vs.terminal", { status: STATUS_LABEL[current.status] })}
+        </p>
+      )}
+      {error && <p className="error-note">{error}</p>}
+    </>
+  );
+
+  if (variant === "panel") {
+    return (
+      <aside className="vsa-card vsa-detail" aria-label={tr("vs.detailAria")}>
+        <div className="vsa-detail-head">
+          <SeverityPill severity={current.severity} />
+          <div className="vsa-detail-title">
+            <h2>{current.summary || current.matched_rule}</h2>
+            <span className="vsa-sub">
+              <span className="vsa-mono vsa-ink">{current.hostname}</span> · {SIGNAL_TYPE_LABEL[current.signal_type] ?? current.signal_type}
+            </span>
+          </div>
+          <StatusPill status={current.status} />
+        </div>
+        {meta}
+        {history}
+        {triage}
+        {containment}
+        {detail}
+        {context}
+      </aside>
+    );
+  }
+
   return (
     <VanitasWizardShell onClose={onClose} wide>
       <div className="vanitas-wiz-header">
@@ -532,104 +659,21 @@ export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolat
           </p>
         </div>
       </div>
-
       <div className="vanitas-wiz-body">
-        <div className="vanitas-cmd-detail-meta">
-          <StatusPill status={current.status} />
-          <span className="vanitas-cmd-detail-meta-item">
-            {trRich("vs.rule", { rule: <b>{current.matched_rule}</b> })}
-          </span>
-          <span className="vanitas-cmd-detail-meta-item">
-            {trRich("vs.occurredOn", { date: <b>{fmtDateTime(current.occurred_at)}</b> })}
-          </span>
-          <span className="vanitas-cmd-detail-meta-item">
-            {trRich("vs.receivedOn", { date: <b>{fmtDateTime(current.received_at)}</b> })}
-          </span>
-        </div>
-
-        {current.handled_by && (
-          <>
-            <p className="vanitas-cmd-detail-section-title">{tr("vs.triageHistory")}</p>
-            <p className="vanitas-hud-card-note">
-              {trRich("vs.handledBy", { by: <b>{current.handled_by}</b>, date: fmtDateTime(current.handled_at) })}
-              {current.handled_note ? tr("vs.quotedNote", { note: current.handled_note }) : ""}
-            </p>
-          </>
-        )}
-
-        <p className="vanitas-cmd-detail-section-title">{tr("vs.detail")}</p>
-        {detailText ? (
-          <pre className="vanitas-cmd-detail-pre">{detailText}</pre>
-        ) : (
-          <p className="vanitas-hud-empty-note" style={{ padding: "8px 0" }}>
-            {tr("vs.noDetail")}
-          </p>
-        )}
-
-        <p className="vanitas-cmd-detail-section-title">
-          {tr("vs.prior", { hours: PRIOR_ALERTS_WINDOW_HOURS })}
-        </p>
-        <PriorAlertsBlock event={current} />
-
-        <p className="vanitas-cmd-detail-section-title">{tr("vs.defender")}</p>
-        <DefenderCorrelationBlock eventId={current.id} />
-
-        <ContainmentControls event={current} onIsolationChanged={onIsolationChanged} />
-
-        {canWrite && (
-          <>
-            <p className="vanitas-cmd-detail-section-title">{tr("vs.handle")}</p>
-            <textarea
-              className="filter-input"
-              style={{ width: "100%", minHeight: "60px", marginBottom: "10px" }}
-              placeholder={tr("vs.notePlaceholder")}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              disabled={busy !== null}
-            />
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              {/* Transitions valides côté serveur (routes/suspicious_activity.py::
-                  _ALLOWED_TRANSITIONS) : new -> {acknowledged, false_positive, escalated},
-                  acknowledged -> {false_positive, escalated} — "Accuser réception" n'a de sens
-                  QUE depuis "new" (rien à accuser une 2e fois) ; "Faux positif"/"Escalader"
-                  restent possibles depuis "new" ET "acknowledged". `false_positive`/`escalated`
-                  sont TERMINAUX — les 3 boutons se désactivent depuis ces deux statuts. */}
-              <button
-                type="button"
-                className="vanitas-queue-btn"
-                onClick={() => applyStatus("acknowledged")}
-                disabled={busy !== null || current.status !== "new"}
-              >
-                {busy === "acknowledged" ? tr("vs.sending") : tr("vs.ack")}
-              </button>
-              <button
-                type="button"
-                className="vanitas-ghost-btn"
-                onClick={() => applyStatus("false_positive")}
-                disabled={busy !== null || !canTransitionFurther}
-              >
-                {busy === "false_positive" ? tr("vs.sending") : tr("vs.fp")}
-              </button>
-              <button
-                type="button"
-                className="vanitas-danger-btn"
-                onClick={() => applyStatus("escalated")}
-                disabled={busy !== null || !canTransitionFurther}
-              >
-                {busy === "escalated" ? tr("vs.sending") : tr("vs.escalate")}
-              </button>
-            </div>
-            {!canTransitionFurther && (
-              <p className="vanitas-hud-card-note" style={{ marginTop: "8px" }}>
-                {tr("vs.terminal", { status: STATUS_LABEL[current.status] })}
-              </p>
-            )}
-            {error && <p className="error-note">{error}</p>}
-          </>
-        )}
+        {meta}
+        {history}
+        {detail}
+        {context}
+        {containment}
+        {triage}
       </div>
     </VanitasWizardShell>
   );
+}
+
+/** Popup de détail — fiche poste Vanitas et fiche 360° Pandore (voir `SuspiciousEventDetail`). */
+export function SuspiciousEventDetailModal(props) {
+  return <SuspiciousEventDetail {...props} variant="modal" />;
 }
 
 /**
@@ -640,7 +684,8 @@ export function SuspiciousEventDetailModal({ event, onClose, onUpdated, onIsolat
  * (`network_isolated_reason`, un INSTANTANÉ, voir models.py) est cliquable quand l'alerte
  * d'origine existe encore (`network_isolated_event_id`) — rouvre son détail, y compris le
  * bouton "Lever l'isolement" déjà présent dans `ContainmentControls`, donc le bouton de CETTE
- * ligne n'est qu'un raccourci, pas le seul chemin possible.
+ * carte n'est qu'un raccourci, pas le seul chemin possible. Une carte par poste (refonte
+ * 2026-10-23) plutôt qu'un tableau.
  */
 function IsolatedDevicesPanel({ onOpenEvent, onIsolationChanged }) {
   const { user } = useAuth();
@@ -686,70 +731,78 @@ function IsolatedDevicesPanel({ onOpenEvent, onIsolationChanged }) {
   }
 
   return (
-    <div className="vanitas-hud-card vanitas-hud-frame">
-      <div className="vanitas-hud-card-head">
-        <h2>
-          {tr("vs.isolatedCount", { count: isolated.length })}
-        </h2>
-      </div>
+    <div className="vsa-iso-wrap">
+      <p className="vsa-sub">{tr("vs.isolatedCount", { count: isolated.length })}</p>
       {error && <p className="error-note">{error}</p>}
       {isolated.length === 0 ? (
-        <p className="vanitas-hud-empty-note">{tr("vs.noIsolated")}</p>
+        <div className="vsa-card vsa-emptystate">
+          <h2 className="vsa-h2">{tr("vs.noIsolated")}</h2>
+        </div>
       ) : (
-        <div className="vanitas-hud-table-wrap">
-          <table className="vanitas-hud-table">
-            <thead>
-              <tr>
-                <th>{tr("vs.col.endpoint")}</th>
-                <th>{tr("vs.col.reason")}</th>
-                <th>{tr("vs.col.isolatedBy")}</th>
-                <th>{tr("vs.col.since")}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {isolated.map((a) => (
-                <tr key={a.id}>
-                  <td className="vanitas-hud-host">{a.hostname}</td>
-                  <td>
-                    {a.network_isolated_event_id ? (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        className="vanitas-hud-card-note"
-                        style={{ cursor: "pointer", textDecoration: "underline" }}
-                        onClick={() => openReason(a)}
-                        onKeyDown={(e) => e.key === "Enter" && openReason(a)}
-                      >
-                        {a.network_isolated_reason ?? tr("vs.manual")}
-                      </span>
-                    ) : (
-                      a.network_isolated_reason ?? tr("vs.manual")
-                    )}
-                  </td>
-                  <td>{a.network_isolated_by ?? "—"}</td>
-                  <td>{fmtRelative(a.network_isolated_at)}</td>
-                  <td>
-                    {canContain && (
-                      <ConfirmButton
-                        className="vanitas-queue-btn"
-                        label={busyId === a.id ? tr("vs.sending") : tr("vs.lift")}
-                        confirmLabel={tr("v.confirm")}
-                        disabled={busyId !== null}
-                        onConfirm={() => liftFor(a)}
-                      />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="vsa-iso">
+          {isolated.map((a) => (
+            <article className="vsa-card vsa-iso-card" key={a.id}>
+              <div className="vsa-iso-head">
+                <span className="vsa-mono vsa-iso-host">{a.hostname}</span>
+                <span className="vsa-iso-pill">
+                  <span className="dot" />
+                  {tr("vs.isolatedPill")}
+                </span>
+              </div>
+              <dl className="vsa-kv">
+                <dt>{tr("vs.col.reason")}</dt>
+                <dd>
+                  {a.network_isolated_event_id ? (
+                    <button type="button" className="vsa-textlink" onClick={() => openReason(a)}>
+                      {a.network_isolated_reason ?? tr("vs.manual")}
+                    </button>
+                  ) : (
+                    a.network_isolated_reason ?? tr("vs.manual")
+                  )}
+                </dd>
+                <dt>{tr("vs.col.isolatedBy")}</dt>
+                <dd>{a.network_isolated_by ?? "—"}</dd>
+                <dt>{tr("vs.col.since")}</dt>
+                <dd>{fmtRelative(a.network_isolated_at)}</dd>
+              </dl>
+              {canContain && (
+                <ConfirmButton
+                  className="vanitas-queue-btn"
+                  label={busyId === a.id ? tr("vs.sending") : tr("vs.lift")}
+                  confirmLabel={tr("v.confirm")}
+                  disabled={busyId !== null}
+                  onConfirm={() => liftFor(a)}
+                />
+              )}
+            </article>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
+/** Libellé de groupe par jour de la liste (Aujourd'hui / Hier / date courte). */
+function dayLabel(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today - day) / 86_400_000);
+  if (diff === 0) return tr("val.today");
+  if (diff === 1) return tr("val.yesterday");
+  return d.toLocaleDateString(currentLocale(), { day: "numeric", month: "short", year: day.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+}
+
+/**
+ * Page "Activités suspectes" — refonte liste + détail (2026-10-23, maquette canvas validée par
+ * Nicolas). Synthèse cliquable (applique le filtre correspondant), filtres en pastilles avec
+ * compteurs, liste groupée par jour, détail dans un panneau latéral collant (plus de popup à
+ * ouvrir/fermer à chaque événement). Période et type de signal filtrés côté serveur (comme
+ * avant) ; sévérité, statut et recherche côté client, pour que les compteurs des pastilles
+ * reflètent exactement la liste de la période. Classes `.vsa-*`.
+ */
 export default function VanitasSuspiciousActivityTab() {
   const [pageTab, setPageTab] = useState("alerts");
   const [query, setQuery] = useState("");
@@ -757,7 +810,11 @@ export default function VanitasSuspiciousActivityTab() {
   const [signalFilter, setSignalFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [rangeKey, setRangeKey] = useState("30");
-  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
+  // Événement ouvert depuis l'onglet "Postes isolés" (raison cliquable) : popup, il n'est pas
+  // forcément dans la liste filtrée de l'onglet Alertes.
+  const [modalEvent, setModalEvent] = useState(null);
+  const detailRef = useRef(null);
 
   const summary = useVanitasSuspiciousEventsSummary();
   const agentsForCount = useVanitasAgents();
@@ -770,22 +827,47 @@ export default function VanitasSuspiciousActivityTab() {
 
   const filters = useMemo(
     () => ({
-      severity: severityFilter === "all" ? undefined : severityFilter,
       signalType: signalFilter === "all" ? undefined : signalFilter,
-      status: statusFilter === "all" ? undefined : statusFilter,
       since: sinceIsoFor(rangeKey),
     }),
-    [severityFilter, signalFilter, statusFilter, rangeKey]
+    [signalFilter, rangeKey]
   );
   const events = useVanitasSuspiciousEvents(filters);
+  const inRange = events.state.data ?? [];
+
+  const chipCounts = useMemo(() => {
+    const sev = { high: 0, med: 0, low: 0 };
+    const status = { new: 0, acknowledged: 0, false_positive: 0, escalated: 0 };
+    for (const e of inRange) {
+      if (sev[e.severity] !== undefined) sev[e.severity]++;
+      if (status[e.status] !== undefined) status[e.status]++;
+    }
+    return { sev, status };
+  }, [inRange]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return events.state.data;
-    return events.state.data.filter((e) =>
-      [e.hostname, e.summary, e.matched_rule].filter(Boolean).join(" ").toLowerCase().includes(q)
-    );
-  }, [events.state.data, query]);
+    return inRange
+      .filter((e) => {
+        if (severityFilter !== "all" && e.severity !== severityFilter) return false;
+        if (statusFilter !== "all" && e.status !== statusFilter) return false;
+        if (!q) return true;
+        return [e.hostname, e.summary, e.matched_rule].filter(Boolean).join(" ").toLowerCase().includes(q);
+      })
+      .sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at));
+  }, [inRange, query, severityFilter, statusFilter]);
+
+  // Sélection par id (la liste se rafraîchit après chaque triage) ; par défaut le premier
+  // événement visible, pour que le panneau ne soit jamais vide quand la liste ne l'est pas.
+  const selected = filtered.find((e) => e.id === selectedId) ?? filtered[0] ?? null;
+
+  function selectEvent(e) {
+    setSelectedId(e.id);
+    // Écran étroit : le panneau passe SOUS la liste — on l'amène à l'écran.
+    if (detailRef.current && window.matchMedia?.("(max-width: 980px)").matches) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 
   function handleUpdated() {
     events.refresh();
@@ -807,117 +889,197 @@ export default function VanitasSuspiciousActivityTab() {
     }
   }
 
-  const bySeverity = summary.state.data?.by_severity ?? { low: 0, med: 0, high: 0 };
-  const byStatus = summary.state.data?.by_status ?? { new: 0, acknowledged: 0, false_positive: 0, escalated: 0 };
+  const bySeverity = summary.state.data?.by_severity ?? {};
+  const byStatus = summary.state.data?.by_status ?? {};
+  const stats = [
+    { key: "new", label: tr("vs.kpi.untriaged"), n: byStatus.new ?? 0, sub: tr("vs.kpi.newStatus"), tone: "warn", pick: () => { setStatusFilter("new"); setSeverityFilter("all"); } },
+    { key: "high", label: tr("vs.kpi.high"), n: bySeverity.high ?? 0, sub: tr("vs.kpi.events"), tone: "high", pick: () => { setSeverityFilter("high"); setStatusFilter("all"); } },
+    { key: "med", label: tr("vs.kpi.med"), n: bySeverity.med ?? 0, sub: tr("vs.kpi.events"), tone: "warn", pick: () => { setSeverityFilter("med"); setStatusFilter("all"); } },
+    { key: "low", label: tr("vs.kpi.low"), n: bySeverity.low ?? 0, sub: tr("vs.kpi.events"), tone: "good", pick: () => { setSeverityFilter("low"); setStatusFilter("all"); } },
+    { key: "iso", label: tr("vs.tab.isolated"), n: isolatedCount, sub: tr("vs.kpi.cutOff"), tone: "accent2", pick: () => setPageTab("isolated") },
+  ];
+
+  let lastDay = null;
 
   return (
-    <div className="vanitas-hud">
-      <div style={{ display: "flex", borderBottom: "1px solid var(--hud-line)", marginBottom: "18px" }}>
-        <button
-          type="button"
-          className={`vanitas-tab-btn${pageTab === "alerts" ? " active" : ""}`}
-          onClick={() => setPageTab("alerts")}
-        >
+    <div className="vanitas-hud vsa">
+      <nav className="vsa-tabs" aria-label={tr("vs.sections")}>
+        <button type="button" className={pageTab === "alerts" ? "on" : ""} aria-pressed={pageTab === "alerts"} onClick={() => setPageTab("alerts")}>
           {tr("vs.tab.alerts")}
         </button>
-        <button
-          type="button"
-          className={`vanitas-tab-btn${pageTab === "isolated" ? " active" : ""}`}
-          onClick={() => setPageTab("isolated")}
-        >
+        <button type="button" className={pageTab === "isolated" ? "on" : ""} aria-pressed={pageTab === "isolated"} onClick={() => setPageTab("isolated")}>
           {tr("vs.tab.isolated")}
-          {isolatedCount > 0 && <span className="vanitas-tab-btn-badge">{isolatedCount}</span>}
+          {isolatedCount > 0 && <span className="vsa-badge">{isolatedCount}</span>}
         </button>
-      </div>
+      </nav>
 
       {pageTab === "isolated" ? (
-        <IsolatedDevicesPanel onOpenEvent={setSelectedEvent} onIsolationChanged={() => agentsForCount.refresh()} />
+        <IsolatedDevicesPanel onOpenEvent={setModalEvent} onIsolationChanged={() => agentsForCount.refresh()} />
       ) : (
         <>
-          <div className="strip" style={{ marginBottom: "20px" }}>
-            <SummaryCard title={tr("vs.kpi.high")} value={bySeverity.high ?? 0} tone="danger" hint={tr("vs.kpi.events")} />
-            <SummaryCard title={tr("vs.kpi.med")} value={bySeverity.med ?? 0} tone="warning" hint={tr("vs.kpi.events")} />
-            <SummaryCard title={tr("vs.kpi.low")} value={bySeverity.low ?? 0} tone="good" hint={tr("vs.kpi.events")} />
-            <SummaryCard
-              title={tr("vs.kpi.untriaged")}
-              value={byStatus.new ?? 0}
-              tone={(byStatus.new ?? 0) > 0 ? "danger" : "good"}
-              hint={tr("vs.kpi.newStatus")}
-            />
-          </div>
+          <section className="vsa-stats" aria-label={tr("vs.statsAria")}>
+            {stats.map((s) => (
+              <button type="button" key={s.key} className={`vsa-card vsa-stat tone-${s.tone}`} onClick={s.pick}>
+                <span className="vsa-lbl">{s.label}</span>
+                <span className={`vsa-val${s.n ? "" : " quiet"}`}>{s.n}</span>
+                <span className="vsa-sub">{s.sub}</span>
+              </button>
+            ))}
+          </section>
 
-          <div className="vanitas-hud-toolbar" style={{ marginBottom: "12px", flexWrap: "wrap" }}>
-        <div className="vanitas-hud-search">
-          <span className="prompt">&gt;</span>
-          <input
-            type="text"
-            placeholder={tr("vs.searchPlaceholder")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-        <select className="filter-input" value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}>
-          <option value="all">{tr("vs.anySeverity")}</option>
-          {SEVERITY_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {SEVERITY_LABEL[s]}
-            </option>
-          ))}
-        </select>
-        <select className="filter-input" value={signalFilter} onChange={(e) => setSignalFilter(e.target.value)}>
-          <option value="all">{tr("vs.anySignal")}</option>
-          {SIGNAL_TYPE_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {SIGNAL_TYPE_LABEL[s]}
-            </option>
-          ))}
-        </select>
-        <select className="filter-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="all">{tr("vs.anyStatus")}</option>
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
-        <select className="filter-input" value={rangeKey} onChange={(e) => setRangeKey(e.target.value)}>
-          {RANGE_OPTIONS.map((r) => (
-            <option key={r.key} value={r.key}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="vanitas-export-btn"
-          style={{ marginLeft: "auto" }}
-          onClick={handleExport}
-          disabled={exportState.status === "exporting"}
-        >
-          <IconDownload />
-          {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
-        </button>
-      </div>
-      {exportState.error && <p className="error-note" style={{ margin: "0 0 12px" }}>{exportState.error}</p>}
+          <section className="vsa-card vsa-filters">
+            <div className="vsa-toolbar">
+              <label className="vsa-search-wrap">
+                <span className="vsa-sr">{tr("vs.searchPlaceholder")}</span>
+                <input
+                  type="search"
+                  className="vsa-search"
+                  placeholder={tr("vs.searchPlaceholder")}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+              <div className="vsa-group" role="group" aria-label={tr("vs.lbl.period")}>
+                {RANGE_OPTIONS.map((r) => (
+                  <button key={r.key} type="button" className={`vsa-chip${rangeKey === r.key ? " on" : ""}`} aria-pressed={rangeKey === r.key} onClick={() => setRangeKey(r.key)}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="vanitas-export-btn" onClick={handleExport} disabled={exportState.status === "exporting"}>
+                <IconDownload />
+                {exportState.status === "exporting" ? tr("v.exporting") : tr("v.exportExcel")}
+              </button>
+            </div>
+            <div className="vsa-toolbar">
+              <span className="vsa-field">
+              <span className="vsa-lbl">{tr("vs.lbl.severity")}</span>
+              <div className="vsa-group" role="group" aria-label={tr("vs.lbl.severity")}>
+                <button type="button" className={`vsa-chip${severityFilter === "all" ? " on" : ""}`} aria-pressed={severityFilter === "all"} onClick={() => setSeverityFilter("all")}>
+                  {tr("vs.allF")} <b>{inRange.length}</b>
+                </button>
+                {SEVERITY_OPTIONS.map((s) => (
+                  <button key={s} type="button" className={`vsa-chip sev-${s}${severityFilter === s ? " on" : ""}`} aria-pressed={severityFilter === s} onClick={() => setSeverityFilter(s)}>
+                    <span className="dot" />
+                    {SEVERITY_LABEL[s]} <b>{chipCounts.sev[s]}</b>
+                  </button>
+                ))}
+              </div>
+              </span>
+              <span className="vsa-field">
+              <span className="vsa-lbl">{tr("vs.lbl.status")}</span>
+              <div className="vsa-group" role="group" aria-label={tr("vs.lbl.status")}>
+                <button type="button" className={`vsa-chip${statusFilter === "all" ? " on" : ""}`} aria-pressed={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
+                  {tr("vs.allM")} <b>{inRange.length}</b>
+                </button>
+                {STATUS_OPTIONS.map((s) => (
+                  <button key={s} type="button" className={`vsa-chip${statusFilter === s ? " on" : ""}`} aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
+                    {STATUS_LABEL[s]} <b>{chipCounts.status[s]}</b>
+                  </button>
+                ))}
+              </div>
+              </span>
+              <label className="vsa-signal">
+                <span className="vsa-lbl">{tr("vs.lbl.signal")}</span>
+                <select className="vsa-select" value={signalFilter} onChange={(e) => setSignalFilter(e.target.value)}>
+                  <option value="all">{tr("vs.anySignal")}</option>
+                  {SIGNAL_TYPE_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {SIGNAL_TYPE_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {exportState.error && <p className="error-note" style={{ margin: 0 }}>{exportState.error}</p>}
+          </section>
 
-          <div className="vanitas-susp-scroll">
-            <SuspiciousEventsTable
-              events={filtered}
-              loading={events.state.status === "loading"}
-              error={events.state.error}
-              onSelect={setSelectedEvent}
-            />
+          <div className="vsa-split">
+            <section className="vsa-card vsa-list-card" aria-label={tr("vs.events")}>
+              <div className="vsa-list-head">
+                <h2 className="vsa-h2">{tr("vs.events")}</h2>
+                <span className="vsa-sub">{tr("vs.listNote", { count: filtered.length })}</span>
+              </div>
+              {events.state.error ? (
+                <p className="vanitas-hud-error">{events.state.error}</p>
+              ) : events.state.status === "loading" ? (
+                <div className="vsa-list" aria-busy="true">
+                  <span className="vsa-sr">{tr("v.loading")}</span>
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <span key={i} className="vsa-sk" />
+                  ))}
+                </div>
+              ) : filtered.length === 0 ? (
+                <p className="vsa-empty">{tr("vs.noEvent")}</p>
+              ) : (
+                <div className="vsa-list">
+                  {filtered.map((e) => {
+                    const day = dayLabel(e.occurred_at);
+                    const showDay = day !== lastDay;
+                    lastDay = day;
+                    const isSel = selected?.id === e.id;
+                    return (
+                      <div key={e.id}>
+                        {showDay && <div className="vsa-day">{day}</div>}
+                        <button
+                          type="button"
+                          className={`vsa-ev sev-${e.severity}${isSel ? " sel" : ""}`}
+                          aria-pressed={isSel}
+                          onClick={() => selectEvent(e)}
+                        >
+                          <span className="vsa-ev-bar" />
+                          <span className="vsa-ev-sev">
+                            <SeverityPill severity={e.severity} />
+                          </span>
+                          <span className="vsa-ev-main">
+                            <span className="vsa-ev-sum">{e.summary || e.matched_rule}</span>
+                            <span className="vsa-ev-meta">
+                              <span className="vsa-mono vsa-ink">{e.hostname}</span>
+                              <span>·</span>
+                              <span>{SIGNAL_TYPE_LABEL[e.signal_type] ?? e.signal_type}</span>
+                              <span>·</span>
+                              <span title={fmtDateTime(e.occurred_at)}>
+                                {new Date(e.occurred_at).toLocaleTimeString(currentLocale(), { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </span>
+                          </span>
+                          <StatusPill status={e.status} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <div ref={detailRef} className="vsa-detail-slot">
+              {selected ? (
+                <SuspiciousEventDetail
+                  variant="panel"
+                  event={selected}
+                  onUpdated={(updated) => {
+                    setSelectedId(updated.id);
+                    handleUpdated();
+                  }}
+                  onIsolationChanged={() => agentsForCount.refresh()}
+                />
+              ) : (
+                <div className="vsa-card vsa-emptystate">
+                  <p className="vsa-sub">{tr("vs.pickEvent")}</p>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
 
-      {selectedEvent && (
+      {modalEvent && (
         <SuspiciousEventDetailModal
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
+          event={modalEvent}
+          onClose={() => setModalEvent(null)}
           onUpdated={(updated) => {
-            setSelectedEvent(updated);
+            setModalEvent(updated);
             handleUpdated();
           }}
           onIsolationChanged={() => agentsForCount.refresh()}

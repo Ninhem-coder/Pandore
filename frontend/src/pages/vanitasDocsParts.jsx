@@ -1,505 +1,253 @@
-import { useState } from "react";
-import { currentLocale, tr } from "../i18n/core.js";
-import { trRich } from "../i18n/rich.jsx";
+import { Fragment } from "react";
+import { tr } from "../i18n/core.js";
 
-/** Building blocks shared by the French and English bodies of the Vanitas documentation
- * (VanitasDocsTab.jsx): table of contents, section/callout chrome and the illustrations
- * (rebuilt with the real page CSS classes — see `Illustration`). Labels go through `tr`. */
-// Labels: vdoc.sec.<id> (getter added below), also used as each section's <h2>.
-export const SECTIONS = [
-  { id: "intro" },
-  { id: "roles" },
-  { id: "overview" },
-  { id: "devices" },
-  { id: "groups" },
-  { id: "compliance" },
-  { id: "vulnerabilities" },
-  { id: "applications" },
-  { id: "terminal" },
-  { id: "activity" },
-  { id: "alerts" },
-  { id: "suspicious-activity" },
-  { id: "glossary" },
-];
-for (const s of SECTIONS) {
-  Object.defineProperty(s, "label", { get: () => tr(`vdoc.sec.${s.id}`), enumerable: true });
+/**
+ * Briques de rendu de la documentation Vanitas (refonte du 2026-10-24). Le contenu vit dans
+ * vanitasDocsContent.fr.js / .en.js sous forme de données ; ce fichier sait l'afficher :
+ * mise en forme en ligne (`**gras**`, `` `code` ``) avec surlignage des termes recherchés, blocs
+ * (paragraphe, liste, encadrés, glossaire) et schémas numérotés de l'écran décrit.
+ *
+ * Les schémas ne sont PAS des captures d'écran ni des reconstitutions au pixel près (les
+ * anciennes illustrations reproduisaient les tableaux d'avant la refonte et se sont démodées
+ * avec elle) : une silhouette de la mise en page — bandeau, liste, détail — portant des repères
+ * numérotés, expliqués par la légende de chaque section. Ils survivent à un changement de style
+ * tant que la structure de la page ne change pas.
+ */
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function Section({ id, children }) {
-  return (
-    <section id={id} className="vanitas-docs-section">
-      <h2>{tr(`vdoc.sec.${id}`)}</h2>
-      <div className="vanitas-docs-body">{children}</div>
-    </section>
+function highlight(text, query, keyPrefix) {
+  if (!query) return text;
+  const parts = text.split(new RegExp(`(${escapeRegExp(query)})`, "gi"));
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      <mark key={`${keyPrefix}-${i}`} className="vdc-mark">
+        {part}
+      </mark>
+    ) : (
+      <Fragment key={`${keyPrefix}-${i}`}>{part}</Fragment>
+    )
   );
 }
 
-export function Callout({ tone = "warn", title, children }) {
+/** `**gras**` et `` `code` `` ; le reste est du texte brut (jamais de HTML injecté). */
+export function Inline({ text, query }) {
+  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return tokens.map((t, i) => {
+    if (t.startsWith("**") && t.endsWith("**")) return <b key={i}>{highlight(t.slice(2, -2), query, i)}</b>;
+    if (t.startsWith("`") && t.endsWith("`")) return <code key={i}>{highlight(t.slice(1, -1), query, i)}</code>;
+    return <Fragment key={i}>{highlight(t, query, i)}</Fragment>;
+  });
+}
+
+/** Texte brut d'une section (sans balisage), pour la recherche plein texte. */
+export function sectionText(section) {
+  const parts = [section.title, section.what, section.do, section.perm, section.caption, ...(section.legend ?? [])];
+  for (const b of section.body ?? []) {
+    if (b.p) parts.push(b.p);
+    if (b.list) parts.push(...b.list);
+    if (b.warn) parts.push(b.warn.title, b.warn.text);
+    if (b.high) parts.push(b.high.title, b.high.text);
+    if (b.terms) parts.push(...b.terms.flat());
+  }
+  return parts.filter(Boolean).join("\n").replace(/\*\*|`/g, "");
+}
+
+export function countMatches(section, query) {
+  if (!query) return 0;
+  return (sectionText(section).match(new RegExp(escapeRegExp(query), "gi")) ?? []).length;
+}
+
+export function Block({ block, query }) {
+  if (block.p) {
+    return (
+      <p>
+        <Inline text={block.p} query={query} />
+      </p>
+    );
+  }
+  if (block.list) {
+    return (
+      <ul>
+        {block.list.map((item, i) => (
+          <li key={i}>
+            <Inline text={item} query={query} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (block.warn || block.high) {
+    const c = block.warn ?? block.high;
+    return (
+      <div className={`vdc-callout ${block.high ? "high" : "warn"}`}>
+        <p className="vdc-callout-title">
+          <Inline text={c.title} query={query} />
+        </p>
+        <p>
+          <Inline text={c.text} query={query} />
+        </p>
+      </div>
+    );
+  }
+  if (block.terms) {
+    return (
+      <dl className="vdc-terms">
+        {block.terms.map(([term, def]) => (
+          <Fragment key={term}>
+            <dt>
+              <Inline text={term} query={query} />
+            </dt>
+            <dd>
+              <Inline text={def} query={query} />
+            </dd>
+          </Fragment>
+        ))}
+      </dl>
+    );
+  }
+  return null;
+}
+
+
+
+function Bar({ w = "100%", tone }) {
+  return <span className={`vdc-bar${tone ? ` ${tone}` : ""}`} style={{ width: w }} />;
+}
+
+function ListSkeleton({ marker, segmented }) {
   return (
-    <div className={`vanitas-docs-callout tone-${tone}`}>
-      <p className="vanitas-docs-callout-title">{title}</p>
-      <div>{children}</div>
+    <div className="vdc-pane">
+      {segmented ? (
+        <span className="vdc-segm">
+          <i className="on" />
+          <i />
+        </span>
+      ) : (
+        <span className="vdc-pane-lbl">{tr("vdoc.schema.list")}</span>
+      )}
+      <div className="vdc-row">
+        {marker}
+        <Bar w="70%" />
+      </div>
+      <div className="vdc-row sel">
+        <Bar w="82%" tone="accent" />
+      </div>
+      <div className="vdc-row">
+        <Bar w="60%" />
+      </div>
     </div>
   );
 }
 
-/** Illustration d'une section — PAS une capture d'écran (aucun outil de ce dashboard ne peut
- * enregistrer une capture en fichier image, constaté en essayant), mais une reconstitution
- * fidèle au pixel près des mêmes classes CSS que la vraie page (`.vanitas-hud-kpi`/
- * `.vanitas-hud-table`/`.vanitas-hud-status-pill`/`.vanitas-health-tile`/`.vanitas-detail-nav`...),
- * construite à partir de VRAIES valeurs observées sur un jeu de données de démonstration (3
- * postes fictifs enrôlés puis retirés, jamais le parc réel) plutôt que des chiffres inventés au
- * hasard. Se remet à jour toute seule avec le design du site (mêmes tokens, mêmes classes),
- * contrairement à une image figée qui se démoderait au prochain reskin. */
-export function Illustration({ label, children }) {
-  return (
-    <div className="vanitas-docs-illustration">
-      <div className="vanitas-docs-illustration-frame">{children}</div>
-      <p className="vanitas-docs-illustration-caption">{label}</p>
-    </div>
-  );
-}
-
-export function OverviewPreview() {
-  const tiles = [
-    { label: tr("vdoc.ov.endpoints"), tag: "TOTAL", value: 3, sub: tr("vdoc.ov.online"), tone: "var(--hud-accent)" },
-    { label: tr("vdoc.ov.suspicious"), tag: tr("vdoc.ov.untriaged"), value: 0, sub: tr("vdoc.ov.noHigh"), tone: "var(--hud-warn)" },
-    { label: tr("vdoc.ov.silent"), tag: "< 12H", value: 0, sub: tr("vdoc.ov.threshold"), tone: "var(--hud-good)" },
-    { label: tr("vdoc.ov.cert"), tag: tr("vdoc.ov.cert30"), value: 0, sub: tr("vdoc.ov.renewSoon"), tone: "var(--hud-good)" },
-    { label: tr("vdoc.ov.eol"), tag: tr("vdoc.ov.fleet"), value: 3, sub: tr("vdoc.ov.eolSub"), tone: "var(--hud-warn)" },
-    { label: tr("vdoc.ov.compliance"), tag: tr("vdoc.ov.rate"), value: "97%", sub: tr("vdoc.ov.compliantEvals"), tone: "var(--hud-good)" },
-  ];
-  return (
-    <Illustration label={tr("vdoc.ov.caption")}>
-      <div className="vanitas-hud-strip vanitas-docs-mini-strip">
-        {tiles.map((t) => (
-          <div className="vanitas-hud-kpi" style={{ "--tone": t.tone }} key={t.label}>
-            <div className="label">
-              {t.label}
-              <span className="tag">{t.tag}</span>
+/** Silhouette numérotée de l'écran décrit. Les repères suivent l'ordre de `legend`. */
+export function Schema({ type, caption, markers = Infinity }) {
+  if (!type || type === "none") return null;
+  // Un repère sans entrée de légende dans la section n'est pas dessiné (place gardée).
+  const Num = ({ n }) => (n > markers ? <span className="vdc-num-gap" /> : <span className="vdc-num">{n}</span>);
+  let body;
+  if (type === "split" || type === "switch") {
+    body = (
+      <>
+        <div className="vdc-band">
+          <Num n={1} />
+          <Bar w="18%" />
+          <Bar w="40%" tone="split" />
+          <Bar w="14%" />
+        </div>
+        <div className="vdc-cols">
+          <ListSkeleton marker={<Num n={2} />} segmented={type === "switch"} />
+          <div className="vdc-pane">
+            <span className="vdc-pane-lbl">{tr("vdoc.schema.detail")}</span>
+            <div className="vdc-row">
+              <Num n={3} />
+              <Bar w="66%" />
             </div>
-            <div className="value">{t.value}</div>
-            <p className="vanitas-docs-illustration-caption" style={{ margin: "6px 0 0", textAlign: "left" }}>
-              {t.sub}
-            </p>
+            <div className="vdc-row">
+              <Bar w="90%" />
+            </div>
+            <div className="vdc-row">
+              <Num n={4} />
+              <span className="vdc-btn" />
+            </div>
           </div>
-        ))}
-      </div>
-    </Illustration>
-  );
-}
-
-export function DevicesPreview() {
-  const rows = [
-    { host: "DEMO-WKS-01", os: tr("vdoc.win11"), state: tr("vdoc.online"), tone: "ok", cmd: tr("vdoc.cmd.diag") },
-    { host: "DEMO-WKS-02", os: tr("vdoc.win11"), state: tr("vdoc.online"), tone: "ok", cmd: tr("vdoc.cmd.hw") },
-    { host: "DEMO-SRV-01", os: "Windows Server 2019 Standard", state: tr("vdoc.silent"), tone: "bad", cmd: "—" },
-  ];
-  return (
-    <Illustration label={tr("vdoc.dev.caption")}>
-      <table className="vanitas-hud-table vanitas-docs-mini-table">
-        <thead>
-          <tr>
-            <th>{tr("vdoc.col.endpoint")}</th>
-            <th>{tr("vdoc.col.system")}</th>
-            <th>{tr("vdoc.col.state")}</th>
-            <th>{tr("vdoc.col.lastCmd")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.host}>
-              <td className="vanitas-hud-host">
-                <span className="name">{r.host}</span>
-              </td>
-              <td>{r.os}</td>
-              <td>
-                <span className={`vanitas-hud-status-pill ${r.tone}`}>{r.state}</span>
-              </td>
-              <td className="vanitas-hud-card-note">{r.cmd}</td>
-            </tr>
+        </div>
+      </>
+    );
+  } else if (type === "bento") {
+    body = (
+      <>
+        <div className="vdc-band vdc-tiles">
+          <Num n={1} />
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <span key={i} className="vdc-tile" />
           ))}
-        </tbody>
-      </table>
-    </Illustration>
-  );
-}
-
-/** Navigation de démonstration — mêmes libellés/groupes que `NAV_ITEMS` réel de
- * VanitasDeviceDetail.jsx, réduit aux 5 panes les plus représentatifs de la profondeur réelle
- * (11 panes au total : Vue d'ensemble, Système d'exploitation, Matériel, Identité & réseau,
- * Certificat & enrôlement, Vulnérabilités, Conformité, Activités suspectes, Applications,
- * Commandes, Terminal) plutôt que les 11, pour rester lisible dans le cadre de l'illustration. */
-// Libellés : vdoc.dd.grp.<group> / vdoc.dd.<key>.
-const DEVICE_PREVIEW_NAV = [
-  { group: "system", items: ["os"] },
-  { group: "security", items: ["cert", "suspicious"] },
-  { group: "admin", items: ["terminal"] },
-];
-
-export function DeviceDetailPreview() {
-  const [pane, setPane] = useState("overview");
-  return (
-    <Illustration label={tr("vdoc.dd.caption")}>
-      <div className="vanitas-docs-mini-hero">
-        <div>
-          <p className="vanitas-docs-mini-card-title" style={{ marginBottom: 2 }}>
-            DEMO-WKS-01
-          </p>
-          <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.heroSub")}</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" className="vanitas-danger-btn" disabled title={tr("vdoc.notClickable")}>
-            {tr("vdoc.dd.uninstall")}
-          </button>
-          <button type="button" className="vanitas-danger-btn" disabled title={tr("vdoc.notClickable")}>
-            {tr("vdoc.dd.remove")}
-          </button>
-        </div>
-      </div>
-
-      <div className="vanitas-health-strip vanitas-docs-mini-health-strip">
-        <button
-          type="button"
-          className={`vanitas-health-tile${pane === "cert" ? " active" : ""}`}
-          style={{ "--tile-accent": "var(--low)" }}
-          onClick={() => setPane("cert")}
-        >
-          <div className="vanitas-health-label">{tr("vdoc.dd.certTile")}</div>
-          <div className="vanitas-health-value low">{tr("vdoc.dd.days83")}</div>
-        </button>
-        <button
-          type="button"
-          className={`vanitas-health-tile${pane === "suspicious" ? " active" : ""}`}
-          style={{ "--tile-accent": "var(--amber, #e7a33c)" }}
-          onClick={() => setPane("suspicious")}
-        >
-          <div className="vanitas-health-label">{tr("vdoc.dd.suspicious")}</div>
-          <div className="vanitas-health-value" style={{ color: "var(--amber, #e7a33c)" }}>
-            1
+        <div className="vdc-cols wide">
+          <div className="vdc-pane vdc-grid">
+            <Num n={2} />
+            <span className="vdc-block" />
+            <span className="vdc-block tall" />
+            <span className="vdc-block" />
           </div>
-        </button>
-        <button
-          type="button"
-          className={`vanitas-health-tile${pane === "os" ? " active" : ""}`}
-          style={{ "--tile-accent": "var(--star)" }}
-          onClick={() => setPane("os")}
-        >
-          <div className="vanitas-health-label">{tr("vdoc.dd.disk")}</div>
-          <div className="vanitas-health-value star">61 %</div>
-        </button>
-        <button
-          type="button"
-          className={`vanitas-health-tile${pane === "terminal" ? " active" : ""}`}
-          style={{ "--tile-accent": "var(--star)" }}
-          onClick={() => setPane("terminal")}
-        >
-          <div className="vanitas-health-label">{tr("vdoc.dd.cmds7")}</div>
-          <div className="vanitas-health-value star">4</div>
-        </button>
-      </div>
-
-      <div className="vanitas-detail-layout vanitas-docs-mini-detail">
-        <nav className="vanitas-detail-nav">
-          <button
-            type="button"
-            className={`vanitas-detail-nav-item${pane === "overview" ? " active" : ""}`}
-            onClick={() => setPane("overview")}
-          >
-            {tr("vdoc.dd.overview")}
-          </button>
-          {DEVICE_PREVIEW_NAV.map((g) => (
-            <div key={g.group}>
-              <div className="vanitas-detail-nav-group-label">{tr(`vdoc.dd.grp.${g.group}`)}</div>
-              {g.items.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`vanitas-detail-nav-item${pane === item ? " active" : ""}`}
-                  onClick={() => setPane(item)}
-                >
-                  {tr(`vdoc.dd.${item}`)}
-                </button>
-              ))}
+          <div className="vdc-pane">
+            <Num n={3} />
+            <span className="vdc-block sm" />
+            <span className="vdc-block sm" />
+          </div>
+        </div>
+      </>
+    );
+  } else if (type === "cards") {
+    body = (
+      <>
+        <div className="vdc-band">
+          <Num n={1} />
+          <Bar w="20%" />
+          <Bar w="20%" />
+          <Bar w="20%" />
+        </div>
+        <div className="vdc-band">
+          <Num n={2} />
+          <span className="vdc-chip on" />
+          <span className="vdc-chip" />
+          <span className="vdc-chip" />
+        </div>
+        <div className="vdc-cardgrid">
+          <Num n={3} />
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="vdc-cardsk" />
+          ))}
+        </div>
+      </>
+    );
+  } else if (type === "flow") {
+    body = (
+      <div className="vdc-cols">
+        <div className="vdc-pane">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="vdc-row">
+              <Num n={n} />
+              <Bar w={n === 3 ? "85%" : "60%"} tone={n === 3 ? "accent" : undefined} />
             </div>
           ))}
-        </nav>
-
-        <div className="vanitas-detail-content">
-          {pane === "overview" && (
-            <div className="vanitas-docs-mini-groups">
-              <div className="vanitas-hud-card vanitas-docs-mini-card">
-                <p className="vanitas-docs-mini-card-title">{tr("vdoc.dd.identity")}</p>
-                <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.identitySub")}</p>
-              </div>
-              <div className="vanitas-hud-card vanitas-docs-mini-card">
-                <p className="vanitas-docs-mini-card-title">{tr("vdoc.dd.availability")}</p>
-                <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.onlineNow")}</p>
-              </div>
-              <div className="vanitas-hud-card vanitas-docs-mini-card">
-                <p className="vanitas-docs-mini-card-title">{tr("vdoc.dd.certTile")}</p>
-                <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.certLeft")}</p>
-              </div>
-              <div className="vanitas-hud-card vanitas-docs-mini-card">
-                <p className="vanitas-docs-mini-card-title">{tr("vdoc.dd.disk")}</p>
-                <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.diskUsed")}</p>
-              </div>
-            </div>
-          )}
-          {pane === "os" && (
-            <div className="vanitas-hud-card vanitas-docs-mini-card">
-              <p className="vanitas-docs-mini-card-title">{tr("vdoc.win11")}</p>
-              <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.build")}</p>
-              <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.updates")}</p>
-            </div>
-          )}
-          {pane === "cert" && (
-            <div className="vanitas-hud-card vanitas-docs-mini-card">
-              <p className="vanitas-docs-mini-card-title">{tr("vdoc.dd.certValid")}</p>
-              <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.certRenew")}</p>
-              <p className="vanitas-docs-mini-card-sub">{tr("vdoc.dd.certSubject")}</p>
-            </div>
-          )}
-          {pane === "suspicious" && (
-            <table className="vanitas-hud-table vanitas-docs-mini-table">
-              <thead>
-                <tr>
-                  <th>{tr("vdoc.col.severity")}</th>
-                  <th>{tr("vdoc.col.signal")}</th>
-                  <th>{tr("vdoc.col.rule")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>
-                    <span className="vanitas-hud-sev-pill high">{tr("vdoc.sev.high")}</span>
-                  </td>
-                  <td>{tr("vdoc.sig.process")}</td>
-                  <td>
-                    <div>{tr("vdoc.ex.certutil")}</div>
-                    <div className="vanitas-hud-card-note" style={{ fontFamily: "var(--hud-mono)" }}>
-                      process-lolbin-certutil-decode
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          )}
-          {pane === "terminal" && (
-            <div>
-              <Callout tone="high" title={tr("vdoc.dd.termTitle")}>
-                <p>{tr("vdoc.dd.termBody")}</p>
-              </Callout>
-              <div
-                className="vanitas-docs-mini-card"
-                style={{ marginTop: 10, fontFamily: "var(--hud-mono)", fontSize: 12, padding: "10px 14px" }}
-              >
-                <div>&gt; Get-Service WinDefend</div>
-                <div style={{ color: "var(--hud-ink-faint)" }}>Status : Running</div>
-              </div>
-            </div>
-          )}
+        </div>
+        <div className="vdc-pane">
+          <Num n={4} />
+          <span className="vdc-block sm dashed" />
+          <span className="vdc-block sm" />
         </div>
       </div>
-    </Illustration>
-  );
-}
-
-export function GroupsPreview() {
+    );
+  }
   return (
-    <Illustration label={tr("vdoc.gr.caption")}>
-      <div className="vanitas-docs-mini-groups">
-        <div className="vanitas-hud-card vanitas-docs-mini-card">
-          <p className="vanitas-docs-mini-card-title">{tr("vdoc.gr.test")}</p>
-          <p className="vanitas-docs-mini-card-sub">{tr("vdoc.gr.testSub")}</p>
-        </div>
-        <div className="vanitas-hud-card vanitas-docs-mini-card">
-          <p className="vanitas-docs-mini-card-title">{tr("vdoc.gr.servers")}</p>
-          <p className="vanitas-docs-mini-card-sub">{tr("vdoc.gr.serversSub")}</p>
-        </div>
+    <figure className="vdc-schema">
+      <div className="vdc-schema-frame" aria-hidden="true">
+        {body}
       </div>
-      <div className="vanitas-hud-card vanitas-docs-mini-card" style={{ marginTop: 10 }}>
-        <p className="vanitas-docs-mini-card-title">{tr("vdoc.gr.detail")}</p>
-        <div className="vanitas-docs-mini-pills">
-          <span className="vanitas-hud-status-pill ok">{tr("vdoc.gr.oneEndpoint")}</span>
-          <span className="vanitas-hud-status-pill warn">{tr("vdoc.gr.avgVulns")}</span>
-          <span className="vanitas-hud-status-pill bad">{tr("vdoc.gr.avgRisk")}</span>
-        </div>
-        <p className="vanitas-docs-mini-card-sub" style={{ marginTop: 8 }}>
-          {tr("vdoc.gr.nested")}
-        </p>
-      </div>
-    </Illustration>
-  );
-}
-
-export function SuspiciousActivityPreview() {
-  const rows = [
-    { host: "DEMO-WKS-01", signal: tr("vdoc.sig.process"), tone: "high", summary: tr("vdoc.ex.certutil"), rule: "process-lolbin-certutil-decode" },
-    { host: "DEMO-WKS-02", signal: tr("vdoc.sig.eventlog"), tone: "medium", summary: tr("vdoc.ex.rdp"), rule: "eventlog-rdp-off-hours" },
-    { host: "DEMO-SRV-01", signal: tr("vdoc.sig.usb"), tone: "low", summary: tr("vdoc.ex.usb"), rule: "usb-volume-inserted" },
-  ];
-  return (
-    <Illustration label={tr("vdoc.su.caption")}>
-      <div className="strip vanitas-docs-mini-strip">
-        <div className="strip-item c-high">
-          <div className="strip-body">
-            <div className="strip-label">{tr("vdoc.su.high")}</div>
-            <div className="strip-value">1</div>
-            <div className="strip-sub">{tr("vdoc.su.events")}</div>
-          </div>
-        </div>
-        <div className="strip-item c-med">
-          <div className="strip-body">
-            <div className="strip-label">{tr("vdoc.su.med")}</div>
-            <div className="strip-value">1</div>
-            <div className="strip-sub">{tr("vdoc.su.events")}</div>
-          </div>
-        </div>
-        <div className="strip-item c-low">
-          <div className="strip-body">
-            <div className="strip-label">{tr("vdoc.su.low")}</div>
-            <div className="strip-value">1</div>
-            <div className="strip-sub">{tr("vdoc.su.events")}</div>
-          </div>
-        </div>
-      </div>
-      <table className="vanitas-hud-table vanitas-docs-mini-table">
-        <thead>
-          <tr>
-            <th>{tr("vdoc.col.severity")}</th>
-            <th>{tr("vdoc.col.endpoint")}</th>
-            <th>{tr("vdoc.col.signal")}</th>
-            <th>{tr("vdoc.col.rule")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.host}>
-              <td>
-                <span className={`vanitas-hud-sev-pill ${r.tone}`}>{tr(`vdoc.sev.${r.tone}`)}</span>
-              </td>
-              <td className="vanitas-hud-host">
-                <span className="name">{r.host}</span>
-              </td>
-              <td>{r.signal}</td>
-              <td>
-                <div>{r.summary}</div>
-                <div className="vanitas-hud-card-note" style={{ fontFamily: "var(--hud-mono)" }}>
-                  {r.rule}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Illustration>
-  );
-}
-
-export function CompliancePreview() {
-  return (
-    <Illustration label={tr("vdoc.co.caption")}>
-      <div className="vanitas-hud-card vanitas-docs-mini-card">
-        <p className="vanitas-docs-mini-card-title">{tr("vdoc.co.rule")}</p>
-        <div className="vanitas-docs-mini-pills">
-          <span className="vanitas-hud-status-pill ok">{tr("vdoc.co.compliant")}</span>
-          <span className="vanitas-hud-status-pill bad">{tr("vdoc.co.noncompliant")}</span>
-          <span className="vanitas-hud-status-pill warn">{tr("vdoc.co.error")}</span>
-        </div>
-        <p className="vanitas-docs-mini-card-sub" style={{ marginTop: 8 }}>
-          {trRich("vdoc.co.result", {
-            expected: <span style={{ color: "var(--hud-good)" }}>{tr("vdoc.co.on")}</span>,
-            actual: <span style={{ color: "var(--hud-high)" }}>{tr("vdoc.co.off")}</span>,
-          })}
-        </p>
-      </div>
-    </Illustration>
-  );
-}
-
-export function EolPreview() {
-  const rows = [
-    { host: "DEMO-SRV-01", type: tr("vdoc.eol.os"), name: "Windows Server 2019 Standard", date: "2020-11-10", catalog: false },
-    { host: "DEMO-SRV-01", type: ".NET Framework", name: ".NET Framework 4.5.2", date: "2022-04-26", catalog: false },
-    { host: "DEMO-WKS-02", type: tr("vdoc.eol.software"), name: "Mozilla Firefox 118.0", date: "2023-10-24", catalog: true },
-  ];
-  return (
-    <Illustration label={tr("vdoc.eol.caption")}>
-      <table className="vanitas-hud-table vanitas-docs-mini-table">
-        <thead>
-          <tr>
-            <th>{tr("vdoc.col.endpoint")}</th>
-            <th>{tr("vdoc.col.type")}</th>
-            <th>{tr("vdoc.col.software")}</th>
-            <th>{tr("vdoc.col.eolDate")}</th>
-            <th>{tr("vdoc.col.catalog")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td className="vanitas-hud-host">
-                <span className="name">{r.host}</span>
-              </td>
-              <td>{r.type}</td>
-              <td>{r.name}</td>
-              <td>
-                <span className="vanitas-hud-status-pill bad">{new Date(`${r.date}T00:00:00`).toLocaleDateString(currentLocale())}</span>
-              </td>
-              <td>
-                {r.catalog ? (
-                  <button type="button" className="vanitas-ghost-btn" disabled title={tr("vdoc.notClickable")}>
-                    {tr("vdoc.eol.update")}
-                  </button>
-                ) : (
-                  "—"
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Illustration>
-  );
-}
-
-export function ApplicationsPreview() {
-  return (
-    <Illustration label={tr("vdoc.ap.caption")}>
-      <div className="vanitas-hud-card vanitas-docs-mini-card">
-        <p className="vanitas-docs-mini-card-title">{tr("vdoc.ap.agent")}</p>
-        <p className="vanitas-docs-mini-card-sub">{tr("vdoc.ap.agentSub")}</p>
-      </div>
-      <div className="vanitas-hud-card vanitas-docs-mini-card" style={{ marginTop: 10 }}>
-        <p className="vanitas-docs-mini-card-title">{tr("vdoc.ap.deployment")}</p>
-        <div className="vanitas-docs-mini-pills">
-          <span className="vanitas-hud-status-pill ok">{tr("vdoc.ap.ok")}</span>
-          <span className="vanitas-hud-status-pill bad">{tr("vdoc.ap.fail")}</span>
-          <span className="vanitas-hud-status-pill warn">{tr("vdoc.ap.pending")}</span>
-        </div>
-      </div>
-    </Illustration>
-  );
-}
-
-export function ActivityPreview() {
-  const rows = [
-    { cat: "poste" },
-    { cat: "application" },
-    { cat: "conformite" },
-    { cat: "groupe" },
-  ];
-  return (
-    <Illustration label={tr("vdoc.ac.caption")}>
-      <div className="vanitas-docs-mini-activity">
-        {rows.map((r, i) => (
-          <div className="vanitas-docs-mini-activity-row" key={i}>
-            <span className={`vanitas-docs-mini-activity-tag tone-${r.cat}`}>{tr(`val.cat.${r.cat}`)}</span>
-            <span>Nicolas {tr(`vdoc.ac.${r.cat}`)}</span>
-          </div>
-        ))}
-      </div>
-    </Illustration>
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
   );
 }

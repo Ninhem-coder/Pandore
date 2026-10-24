@@ -181,11 +181,24 @@ flowchart LR
   ("Non conforme", "Erreur"… de `SEVERITY`/`FAILING_CATEGORIES`) RESTENT des identifiants en
   français : traduire à l'affichage via `categoryLabel()` (theme.js). Dictionnaires par zone dans
   `i18n/messages/<zone>.js` (`{ fr, en }` côte à côte), listés par `messages/index.js`.
-  Documentation Vanitas : UN CORPS PAR LANGUE (`VanitasDocsFr.jsx` / `VanitasDocsEn.jsx`, choisi
-  par `getLang()`), pièces communes (sommaire, encadrés, illustrations traduites via `tr`) dans
-  `vanitasDocsParts.jsx` — toute modification du texte se fait dans LES DEUX corps.
+  Tri dans Vanitas : TOUJOURS `components/SortMenu.jsx` (bouton « Trié par » + menu, critères
+  `{ value, label, hint, dir }` où `dir` = ordre naturel du critère ; la page garde son comparateur
+  « naturel » et l'inverse si le sens choisi diffère) — jamais un `<select>` natif.
+  Documentation Vanitas : contenu en DONNÉES, un fichier par langue (`vanitasDocsContent.fr.js` /
+  `.en.js`, choisi par `getLang()`, mêmes `id` et même nombre de repères `legend` des deux côtés)
+  — sert la recherche plein texte et l'affichage section par section. Rendu (mise en forme
+  `**gras**`/`` `code` ``, blocs, schémas numérotés) dans `vanitasDocsParts.jsx`. Toute
+  modification du texte se fait dans LES DEUX fichiers ; une page Vanitas refaite ⇒ sa section.
   Traduit à ce jour : coquille + toutes les pages Pandore et Vanitas + doc Vanitas + exports
   Excel ; reste : messages d'erreur du backend, données démo.
+- **Vues d'ensemble réordonnables** : Pandore (`OverviewTab.jsx`, `.ov2-*`) et Vanitas
+  (`VanitasOverviewTab.jsx`, refonte « bento » du 2026-10-23, `.vov-*`) partagent
+  `hooks/useReorderableZone.js` (glisser-déposer en direct + FLIP + `localStorage`, options
+  `sizeCount`/`defaultSize`). Deux zones indépendantes par page (colonne principale
+  redimensionnable, colonne de droite à ordre seul), jamais de déplacement d'une zone à
+  l'autre. Clés `localStorage` versionnées (`…-v1`) : bumper le suffixe si la FORME du layout
+  persisté change. Vanitas : points de rupture sur la largeur réelle (`data-size` posé par un
+  `ResizeObserver`), pas de `container-type` (ancêtres dimensionnés par leur contenu).
 - **Ne jamais reproduire un logo de marque réelle** sans asset officiel dans le repo — glyphes
   abstraits/neutres.
 
