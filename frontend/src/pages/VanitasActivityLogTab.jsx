@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import CopyButton from "../components/CopyButton.jsx";
 import { IconLaptop, IconLayers, IconShield, IconUpload } from "../components/icons.jsx";
-import { useVanitasActivityLog } from "../hooks/useDashboardData.js";
+import { useVanitasActivityLog, useVanitasAgents } from "../hooks/useDashboardData.js";
 import { COMMAND_LABELS, fmtDateTime } from "./vanitasShared.jsx";
 import { currentLocale, localizedTable, tr } from "../i18n/core.js";
 
@@ -431,48 +430,62 @@ function sentenceParts(entry) {
   return { verb: auditText("verb", entry), target: tr("val.quoted", { label: entry.target_label }) };
 }
 
-function ActivityRow({ entry, onOpen }) {
+// Ligne d'erreur la plus parlante d'un échec, affichée sous la ligne du journal (refonte
+// 2026-10-24) : stderr ou code de sortie en priorité, sinon la dernière ligne non vide.
+function errorExcerpt(detail) {
+  if (!detail) return null;
+  const lines = detail.split("\n").map((l) => l.trim()).filter(Boolean);
+  return lines.find((l) => /^\[stderr\]|^(Code de sortie|Exit code)|erreur|error/i.test(l)) ?? lines[lines.length - 1] ?? null;
+}
+
+function ActivityRow({ entry, selected, onSelect }) {
   const meta = CATEGORY_META[entry.category] ?? CATEGORY_META.poste;
   const { verb, target } = sentenceParts(entry);
-  const outcomeLabel = tr(entry.outcome === "ok" || entry.outcome === "fail" ? `val.outcome.${entry.outcome}` : "val.outcome.pending");
+  const excerpt = entry.outcome === "fail" ? errorExcerpt(entry.detail) : null;
 
   return (
-    <div
-      className="vanitas-activity-row"
+    <button
+      type="button"
+      className={`vlg-ev${selected ? " sel" : ""}`}
       style={{ "--cat-color": meta.color, "--cat-dim": meta.dim }}
-      onClick={() => onOpen(entry)}
-      role="button"
-      tabIndex={0}
+      aria-pressed={selected}
+      onClick={() => onSelect(entry.id)}
     >
-      <span className="vanitas-activity-badge">
+      <span className="vlg-stripe" />
+      <span className="vlg-ico" aria-hidden="true">
         <meta.Icon />
-        {meta.label}
       </span>
-      <div className="vanitas-activity-body">
-        <div className="vanitas-activity-sentence">
-          <span className="actor">{entry.actor || tr("val.unknown")}</span> {verb} <span className="target">{target}</span>
-        </div>
-        {entry.detail && (
-          <div className="vanitas-activity-detail">
-            {entry.detail.length > 160 ? `${entry.detail.slice(0, 160)}…` : entry.detail}
-          </div>
-        )}
-      </div>
-      <div className="vanitas-activity-meta">
-        <span title={fmtDateTime(entry.created_at)}>{activityMetaLabel(entry.created_at)}</span>
+      <span className="vlg-txt">
+        <b>{entry.actor || tr("val.unknown")}</b> {verb} <span className="vlg-target">{target}</span>
+      </span>
+      <span className="vlg-time" title={fmtDateTime(entry.created_at)}>
+        {activityMetaLabel(entry.created_at)}
+      </span>
+      <span className="vlg-meta">
+        <span>{meta.label}</span>
         {entry.outcome && (
-          <span className={`vanitas-activity-outcome ${entry.outcome}`}>
-            <span className="dot" />
-            {outcomeLabel}
-          </span>
+          <>
+            <span>·</span>
+            <span className={`vlg-outcome ${entry.outcome}`}>● {outcomeLabel(entry.outcome)}</span>
+          </>
         )}
-      </div>
-    </div>
+        {excerpt && (
+          <>
+            <span>·</span>
+            <span className="vlg-excerpt" title={excerpt}>
+              {excerpt}
+            </span>
+          </>
+        )}
+      </span>
+    </button>
   );
 }
 
-// Bouton "Copier" du détail complet — dupliqué (~15 lignes, même convention déjà établie sur
-// ce dashboard — voir DeployAppWizard.jsx/EditAppTab.jsx/AppCatalogTab.jsx) plutôt que partagé.
+function outcomeLabel(outcome) {
+  return tr(outcome === "ok" || outcome === "fail" ? `val.outcome.${outcome}` : "val.outcome.pending");
+}
+
 function renderTerminalDetail(text) {
   return text.split("\n").map((line, i) => {
     const cls = line.startsWith("[stderr]") ? " stderr" : /^(Code de sortie|Exit code)/.test(line) ? " exit" : "";
@@ -485,154 +498,99 @@ function renderTerminalDetail(text) {
 }
 
 /**
- * Popup de détail complet (2026-09-09, maquette validée par Nicolas avant implémentation —
- * "on est d'accord qu'on a tout mis ?" a mené à ajouter `completed_at`/`parameters`, les deux
- * seuls champs du modèle réel qui n'étaient exposés nulle part avant ce jalon). Carte "paysage"
- * (retour de Nicolas : "le détail à droite et les autres informations à gauche") — colonne
- * gauche fixe (identité + fiche), colonne droite flexible (le détail brut, potentiellement
- * long) — chacune défile indépendamment plutôt que de laisser le détail pousser la hauteur de
- * toute la carte.
- *
- * PAS de lien "Voir le poste/groupe/..." malgré la maquette : construire une vraie navigation
- * croisée entre onglets Vanitas aurait exigé de répliquer le mécanisme `searchNav`/
- * `initialQuery` de Dashboard.jsx (aujourd'hui strictement réservé à l'arbre Intune, aucun
- * onglet Vanitas n'y répond) — hors du périmètre de cette demande précise (le contenu du
- * popup), laissé de côté plutôt que construit à la va-vite.
- *
- * `createPortal` sur `document.body` (même précédent que SettingsModal.jsx/WidgetsTestTab.jsx
- * pour la même raison : un `position: fixed` hérite de tout ancêtre portant un `transform`,
- * même une matrice identité issue d'une animation déjà terminée).
+ * Détail d'une entrée (2026-09-09 en popup, panneau latéral depuis la refonte du 2026-10-24) —
+ * mêmes champs qu'avant (`completed_at`/`parameters` inclus, "on est d'accord qu'on a tout
+ * mis ?"). Nouveau : "Voir le poste" / "Tout le journal de ce poste" quand la cible est un poste
+ * connu. L'API du journal ne renvoie pas d'`agent_id` (`routes/activity.py::ActivityEntryOut`) —
+ * rapprochement par nom de poste sur la liste des agents déjà en cache.
  */
-function ActivityDetailModal({ entry, onClose }) {
-  const shellRef = useRef(null);
-
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === "Escape") onClose();
-    }
-    function handlePointerDown(e) {
-      if (shellRef.current && !shellRef.current.contains(e.target)) onClose();
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [onClose]);
-
+function ActivityDetailPanel({ entry, agent, onOpenAgent, onFilterHost }) {
   const meta = CATEGORY_META[entry.category] ?? CATEGORY_META.poste;
   const { verb, target } = sentenceParts(entry);
-  const title = entryTitle(entry);
-  const outcomeLabel = tr(entry.outcome === "ok" || entry.outcome === "fail" ? `val.outcome.${entry.outcome}` : "val.outcome.pending");
   const paramEntries = entry.parameters ? Object.entries(entry.parameters) : [];
 
-  return createPortal(
-    <div className="activity-detail-overlay">
-      <div
-        className="activity-detail-shell"
-        style={{ "--cat": meta.color, "--cat-soft": meta.dim }}
-        ref={shellRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-      >
-        <button type="button" className="activity-detail-close" onClick={onClose} aria-label={tr("val.close")}>
-          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
-
-        <div className="activity-detail-col-left">
-          <div className="activity-detail-icon">
-            <meta.Icon />
-          </div>
-          <h2 className="activity-detail-title">{title}</h2>
-          <p className="activity-detail-subtitle">
-            <b>{entry.actor || tr("val.unknown")}</b> {verb} <span className="target">{target}</span>
-          </p>
-          {entry.outcome && (
-            <span className={`activity-detail-outcome-pill ${entry.outcome}`}>
-              <span className="dot" />
-              {outcomeLabel}
-            </span>
-          )}
-
-          <div className="activity-detail-divider" />
-
-          <div className="activity-detail-info-list">
-            <div className="activity-detail-info-row">
-              <span className="label">{tr("val.info.id")}</span>
-              <span className="value mono">{entry.id}</span>
-            </div>
-            <div className="activity-detail-info-row">
-              <span className="label">{tr("val.info.source")}</span>
-              <span className="value">{tr(entry.source === "command" ? "val.source.command" : "val.source.audit")}</span>
-            </div>
-            <div className="activity-detail-info-row">
-              <span className="label">{tr("val.info.category")}</span>
-              <span className="value accent">{meta.label}</span>
-            </div>
-            <div className="activity-detail-info-row">
-              <span className="label">{tr("val.info.created")}</span>
-              <span className="value mono">{fmtDateTime(entry.created_at)}</span>
-            </div>
-            {entry.completed_at ? (
-              <>
-                <div className="activity-detail-info-row">
-                  <span className="label">{tr("val.info.completed")}</span>
-                  <span className="value mono">{fmtDateTime(entry.completed_at)}</span>
-                </div>
-                <div className="activity-detail-info-row">
-                  <span className="label">{tr("val.info.duration")}</span>
-                  <span className="value mono">{fmtDuration(entry.created_at, entry.completed_at)}</span>
-                </div>
-              </>
-            ) : (
-              entry.source === "command" && (
-                <div className="activity-detail-info-row">
-                  <span className="label">{tr("val.info.duration")}</span>
-                  <span className="value mono">{tr("val.running")}</span>
-                </div>
-              )
-            )}
-          </div>
+  return (
+    <aside className="vlg-card vlg-detail" style={{ "--cat-color": meta.color, "--cat-dim": meta.dim }} aria-label={tr("vlg.detailAria")}>
+      <div className="vlg-detail-head">
+        <span className="vlg-detail-ico" aria-hidden="true">
+          <meta.Icon />
+        </span>
+        <div className="vlg-detail-title">
+          <h2>{entryTitle(entry)}</h2>
+          <span className="vlg-detail-sentence">
+            <b>{entry.actor || tr("val.unknown")}</b> {verb} <span className="vlg-target">{target}</span>
+          </span>
         </div>
-
-        <div className="activity-detail-col-right">
-          {paramEntries.length > 0 && (
-            <>
-              <div className="activity-detail-section-row">
-                <span className="label">{tr("val.params")}</span>
-              </div>
-              <div className="activity-detail-params">
-                {paramEntries.map(([k, v]) => (
-                  <div className="activity-detail-params-row" key={k}>
-                    <span className="k">{PARAM_LABELS[k] ?? k}</span>
-                    <span className="v" title={String(v)}>
-                      {String(v)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="activity-detail-divider" style={{ margin: "18px 0" }} />
-            </>
-          )}
-          <div className="activity-detail-section-row">
-            <span className="label">{tr("val.fullDetail")}</span>
-            {entry.detail && <CopyButton className="activity-detail-copy-btn" text={entry.detail} />}
-          </div>
-          <div className="activity-detail-body">
-            {entry.detail ? (
-              <div className="activity-detail-terminal">{renderTerminalDetail(entry.detail)}</div>
-            ) : (
-              <div className="activity-detail-empty">{tr("val.noDetail")}</div>
-            )}
-          </div>
-        </div>
+        {entry.outcome && <span className={`vlg-pill ${entry.outcome}`}>{outcomeLabel(entry.outcome)}</span>}
       </div>
-    </div>,
-    document.body
+
+      <dl className="vlg-info">
+        <dt>{tr("val.info.category")}</dt>
+        <dd>
+          <span className="vlg-cat-dot" /> {meta.label}
+        </dd>
+        <dt>{tr("val.info.source")}</dt>
+        <dd>{tr(entry.source === "command" ? "val.source.command" : "val.source.audit")}</dd>
+        <dt>{tr("val.info.created")}</dt>
+        <dd className="vlg-mono">{fmtDateTime(entry.created_at)}</dd>
+        {entry.completed_at ? (
+          <>
+            <dt>{tr("val.info.completed")}</dt>
+            <dd className="vlg-mono">
+              {fmtDateTime(entry.completed_at)} · {fmtDuration(entry.created_at, entry.completed_at)}
+            </dd>
+          </>
+        ) : (
+          entry.source === "command" && (
+            <>
+              <dt>{tr("val.info.duration")}</dt>
+              <dd className="vlg-mono">{tr("val.running")}</dd>
+            </>
+          )
+        )}
+        <dt>{tr("val.info.id")}</dt>
+        <dd className="vlg-mono vlg-muted">{entry.id}</dd>
+      </dl>
+
+      {paramEntries.length > 0 && (
+        <div className="vlg-block">
+          <span className="vlg-lbl">{tr("val.params")}</span>
+          <div className="vlg-params">
+            {paramEntries.map(([k, v]) => (
+              <div key={k} className="vlg-param">
+                <span className="vlg-muted">{PARAM_LABELS[k] ?? k}</span>
+                <span className="vlg-mono" title={String(v)}>
+                  {String(v)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="vlg-block">
+        <div className="vlg-block-head">
+          <span className="vlg-lbl">{tr("val.fullDetail")}</span>
+          {entry.detail && <CopyButton className="activity-detail-copy-btn" text={entry.detail} />}
+        </div>
+        {entry.detail ? (
+          <div className="activity-detail-terminal vlg-term">{renderTerminalDetail(entry.detail)}</div>
+        ) : (
+          <p className="vlg-sub" style={{ margin: 0 }}>{tr("val.noDetail")}</p>
+        )}
+      </div>
+
+      {agent && (
+        <div className="vlg-foot">
+          <button type="button" className="vanitas-ghost-btn" onClick={() => onOpenAgent(agent.id)}>
+            {tr("vlg.openHost", { host: agent.hostname })}
+          </button>
+          <button type="button" className="vanitas-ghost-btn" onClick={() => onFilterHost(agent.hostname)}>
+            {tr("vlg.hostLog")}
+          </button>
+        </div>
+      )}
+    </aside>
   );
 }
 
@@ -640,37 +598,43 @@ function ActivityDetailModal({ entry, onClose }) {
  * "Vanitas" > Administration > Journal (2026-09-09, demande de Nicolas — "changer Commandes en
  * onglet de Log pour chaque action... rechercher en fonction des informations dans les
  * colonnes... un identifiant sur ce qu'il touche, filtrable, qui a créé quoi"). Remplace
- * l'ancien "Commandes" (liste plate de `AgentCommand` seules + formulaire de lancement fleet-
- * wide, voir historique de ce fichier) — le formulaire de lancement générique n'est PAS
- * reconduit ici (demande explicite : "un onglet de Log", pas "un onglet de Log EN PLUS de
- * Commandes") ; lancer une commande reste possible depuis la fiche de chaque poste
- * (`VanitasDeviceDetail.jsx`), inchangé.
+ * l'ancien "Commandes" ; lancer une commande reste possible depuis la fiche de chaque poste.
  *
- * Maquette validée par Nicolas avant implémentation (recherche de patterns réels — GitHub
- * audit log, Linear, Vercel, Stripe, Datadog Audit Trail — voir l'artefact publié) : liseré +
- * badge coloré par catégorie, phrase "acteur a fait quoi « cible »" plutôt qu'un tableau de
- * colonnes brut, regroupement par jour, recherche libre + pastilles de catégorie avec
- * compteur, ligne dépliable pour le détail complet.
+ * Refonte liste + détail (2026-10-24, maquette canvas validée par Nicolas) : bandeau de synthèse
+ * (événements sur la période, répartition par catégorie en barre avec légende cliquable, échecs
+ * cliquables, acteur le plus actif), liste toujours groupée par jour avec l'extrait d'erreur sous
+ * chaque échec, pastilles de résultat, détail dans un panneau latéral au lieu de la popup. Les
+ * filtres Type (multi-sélection) et Période (calendrier) sont inchangés. Classes `.vlg-*`.
  */
-export default function VanitasActivityLogTab() {
+export default function VanitasActivityLogTab({ onNavigateVanitas, vanitasNav }) {
   const log = useVanitasActivityLog();
+  const agents = useVanitasAgents();
   const [query, setQuery] = useState("");
   const [selectedCategories, setSelectedCategories] = useState(() => new Set(CATEGORY_ORDER));
+  const [outcomeFilter, setOutcomeFilter] = useState("all");
   const [rangeKey, setRangeKey] = useState("90");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const [openFilter, setOpenFilter] = useState(null); // null | "type" | "period"
   const typeRef = useRef(null);
   const periodRef = useRef(null);
+  const detailRef = useRef(null);
 
   useEffect(() => {
     log.ensureLoaded();
+    agents.ensureLoaded();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Un seul panneau de filtre ouvert à la fois, fermé au clic en dehors des DEUX — même
-  // motif `pointerdown`+ref que ActivityDetailModal, adapté à 2 racines au lieu d'une.
+  // Pré-remplissage de la recherche depuis une autre page (`vanitasNav.payload.query`), même
+  // convention que Logiciels obsolètes.
+  useEffect(() => {
+    if (vanitasNav?.payload?.query) setQuery(vanitasNav.payload.query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vanitasNav?.token]);
+
+  // Un seul panneau de filtre ouvert à la fois, fermé au clic en dehors des DEUX.
   useEffect(() => {
     if (!openFilter) return undefined;
     function handlePointerDown(e) {
@@ -699,8 +663,7 @@ export default function VanitasActivityLogTab() {
 
   const inRange = useMemo(() => {
     if (rangeKey === CUSTOM_RANGE_KEY) {
-      // Bornes inclusives — `customTo` couvre la journée entière (23:59:59.999), sinon une
-      // entrée du jour choisi lui-même aurait été exclue (comparée à minuit pile).
+      // Bornes inclusives — `customTo` couvre la journée entière (23:59:59.999).
       const fromTime = customFrom ? new Date(`${customFrom}T00:00:00`).getTime() : null;
       const toTime = customTo ? new Date(`${customTo}T23:59:59.999`).getTime() : null;
       if (fromTime == null && toTime == null) return entries;
@@ -729,95 +692,202 @@ export default function VanitasActivityLogTab() {
     return c;
   }, [inRange]);
 
+  const outcomeCounts = useMemo(() => {
+    const c = { all: inRange.length, fail: 0, pending: 0, ok: 0 };
+    inRange.forEach((e) => {
+      if (e.outcome === "fail" || e.outcome === "ok") c[e.outcome]++;
+      else if (e.source === "command") c.pending++;
+    });
+    return c;
+  }, [inRange]);
+
+  const topActor = useMemo(() => {
+    const byActor = new Map();
+    inRange.forEach((e) => {
+      const a = e.actor || tr("val.unknown");
+      byActor.set(a, (byActor.get(a) ?? 0) + 1);
+    });
+    const best = [...byActor.entries()].sort((a, b) => b[1] - a[1])[0];
+    return best ? { name: best[0], count: best[1], actors: byActor.size } : null;
+  }, [inRange]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return inRange.filter((e) => {
       if (!selectedCategories.has(e.category)) return false;
+      if (outcomeFilter === "fail" && e.outcome !== "fail") return false;
+      if (outcomeFilter === "ok" && e.outcome !== "ok") return false;
+      if (outcomeFilter === "pending" && !(e.source === "command" && e.outcome !== "ok" && e.outcome !== "fail")) return false;
       if (!q) return true;
       const { verb, target } = sentenceParts(e);
-      const haystack = [
-        e.actor, CATEGORY_META[e.category]?.label, verb, target, e.detail, e.target_label,
-      ]
+      const haystack = [e.actor, CATEGORY_META[e.category]?.label, verb, target, e.detail, e.target_label]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [inRange, query, selectedCategories]);
+  }, [inRange, query, selectedCategories, outcomeFilter]);
 
-  const sorted = useMemo(
-    () => [...filtered].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
-    [filtered]
-  );
+  const sorted = useMemo(() => [...filtered].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), [filtered]);
+
+  const selected = sorted.find((e) => e.id === selectedId) ?? sorted[0] ?? null;
+  const agentByHost = useMemo(() => {
+    const m = new Map();
+    for (const a of agents.state.data ?? []) m.set(a.hostname?.toLowerCase(), a);
+    return m;
+  }, [agents.state.data]);
+  const selectedAgent = selected && (selected.source === "command" || selected.category === "poste") ? agentByHost.get(selected.target_label?.toLowerCase()) ?? null : null;
+
+  function selectEntry(id) {
+    setSelectedId(id);
+    if (detailRef.current && window.matchMedia?.("(max-width: 980px)").matches) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  const rangeSub =
+    rangeKey === CUSTOM_RANGE_KEY
+      ? customFrom && customTo
+        ? tr("vlg.rangeCustom", { from: fmtShortDate(customFrom), to: fmtShortDate(customTo) })
+        : tr("vlg.rangeCustomOpen")
+      : tr("vlg.rangeDays", { count: Number(rangeKey) });
 
   let lastDay = null;
 
   return (
-    <div className="vanitas-hud">
+    <div className="vanitas-hud vlg">
       {log.state.error && <p className="vanitas-hud-error">{log.state.error}</p>}
 
-      <div className="vanitas-hud-toolbar" style={{ marginBottom: "12px" }}>
-        <div className="vanitas-hud-search">
-          <span className="prompt">&gt;</span>
-          <input
-            type="text"
-            placeholder={tr("val.searchPlaceholder")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-          />
+      <section className="vlg-card vlg-sum" aria-label={tr("vlg.sumAria")}>
+        <div className="vlg-col">
+          <span className="vlg-lbl">{tr("vlg.events")}</span>
+          <span className="vlg-val accent">{inRange.length}</span>
+          <span className="vlg-sub vlg-small">{rangeSub}</span>
         </div>
-        <TypeFilterDropdown
-          selected={selectedCategories}
-          counts={counts}
-          onToggle={toggleCategory}
-          onToggleAll={toggleAllCategories}
-          isOpen={openFilter === "type"}
-          onRequestToggle={() => setOpenFilter((f) => (f === "type" ? null : "type"))}
-          rootRef={typeRef}
-        />
-        <PeriodFilterDropdown
-          rangeKey={rangeKey}
-          customFrom={customFrom}
-          customTo={customTo}
-          onApplyPreset={setRangeKey}
-          onApplyCustom={(from, to) => {
-            setCustomFrom(from);
-            setCustomTo(to);
-            setRangeKey(CUSTOM_RANGE_KEY);
-          }}
-          isOpen={openFilter === "period"}
-          onRequestToggle={() => setOpenFilter((f) => (f === "period" ? null : "period"))}
-          onClose={() => setOpenFilter(null)}
-          rootRef={periodRef}
-        />
-      </div>
+        <div className="vlg-sum-state">
+          <span className="vlg-lbl">{tr("vlg.byCategory")}</span>
+          <span className="vlg-bar" role="img" aria-label={CATEGORY_ORDER.map((k) => `${counts[k]} ${CATEGORY_META[k].label}`).join(", ")}>
+            {CATEGORY_ORDER.map((k) => (counts[k] ? <i key={k} style={{ flex: counts[k], background: CATEGORY_META[k].color }} /> : null))}
+          </span>
+          <div className="vlg-legend">
+            {CATEGORY_ORDER.map((k) => (
+              <button key={k} type="button" className="vlg-leg" onClick={() => setSelectedCategories(new Set([k]))}>
+                <i style={{ background: CATEGORY_META[k].color }} />
+                <b>{counts[k]}</b> {CATEGORY_META[k].label.toLowerCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="vlg-col vlg-sum-third">
+          <span className="vlg-lbl">{tr("vlg.fails")}</span>
+          <button type="button" className="vlg-val vlg-val-btn" style={outcomeCounts.fail ? { color: "var(--hud-high)" } : undefined} onClick={() => setOutcomeFilter("fail")}>
+            {outcomeCounts.fail}
+          </button>
+          <span className="vlg-sub vlg-small">{tr("vlg.failsSub")}</span>
+        </div>
+        <div className="vlg-col vlg-sum-fourth">
+          <span className="vlg-lbl">{tr("vlg.topActor")}</span>
+          {topActor ? (
+            <>
+              <button type="button" className="vlg-actor" onClick={() => setQuery(topActor.name)}>
+                {topActor.name}
+              </button>
+              <span className="vlg-sub vlg-small">{tr("vlg.topActorSub", { count: topActor.count, actors: topActor.actors })}</span>
+            </>
+          ) : (
+            <span className="vlg-sub">—</span>
+          )}
+        </div>
+      </section>
 
-      <p className="vanitas-activity-note">
-        {tr("val.note", { shown: sorted.length, count: inRange.length })}
-      </p>
+      <div className="vlg-split">
+        <section className="vlg-card vlg-list" aria-label={tr("vlg.listAria")}>
+          <div className="vlg-toolbar">
+            <label className="vlg-search-wrap">
+              <span className="vlg-sr">{tr("vlg.search")}</span>
+              <input type="search" className="vlg-input" placeholder={tr("vlg.search")} value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
+            </label>
+            <TypeFilterDropdown
+              selected={selectedCategories}
+              counts={counts}
+              onToggle={toggleCategory}
+              onToggleAll={toggleAllCategories}
+              isOpen={openFilter === "type"}
+              onRequestToggle={() => setOpenFilter((f) => (f === "type" ? null : "type"))}
+              rootRef={typeRef}
+            />
+            <PeriodFilterDropdown
+              rangeKey={rangeKey}
+              customFrom={customFrom}
+              customTo={customTo}
+              onApplyPreset={setRangeKey}
+              onApplyCustom={(from, to) => {
+                setCustomFrom(from);
+                setCustomTo(to);
+                setRangeKey(CUSTOM_RANGE_KEY);
+              }}
+              isOpen={openFilter === "period"}
+              onRequestToggle={() => setOpenFilter((f) => (f === "period" ? null : "period"))}
+              onClose={() => setOpenFilter(null)}
+              rootRef={periodRef}
+            />
+          </div>
+          <span className="vlg-chips" role="group" aria-label={tr("vlg.outcomeAria")}>
+            {[
+              ["all", tr("vlg.f.all"), "var(--vlg-muted)"],
+              ["fail", tr("vlg.f.fail"), "var(--hud-high)"],
+              ["pending", tr("vlg.f.pending"), "var(--hud-accent)"],
+              ["ok", tr("vlg.f.ok"), "var(--hud-good)"],
+            ].map(([k, label, color]) => (
+              <button key={k} type="button" className={`vlg-chip${outcomeFilter === k ? " on" : ""}`} aria-pressed={outcomeFilter === k} onClick={() => setOutcomeFilter(k)}>
+                <i className="dot" style={{ background: color }} />
+                {label} <b>{outcomeCounts[k]}</b>
+              </button>
+            ))}
+          </span>
+          <span className="vlg-sub">{tr("val.note", { shown: sorted.length, count: inRange.length })}</span>
 
-      {log.state.status === "loading" ? (
-        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
-      ) : sorted.length === 0 ? (
-        <p className="vanitas-hud-empty-note">
-          {entries.length === 0 ? tr("val.empty") : tr("val.noResult")}
-        </p>
-      ) : (
-        sorted.map((entry) => {
-          const day = fmtDay(entry.created_at);
-          const showDay = day !== lastDay;
-          lastDay = day;
-          return (
-            <div key={entry.id}>
-              {showDay && <div className="vanitas-activity-day">{day}</div>}
-              <ActivityRow entry={entry} onOpen={setSelectedEntry} />
+          {log.state.status === "loading" ? (
+            <p className="vlg-empty">{tr("v.loading")}</p>
+          ) : sorted.length === 0 ? (
+            <p className="vlg-empty">{entries.length === 0 ? tr("val.empty") : tr("val.noResult")}</p>
+          ) : (
+            <div className="vlg-rows">
+              {sorted.map((entry) => {
+                const day = fmtDay(entry.created_at);
+                const showDay = day !== lastDay;
+                lastDay = day;
+                return (
+                  <div key={entry.id} className="vlg-row-wrap">
+                    {showDay && <div className="vlg-day">{day}</div>}
+                    <ActivityRow entry={entry} selected={selected?.id === entry.id} onSelect={selectEntry} />
+                  </div>
+                );
+              })}
             </div>
-          );
-        })
-      )}
+          )}
+        </section>
 
-      {selectedEntry && <ActivityDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />}
+        <div ref={detailRef} className="vlg-detail-slot">
+          {selected ? (
+            <ActivityDetailPanel
+              key={selected.id}
+              entry={selected}
+              agent={selectedAgent}
+              onOpenAgent={(agentId) => onNavigateVanitas?.("vanitas-devices", { selectAgentId: agentId })}
+              onFilterHost={(host) => {
+                setQuery(host);
+                setOutcomeFilter("all");
+                setSelectedCategories(new Set(CATEGORY_ORDER));
+              }}
+            />
+          ) : (
+            <div className="vlg-card vlg-empty-panel">
+              <p className="vlg-sub">{tr("vlg.pick")}</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

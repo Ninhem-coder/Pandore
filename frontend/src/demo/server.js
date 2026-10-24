@@ -802,16 +802,18 @@ function activityLog() {
     action: c.command_type,
     target_label: c.hostname,
     detail: null,
-    outcome: c.status === "completed" ? (c.success ? "success" : "failure") : c.status,
+    // Même contrat que `routes/activity.py::_command_outcome` : "ok" | "fail" | "pending".
+    outcome: c.status === "pending" || c.status === "running" ? "pending" : c.success === false ? "fail" : "ok",
     created_at: c.created_at,
     completed_at: c.completed_at,
     parameters: null,
   }));
   const audit = [
-    ["groupe", "group_update", "Postes Finance", "Fenêtre de maintenance modifiée"],
-    ["application", "installer_upload", "Notepad++ 8.7.1", null],
-    ["conformite", "rule_update", "LAPS configuré", "Script mis à jour"],
-    ["poste", "network_isolate", AGENTS[2].hostname, "Isolement réseau après détection"],
+    // Actions d'audit réelles (val.verb.<catégorie>.<action>, écrites par routes/*.py côté serveur).
+    ["groupe", "updated", "Postes Finance", "Fenêtre de maintenance modifiée"],
+    ["application", "created", "Notepad++ 8.7.1", null],
+    ["conformite", "updated", "LAPS configuré", "Script mis à jour"],
+    ["poste", "removed", "DEMO-LAP-040", null],
   ].map(([category, action, target_label, detail], i) => ({
     id: `audit-${i}`,
     source: "audit",
@@ -820,7 +822,7 @@ function activityLog() {
     action,
     target_label,
     detail,
-    outcome: "success",
+    outcome: null, // une entrée "audit" n'a jamais de résultat (contrat serveur)
     created_at: ago((i + 1) * 9 * HOUR),
     completed_at: null,
     parameters: null,

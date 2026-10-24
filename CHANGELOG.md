@@ -48,6 +48,11 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas activity log redesigned** as a day-grouped list + detail: a summary band (events over
+  the period, category split with a clickable legend, failures, most active actor), outcome chips,
+  the error line shown under each failed command, and the full detail in a side panel instead of
+  a popup, with links to the endpoint concerned and to that endpoint's whole log. The Type and
+  Period filters are unchanged (the period calendar now fits on phones).
 - **Vanitas updates redesigned** as list + detail: a summary band (the six patch states in one bar
   with a clickable legend, pending fixes, active policies), an "Endpoints / Policies by group"
   switch on the list, and the detail in a side panel instead of a popup and a side column. The
