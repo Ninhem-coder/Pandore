@@ -48,6 +48,12 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas Applications (installer management) redesigned** as list + detail: a summary band
+  (formats with a clickable legend, installers already deployed, agent version and how many
+  endpoints run it), an "Installers / Vanitas agent" switch, and a side panel instead of card
+  grids. New: each installer shows its deployment state (never / in progress / failures / all
+  succeeded) with a link to Deployed applications, and each agent version shows its adoption
+  across the fleet. The add, deploy, edit and agent-upload popups are unchanged.
 - **Vanitas "Add an endpoint" redesigned** as a 3-step flow (server address, token, install
   command with a silent / with-install-log variant) with a collapsible troubleshooting list
   (1619, 1603, 401), a prerequisites checklist with the MSI build command, and a live tracking
