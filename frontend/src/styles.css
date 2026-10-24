@@ -21938,4 +21938,8 @@ button.vpr-leg:hover { color: var(--hud-accent); }
     #07090b;
 }
 .app-shell[data-world="vanitas"] .main-content .vanitas-hud { background: transparent; }
-.app-shell[data-world="vanitas"] .masthead { border-bottom-color: rgba(57, 230, 210, 0.16); }
+.app-shell[data-world="vanitas"] .masthead { border-bottom-color: rgba(57, 230, 210, 0.16); padding-bottom: 16px; margin-bottom: 16px; }
+/* Écart titre → premier bloc (retour de Nicolas : « un écart de fou ») : il empilait le
+   rembourrage sous le titre (22 px), la marge sous l'en-tête (28 px) et le rembourrage haut de
+   `.vanitas-hud` (20 px, prévu quand le bloc avait son propre fond) — ramené à 16 + 16 + 4. */
+.app-shell[data-world="vanitas"] .main-content .vanitas-hud { margin-top: 0; padding-top: 4px; }

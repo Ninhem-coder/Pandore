@@ -50,7 +50,8 @@ changes are listed under *Unreleased* until the first public version.
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
 - **Vanitas pages now share one background**: the page header (title, search) sat on Pandore's
   navy background above a near-black Vanitas block, leaving a visible seam. In the Vanitas world the
-  whole main column now uses the Vanitas background from the brand guidelines.
+  whole main column now uses the Vanitas background from the brand guidelines, and the gap between
+  the page title and the first block is tightened (about 60 px down to 20 px).
 - **One sort control across Vanitas**: Endpoints, Vulnerabilities and the App catalog replace their
   native drop-downs with a shared "Sorted by" button and menu (criteria with their natural order,
   then ascending / descending). The sort direction can now be reversed; keyboard and screen
