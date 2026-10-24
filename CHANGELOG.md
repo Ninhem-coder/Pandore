@@ -48,6 +48,12 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas documentation rewritten** for the redesigned screens: the table of contents follows
+  the Vanitas menu, a full-text search shows how many matches each section has and highlights
+  them, and one section is shown at a time with an "Open the page" link, an "In short" box (what
+  it is for / what you do there / required access), a numbered sketch of the screen with its
+  legend, the text, and Previous / Next. Four pages that had no section are now covered
+  (End-of-life software, Deployed applications, Updates, Add an endpoint), in French and English.
 - **Vanitas profiles and accounts redesigned** as list + detail: a summary band (admins /
   readers, readers with a profile vs. with no access — linking to the first one —, unused
   profiles, non-admin accounts with terminal write access), a "Profiles / Accounts" switch, a
