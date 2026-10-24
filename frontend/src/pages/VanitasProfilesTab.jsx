@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
 import { isErrorPayload, useVanitasProfiles } from "../hooks/useDashboardData.js";
@@ -77,57 +77,67 @@ function emptyPerms() {
   return Object.fromEntries(VANITAS_MODULES.map((m) => [m.key, "none"]));
 }
 
-function levelDotClass(level) {
-  return level === "write" ? "rw" : level === "read" ? "ro" : "none";
-}
-
 function initials(name) {
   const cleaned = name.replace(/^[._]/, "");
-  const parts = cleaned.split(/[._]/).filter(Boolean);
+  const parts = cleaned.split(/[._\s()]/).filter(Boolean);
   return (parts.length ? parts : [cleaned]).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 }
 
-/** Matrice de permissions réutilisée par la création ET le panneau de détail d'un profil — 5
- * lignes (VANITAS_MODULES), icône + description + "ce que Lecture-écriture débloque en plus"
- * (MODULE_META), 3 pastilles cliquables. `none`=neutre, `read`=teal (--hud-accent, l'accent de
- * marque), `write`=magenta (--hud-accent2) : vert/ambre/rouge restent réservés aux statuts
- * sémantiques (conforme/sévérité) ailleurs dans ce dashboard, jamais réutilisés ici pour une
- * simple catégorisation de permission. */
-function PermsMatrix({ perms, onChange }) {
+const LEVEL_COLOR = { read: "var(--hud-accent)", write: "var(--hud-accent2)" };
+
+/** Matrice de permissions réutilisée par la création ET le panneau de détail d'un profil — une
+ * ligne par module (VANITAS_MODULES), icône + description + "ce que Lecture-écriture débloque en
+ * plus" (MODULE_META), sélecteur à 3 niveaux. `none`=neutre, `read`=teal (--hud-accent),
+ * `write`=magenta (--hud-accent2) : vert/ambre/rouge restent réservés aux statuts sémantiques
+ * ailleurs dans ce dashboard. Refonte 2026-10-24 : sélecteur segmenté (`.vpr-lvseg`) au lieu de
+ * 3 pastilles séparées, même logique. */
+function PermsMatrix({ perms, onChange, disabled }) {
   return (
-    <div className="vanitas-perm-matrix">
+    <div className="vpr-matrix">
       {VANITAS_MODULES.map((m) => {
         const meta = MODULE_META[m.key];
+        const level = perms[m.key] ?? "none";
         return (
-          <div className="vanitas-perm-row" key={m.key}>
-            <div className="vanitas-perm-row-info">
-              <span className="vanitas-perm-row-icon">{meta.icon}</span>
-              <div>
-                <p className="vanitas-perm-row-name">{m.label}</p>
-                <p className="vanitas-perm-row-desc">
-                  {meta.desc}
-                  <span className="vanitas-perm-row-rw-hint">{tr("vpr.writeHint", { text: meta.rw })}</span>
-                </p>
-              </div>
-            </div>
-            <div className="vanitas-perm-pills">
-              {["none", "read", "write"].map((level) => (
+          <div className="vpr-mrow" key={m.key}>
+            <span className="vpr-mico" aria-hidden="true">
+              {meta.icon}
+            </span>
+            <span className="vpr-mname">{m.label}</span>
+            <span className="vpr-lvseg" role="radiogroup" aria-label={m.label}>
+              {["none", "read", "write"].map((lv) => (
                 <button
-                  key={level}
+                  key={lv}
                   type="button"
-                  className={`vanitas-perm-pill ${level}${perms[m.key] === level ? " selected" : ""}`}
-                  onClick={() => onChange(m.key, level)}
+                  role="radio"
+                  aria-checked={level === lv}
+                  className={`${lv}${level === lv ? " on" : ""}`}
+                  onClick={() => onChange(m.key, lv)}
+                  disabled={disabled}
                 >
-                  <span className="led" />
-                  {LEVEL_LABELS[level]}
+                  {LEVEL_LABELS[lv]}
                 </button>
               ))}
-            </div>
+            </span>
+            <span className="vpr-mdesc">
+              {meta.desc}
+              {level !== "write" && <span className="vpr-rw-hint"> {tr("vpr.writeHint", { text: meta.rw })}</span>}
+            </span>
           </div>
         );
       })}
     </div>
   );
+}
+
+function LevelDots({ perms }) {
+  const granted = VANITAS_MODULES.filter((m) => (perms?.[m.key] ?? "none") !== "none");
+  if (granted.length === 0) return <span>{tr("vpr.noPermission")}</span>;
+  return granted.map((m) => (
+    <span key={m.key} className="vpr-lv">
+      <i style={{ background: LEVEL_COLOR[perms[m.key]] }} />
+      {m.label}
+    </span>
+  ));
 }
 
 /** Popup de CRÉATION seule (2026-09-10, alignement sur la maquette validée — voir la demande
@@ -198,40 +208,9 @@ function CreateProfileModal({ onClose, onCreated }) {
   );
 }
 
-/** Carte de la liste de gauche (layout maître-détail) — nom, résumé des modules accordés
- * (pastille colorée par niveau, modules à "none" omis) et nombre de comptes assignés. Toute la
- * carte est cliquable (`<button>` plein, pas un `<div role="button">` — pas de contrôle
- * interactif imbriqué à l'intérieur, contrairement à d'autres cartes du dashboard). */
-function ProfileCard({ profile, active, accountCount, onSelect }) {
-  const granted = VANITAS_MODULES.filter((m) => (profile.perms?.[m.key] ?? "none") !== "none");
-  return (
-    <button type="button" className={`vanitas-profile-card${active ? " active" : ""}`} onClick={onSelect}>
-      <span className="vanitas-profile-card-name">{profile.name}</span>
-      <div className="vanitas-profile-card-meta">
-        {granted.length === 0 ? (
-          <span className="vanitas-profile-card-meta-empty">{tr("vpr.noPermission")}</span>
-        ) : (
-          granted.map((m) => (
-            <span key={m.key}>
-              <span className={`vanitas-profile-chip-dot ${levelDotClass(profile.perms[m.key])}`} />
-              {m.label}
-            </span>
-          ))
-        )}
-      </div>
-      <div className="vanitas-profile-card-accounts">
-        {tr("vpr.assigned", { count: accountCount })}
-      </div>
-    </button>
-  );
-}
-
-/** Panneau de droite du layout maître-détail — nom éditable inline, matrice de permissions
- * complète (éditable), liste des comptes qui utilisent ce profil, actions Enregistrer/
- * Supprimer directement ici (plus de popup pour modifier un profil existant, voir
- * `CreateProfileModal` ci-dessus). `key={profile.id}` posé par l'appelant (`ProfilesPane`)
- * remonte ce composant à chaque changement de sélection — repart proprement de l'état du
- * profil actif plutôt que de porter la charge de resynchroniser un state périmé à la main. */
+/** Panneau de détail d'un profil — nom éditable, matrice (éditable), comptes qui l'utilisent,
+ * Enregistrer (actif seulement si modifié) / Supprimer (bloqué tant qu'un compte l'utilise).
+ * `key={profile.id}` posé par l'appelant : repart proprement de l'état du profil sélectionné. */
 function ProfileDetailPanel({ profile, accountNames, onSaved, onDeleted }) {
   const [name, setName] = useState(profile.name);
   const [perms, setPerms] = useState(profile.perms ?? emptyPerms());
@@ -267,17 +246,32 @@ function ProfileDetailPanel({ profile, accountNames, onSaved, onDeleted }) {
   }
 
   return (
-    <div className="vanitas-hud-frame vanitas-profile-detail">
-      <div className="vanitas-profile-detail-head">
-        <div className="vanitas-profile-detail-title-wrap">
-          <input
-            className="vanitas-profile-name-input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={busy}
-          />
-          <p className="vanitas-profile-detail-sub">{tr("vpr.detailSub")}</p>
-        </div>
+    <aside className="vpr-card vpr-detail" aria-label={tr("vpr.profileAria")}>
+      <div className="vpr-detail-title">
+        <input className="vpr-input vpr-name-input" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} aria-label={tr("vpr.profileName")} />
+        <span className="vpr-sub">{tr("vpr.detailSub")}</span>
+      </div>
+
+      <PermsMatrix perms={perms} onChange={(key, level) => setPerms((prev) => ({ ...prev, [key]: level }))} disabled={busy} />
+
+      <div className="vpr-box">
+        <span className="vpr-lbl">{tr("vpr.accountsUsingN", { count: accountNames.length })}</span>
+        {accountNames.length === 0 ? (
+          <span className="vpr-sub">{tr("vpr.noAccountUsing")}</span>
+        ) : (
+          <div className="vpr-accs">
+            {accountNames.map((username) => (
+              <span className="vpr-acc" key={username}>
+                <span className="vpr-acc-av">{initials(username)}</span>
+                {username}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {error && <p className="error-note" style={{ margin: 0 }}>{error}</p>}
+      <div className="vpr-foot">
         <ConfirmButton
           label={tr("vpr.delete")}
           confirmLabel={tr("v.confirm")}
@@ -286,138 +280,180 @@ function ProfileDetailPanel({ profile, accountNames, onSaved, onDeleted }) {
           title={accountNames.length > 0 ? tr("vpr.reassignFirst") : undefined}
           onConfirm={handleDelete}
         />
+        <div className="vpr-foot-right">
+          {dirty && <span className="vpr-sub vpr-warn">{tr("vpr.unsaved")}</span>}
+          <button type="button" className="vanitas-wiz-primary-btn" onClick={handleSave} disabled={busy || !name.trim() || !dirty}>
+            {busy ? tr("vpr.saving") : tr("vpr.saveChanges")}
+          </button>
+        </div>
       </div>
-
-      <p className="filter-chip-group-label" style={{ margin: "22px 0 12px" }}>
-        {tr("vpr.permsPerFeature")}
-      </p>
-      <PermsMatrix perms={perms} onChange={(key, level) => setPerms((prev) => ({ ...prev, [key]: level }))} />
-
-      <div className="vanitas-profile-assigned-card">
-        <p className="filter-chip-group-label" style={{ marginBottom: "10px" }}>
-          {tr("vpr.accountsUsing")}
-        </p>
-        {accountNames.length === 0 ? (
-          <p className="vanitas-hud-empty-note" style={{ padding: 0 }}>
-            {tr("vpr.noAccountUsing")}
-          </p>
-        ) : (
-          accountNames.map((username) => (
-            <div className="vanitas-profile-account-row" key={username}>
-              <span className="vanitas-profile-avatar">{initials(username)}</span>
-              {username}
-            </div>
-          ))
-        )}
-      </div>
-
-      {error && <p className="error-note" style={{ marginTop: "12px" }}>{error}</p>}
-
-      <div className="wizard-actions" style={{ marginTop: "24px", justifyContent: "flex-end" }}>
-        <button
-          type="button"
-          className="vanitas-wiz-primary-btn"
-          onClick={handleSave}
-          disabled={busy || !name.trim() || !dirty}
-        >
-          {busy ? tr("vpr.saving") : tr("vpr.saveChanges")}
-        </button>
-      </div>
-    </div>
+    </aside>
   );
 }
 
-/**
- * Layout maître-détail (2026-09-10, alignement sur la maquette validée — demande de Nicolas :
- * "les profils à gauche et un autre bloc à droite quand je sélectionne un profil avec les
- * rôles à modifier"). Remplace l'ancien tableau plat + popup "Modifier" par une liste de
- * profils cliquables à gauche et un panneau de détail éditable à droite — plus jamais de popup
- * pour modifier un profil EXISTANT (`CreateProfileModal` ne sert plus qu'à la création).
- */
-function ProfilesPane({ profiles, accountsByProfile }) {
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
+/** Panneau de détail d'un compte (refonte 2026-10-24 — remplace la ligne du tableau "Comptes") :
+ * rôle, profil, accès effectifs, réinitialisation du mot de passe EN PLACE (saisie masquée +
+ * confirmation, 8 caractères min. comme à la création — remplace `window.prompt`, qui affichait
+ * le mot de passe en clair sans confirmation), suppression. Son propre compte reste verrouillé
+ * (rôle, mot de passe, suppression : Paramètres > Mon compte), comme avant. */
+function AccountPanel({ account, profiles, isSelf, onChanged, onDeleted }) {
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [pwDone, setPwDone] = useState(false);
+  const isAdmin = account.role === "admin";
+  const profile = profiles.find((p) => p.id === account.profile_id) ?? null;
+  const pwMismatch = pw2.length > 0 && pw !== pw2;
 
-  const list = profiles.state.data;
-
-  // Le profil sélectionné peut disparaître (suppression, ou changement de compte connecté qui
-  // recharge la liste) — retombe sur le premier profil disponible plutôt que de laisser le
-  // panneau de détail pointer vers un id qui n'existe plus.
-  useEffect(() => {
-    if (list.length === 0) {
-      if (selectedId !== null) setSelectedId(null);
-      return;
+  async function update(body, after) {
+    setBusy(true);
+    setError(null);
+    try {
+      const payload = await api.auth.updateUser(account.username, body);
+      if (isErrorPayload(payload)) {
+        setError(payload.message);
+        return;
+      }
+      after?.();
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
     }
-    if (!list.some((p) => p.id === selectedId)) setSelectedId(list[0].id);
-  }, [list, selectedId]);
+  }
 
-  const selected = list.find((p) => p.id === selectedId) ?? null;
+  // Repasser un compte en admin retire son profil côté serveur (auth_store.set_role) —
+  // repasser en viewer laisse `profile_id` tel quel (souvent `null`) : "aucun accès" par défaut.
+  const setRole = (role) => role !== account.role && update({ role });
+  const setProfile = (profileId) => update(profileId ? { profile_id: profileId } : { clear_profile: true });
+
+  async function handlePassword(e) {
+    e.preventDefault();
+    if (pw.length < 8 || pw !== pw2) return;
+    setPwDone(false);
+    await update({ new_password: pw }, () => {
+      setPw("");
+      setPw2("");
+      setPwDone(true);
+    });
+  }
+
+  async function handleDelete() {
+    setError(null);
+    try {
+      const payload = await api.auth.deleteUser(account.username);
+      if (isErrorPayload(payload)) setError(payload.message);
+      else onDeleted();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   return (
-    <div>
-      {profiles.state.error && <p className="vanitas-hud-error">{profiles.state.error}</p>}
-      {profiles.state.status === "loading" ? (
-        <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
-      ) : list.length === 0 ? (
-        <div className="vanitas-hud-card vanitas-hud-frame vanitas-hud-empty-cta">
-          <p className="vanitas-hud-empty-note">
-            {tr("vpr.noProfile")}
-          </p>
-          <button type="button" className="vanitas-queue-btn" onClick={() => setShowCreate(true)}>
-            {tr("vpr.addProfile")}
+    <aside className="vpr-card vpr-detail" aria-label={tr("vpr.accountAria")}>
+      <div className="vpr-detail-head">
+        <span className="vpr-av lg" aria-hidden="true">
+          {initials(account.username)}
+        </span>
+        <div className="vpr-detail-name">
+          <h2>
+            {account.username}
+            {isSelf ? tr("vpr.you") : ""}
+          </h2>
+          <span className="vpr-sub">{tr("vpr.createdOn", { date: fmtDate(account.created_at) })}</span>
+        </div>
+      </div>
+      {isSelf && <div className="vpr-box vpr-sub">{tr("vpr.selfNote")}</div>}
+
+      <div className="vpr-block">
+        <span className="vpr-lbl">{tr("vpr.col.role")}</span>
+        <span className="vpr-rolesel" role="radiogroup" aria-label={tr("vpr.col.role")}>
+          <button type="button" role="radio" aria-checked={!isAdmin} className={!isAdmin ? "on" : ""} onClick={() => setRole("viewer")} disabled={isSelf || busy}>
+            {tr("vpr.role.viewer")}
           </button>
-        </div>
+          <button type="button" role="radio" aria-checked={isAdmin} className={`adm${isAdmin ? " on" : ""}`} onClick={() => setRole("admin")} disabled={isSelf || busy}>
+            {tr("vpr.role.admin")}
+          </button>
+        </span>
+      </div>
+
+      {isAdmin ? (
+        <div className="vpr-box vpr-sub">{tr("vpr.adminAccess")}</div>
       ) : (
-        <div className="vanitas-profiles-layout">
-          <div>
-            <div className="vanitas-profile-list-head">
-              <h2>
-                {tr("vpr.profiles", { count: list.length })}
-              </h2>
-            </div>
-            <div className="vanitas-profile-list">
-              {list.map((p) => (
-                <ProfileCard
-                  key={p.id}
-                  profile={p}
-                  active={p.id === selectedId}
-                  accountCount={accountsByProfile[p.id]?.length ?? 0}
-                  onSelect={() => setSelectedId(p.id)}
-                />
+        <>
+          <div className="vpr-block">
+            <span className="vpr-lbl">{tr("vpr.col.profile")}</span>
+            <select className="vpr-input" value={account.profile_id ?? ""} onChange={(e) => setProfile(e.target.value)} disabled={busy} aria-label={tr("vpr.col.profile")}>
+              <option value="">{tr("vpr.level.none")}</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
-            </div>
-            <button
-              type="button"
-              className="vanitas-queue-btn"
-              style={{ width: "100%", justifyContent: "center", marginTop: "12px" }}
-              onClick={() => setShowCreate(true)}
-            >
-              {tr("vpr.addProfile")}
-            </button>
+            </select>
           </div>
+          <div className="vpr-box">
+            <span className="vpr-lbl">{tr("vpr.effective")}</span>
+            {profile ? (
+              <span className="vpr-eff">
+                {VANITAS_MODULES.filter((m) => (profile.perms?.[m.key] ?? "none") !== "none").map((m) => (
+                  <span key={m.key} className="vpr-eff-chip">
+                    <i style={{ background: LEVEL_COLOR[profile.perms[m.key]] }} />
+                    {m.label} · {LEVEL_LABELS[profile.perms[m.key]].toLowerCase()}
+                  </span>
+                ))}
+                {VANITAS_MODULES.every((m) => (profile.perms?.[m.key] ?? "none") === "none") && <span className="vpr-sub">{tr("vpr.noPermission")}</span>}
+              </span>
+            ) : (
+              <span className="vpr-sub vpr-warn">{tr("vpr.noAccessNote")}</span>
+            )}
+          </div>
+        </>
+      )}
 
-          {selected && (
-            <ProfileDetailPanel
-              key={selected.id}
-              profile={selected}
-              accountNames={accountsByProfile[selected.id] ?? []}
-              onSaved={profiles.refresh}
-              onDeleted={profiles.refresh}
-            />
-          )}
+      {!isSelf && (
+        <form className="vpr-box" onSubmit={handlePassword}>
+          <span className="vpr-lbl">{tr("vpr.resetPassword")}</span>
+          <input
+            type="password"
+            className="vpr-input"
+            placeholder={tr("vpr.newPassword")}
+            aria-label={tr("vpr.newPassword")}
+            value={pw}
+            onChange={(e) => {
+              setPw(e.target.value);
+              setPwDone(false);
+            }}
+            autoComplete="new-password"
+            disabled={busy}
+          />
+          <input
+            type="password"
+            className="vpr-input"
+            placeholder={tr("vpr.confirmPassword")}
+            aria-label={tr("vpr.confirmPassword")}
+            value={pw2}
+            onChange={(e) => setPw2(e.target.value)}
+            autoComplete="new-password"
+            disabled={busy}
+          />
+          {pwMismatch && <span className="vpr-sub vpr-warn">{tr("vpr.pwMismatch")}</span>}
+          {pwDone && <span className="vpr-sub vpr-ok">{tr("vpr.pwDone")}</span>}
+          <button type="submit" className="vanitas-queue-btn vpr-self-start" disabled={busy || pw.length < 8 || pw !== pw2}>
+            {tr("vpr.setPassword")}
+          </button>
+        </form>
+      )}
+
+      {error && <p className="error-note" style={{ margin: 0 }}>{error}</p>}
+      {!isSelf && (
+        <div className="vpr-foot">
+          <ConfirmButton label={tr("vpr.deleteAccount")} confirmLabel={tr("v.confirm")} className="vanitas-danger-btn" onConfirm={handleDelete} />
         </div>
       )}
-
-      {showCreate && (
-        <CreateProfileModal
-          onClose={() => setShowCreate(false)}
-          onCreated={(newId) => {
-            profiles.refresh();
-            setSelectedId(newId);
-          }}
-        />
-      )}
-    </div>
+    </aside>
   );
 }
 
@@ -537,187 +573,42 @@ function CreateAccountWizard({ profiles, onClose, onCreated }) {
   );
 }
 
-function AccountsPane({ profiles, accountsState, reloadAccounts }) {
-  const { user: currentUser } = useAuth();
-  const [error, setError] = useState(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const state = accountsState;
-
-  async function handleRoleChange(username, role) {
-    setError(null);
-    try {
-      // Repasser un compte en admin retire son profil côté serveur (auth_store.set_role) —
-      // repasser en viewer laisse `profile_id` tel quel (souvent `null` si le compte était
-      // admin) : "aucun accès" par défaut, jamais un profil hérité par surprise.
-      await api.auth.updateUser(username, { role });
-      reloadAccounts();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleProfileChange(username, profileId) {
-    setError(null);
-    try {
-      if (profileId) {
-        await api.auth.updateUser(username, { profile_id: profileId });
-      } else {
-        await api.auth.updateUser(username, { clear_profile: true });
-      }
-      reloadAccounts();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleResetPassword(username) {
-    const pw = window.prompt(tr("vpr.resetPrompt", { username }));
-    if (!pw) return;
-    setError(null);
-    try {
-      await api.auth.updateUser(username, { new_password: pw });
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleDelete(username) {
-    setError(null);
-    try {
-      await api.auth.deleteUser(username);
-      reloadAccounts();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  return (
-    <div>
-      <div className="vanitas-hud-card vanitas-hud-frame">
-        <div className="vanitas-hud-card-head">
-          <h2>
-            {tr("vpr.accounts", { count: state.users.length })}
-          </h2>
-          <button type="button" className="vanitas-queue-btn" onClick={() => setShowCreate(true)}>
-            {tr("vpr.addAccount")}
-          </button>
-        </div>
-        {error && <p className="vanitas-hud-error">{error}</p>}
-        {state.status === "loading" ? (
-          <p className="vanitas-hud-empty-note">{tr("v.loading")}</p>
-        ) : (
-          <div className="vanitas-hud-table-wrap">
-            <table className="vanitas-hud-table">
-              <thead>
-                <tr>
-                  <th>{tr("vpr.col.account")}</th>
-                  <th>{tr("vpr.col.role")}</th>
-                  <th>{tr("vpr.col.profile")}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.users.map((u) => {
-                  const isSelf = u.username.toLowerCase() === currentUser.username.toLowerCase();
-                  const isAdmin = u.role === "admin";
-                  return (
-                    <tr key={u.id}>
-                      <td className="vanitas-hud-host">
-                        <span className="name">
-                          {u.username}
-                          {isSelf ? tr("vpr.you") : ""}
-                        </span>
-                        <span className="id">{tr("vpr.createdOn", { date: fmtDate(u.created_at) })}</span>
-                      </td>
-                      <td>
-                        <select
-                          className="filter-input"
-                          style={{ width: "150px" }}
-                          value={u.role}
-                          onChange={(e) => handleRoleChange(u.username, e.target.value)}
-                          disabled={isSelf}
-                        >
-                          <option value="admin">{tr("vpr.role.admin")}</option>
-                          <option value="viewer">{tr("vpr.role.viewer")}</option>
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          className="filter-input"
-                          style={{ width: "180px" }}
-                          value={u.profile_id ?? ""}
-                          onChange={(e) => handleProfileChange(u.username, e.target.value)}
-                          disabled={isAdmin}
-                        >
-                          <option value="">{isAdmin ? tr("vpr.fullAccess") : tr("vpr.level.none")}</option>
-                          {profiles.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-                        <button
-                          type="button"
-                          className="vanitas-ghost-btn"
-                          onClick={() => handleResetPassword(u.username)}
-                          disabled={isSelf}
-                          title={isSelf ? tr("vpr.selfPassword") : undefined}
-                        >
-                          {tr("vpr.resetPassword")}
-                        </button>
-                        <ConfirmButton
-                          label={tr("vpr.delete")}
-                          confirmLabel={tr("v.confirm")}
-                          className="vanitas-danger-btn"
-                          disabled={isSelf}
-                          title={isSelf ? tr("vpr.selfDelete") : undefined}
-                          onConfirm={() => handleDelete(u.username)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {showCreate && (
-        <CreateAccountWizard profiles={profiles} onClose={() => setShowCreate(false)} onCreated={reloadAccounts} />
-      )}
-    </div>
-  );
-}
-
 /**
  * "Vanitas" > Administration > Profils (2026-09-10, demande de Nicolas — "des rôles comme dans
  * Intune... un read pour voir et un read-write pour lecture-écriture", puis "gérer les comptes
- * direct de la page plutôt que les paramètres"). Deux sous-onglets :
+ * direct de la page plutôt que les paramètres"). Deux vues :
  * - "Profils" : catalogue de profils nommés réutilisables, chacun une matrice
- *   {postes/terminal/applications/conformite/groupes: none|read|write} — voir
- *   `backend/auth/vanitas_profiles.py` pour le modèle complet et `AuthContext.jsx`/
- *   `vanitasShared.jsx::hasVanitasAccess` pour l'application côté frontend (confort d'UI, la
- *   RÉELLE protection est `require_vanitas_read/write` côté serveur).
+ *   {module: none|read|write} — voir `backend/auth/vanitas_profiles.py` pour le modèle complet et
+ *   `AuthContext.jsx`/`vanitasShared.jsx::hasVanitasAccess` pour l'application côté frontend
+ *   (confort d'UI, la RÉELLE protection est `require_vanitas_read/write` côté serveur).
  * - "Comptes" : gestion complète des comptes (créer/rôle/profil/réinitialiser/supprimer),
  *   déplacée depuis Paramètres > Gestion des comptes (qui ne garde plus que "Mon compte").
  *
- * Page admin-only (masquée pour un compte viewer, voir VanitasSidebar.jsx) — les 4 routes
- * `/api/vanitas/profiles*` ET les routes `/api/auth/users*` sont `require_admin` côté serveur,
- * jamais `require_vanitas_write` : gérer QUI a accès à quoi est une action d'administration
- * Pandore, pas une capacité Vanitas parmi d'autres (voir api_server.py).
+ * Page admin-only (masquée pour un compte viewer, voir VanitasSidebar.jsx) — les routes
+ * `/api/vanitas/profiles*` ET `/api/auth/users*` sont `require_admin` côté serveur : gérer QUI a
+ * accès à quoi est une action d'administration Pandore (voir api_server.py).
+ *
+ * Refonte liste + détail (2026-10-24, maquette canvas validée par Nicolas) : bandeau de synthèse
+ * (comptes admin/lecteurs, lecteurs avec profil / sans aucun accès — lien vers le premier —,
+ * profils inutilisés, comptes non-admin en écriture sur le terminal), bascule "Profils /
+ * Comptes" (même motif que Mises à jour / Applications), matrice en sélecteurs segmentés, et
+ * l'onglet Comptes passe d'un tableau à une liste + `AccountPanel` (accès effectifs, mot de
+ * passe en place). Classes `.vpr-*`.
  */
 export default function VanitasProfilesTab() {
+  const { user: currentUser } = useAuth();
   const profiles = useVanitasProfiles();
-  const [tab, setTab] = useState("profiles");
-  // Liste des comptes levée ICI (pas dans AccountsPane) — une SEULE source de vérité partagée
-  // par les deux sous-onglets : la carte "Profils" (décompte "comptes assignés" par profil,
-  // garde-fou de suppression) ET le sous-onglet "Comptes" lui-même. Un `reloadAccounts` recharge
-  // les deux vues d'un coup après une mutation (créer/changer le rôle/assigner un profil/
-  // supprimer) — bug réel corrigé en testant : une 2e copie locale dans `AccountsPane` seule
-  // laissait le décompte de "Profils" périmé après une assignation faite depuis "Comptes".
+  const [mode, setMode] = useState("profiles");
+  const [query, setQuery] = useState("");
+  const [selectedProfileId, setSelectedProfileId] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [showCreateProfile, setShowCreateProfile] = useState(false);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const detailRef = useRef(null);
+  // Liste des comptes levée ICI — une SEULE source de vérité pour les deux vues (décompte des
+  // comptes par profil, garde-fou de suppression, liste des comptes). Bug réel corrigé en
+  // septembre : une 2e copie locale laissait le décompte de "Profils" périmé après une
+  // assignation faite depuis "Comptes".
   const [accountsState, setAccountsState] = useState({ status: "loading", users: [] });
 
   const reloadAccounts = useCallback(async () => {
@@ -735,39 +626,242 @@ export default function VanitasProfilesTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const accountsByProfile = {};
-  for (const u of accountsState.users) {
-    if (u.profile_id) (accountsByProfile[u.profile_id] ??= []).push(u.username);
+  const profileList = profiles.state.data;
+  const users = accountsState.users;
+  const accountsByProfile = useMemo(() => {
+    const m = {};
+    for (const u of users) if (u.profile_id && u.role !== "admin") (m[u.profile_id] ??= []).push(u.username);
+    return m;
+  }, [users]);
+
+  const viewers = users.filter((u) => u.role !== "admin");
+  const noAccess = viewers.filter((u) => !u.profile_id);
+  const unusedProfiles = profileList.filter((p) => !(accountsByProfile[p.id]?.length));
+  const profileById = useMemo(() => new Map(profileList.map((p) => [p.id, p])), [profileList]);
+  const terminalWriters = viewers.filter((u) => profileById.get(u.profile_id)?.perms?.terminal === "write").length;
+  const isSelf = (u) => u.username.toLowerCase() === currentUser?.username?.toLowerCase();
+
+  const q = query.trim().toLowerCase();
+  const visibleProfiles = profileList.filter((p) => !q || p.name.toLowerCase().includes(q));
+  const visibleAccounts = users.filter((u) => !q || u.username.toLowerCase().includes(q));
+  const selectedProfile = visibleProfiles.find((p) => p.id === selectedProfileId) ?? visibleProfiles[0] ?? null;
+  const account = visibleAccounts.find((u) => u.username === selectedAccount) ?? visibleAccounts[0] ?? null;
+
+  function select(setter, value) {
+    setter(value);
+    if (detailRef.current && window.matchMedia?.("(max-width: 980px)").matches) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function switchMode(next) {
+    setMode(next);
+    setQuery("");
   }
 
   return (
-    <div className="vanitas-hud">
-      <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginBottom: "20px" }}>
-        <p className="vanitas-hud-empty-note" style={{ margin: 0 }}>
-          {trRich("vpr.intro", {
-            profile: <b>{tr("vpr.intro.profile")}</b>,
-            admin: <b>admin</b>,
-            viewer: <b>{tr("vpr.intro.viewer")}</b>,
-          })}
-        </p>
+    <div className="vanitas-hud vpr">
+      {profiles.state.error && <p className="vanitas-hud-error">{profiles.state.error}</p>}
+      {accountsState.status === "error" && <p className="vanitas-hud-error">{tr("vpr.accountsError")}</p>}
+
+      <section className="vpr-card vpr-sum" aria-label={tr("vpr.sumAria")}>
+        <div className="vpr-col">
+          <span className="vpr-lbl">{tr("vpr.sum.accounts")}</span>
+          <span className="vpr-val accent">{users.length}</span>
+          <span className="vpr-sub vpr-small">{tr("vpr.sum.split", { admins: users.length - viewers.length, viewers: viewers.length })}</span>
+        </div>
+        <div className="vpr-sum-state">
+          <span className="vpr-lbl">{tr("vpr.sum.viewerAccess")}</span>
+          <span className="vpr-bar" role="img" aria-label={`${tr("vpr.sum.withProfile", { count: viewers.length - noAccess.length })}, ${tr("vpr.sum.noAccess", { count: noAccess.length })}`}>
+            {viewers.length - noAccess.length > 0 && <i style={{ flex: viewers.length - noAccess.length, background: "var(--hud-accent)" }} />}
+            {noAccess.length > 0 && <i style={{ flex: noAccess.length, background: "var(--hud-warn)" }} />}
+          </span>
+          <div className="vpr-legend">
+            <span className="vpr-leg static">
+              <i style={{ background: "var(--hud-accent)" }} />
+              {tr("vpr.sum.withProfile", { count: viewers.length - noAccess.length })}
+            </span>
+            {noAccess.length > 0 ? (
+              <button
+                type="button"
+                className="vpr-leg"
+                onClick={() => {
+                  switchMode("accounts");
+                  select(setSelectedAccount, noAccess[0].username);
+                }}
+              >
+                <i style={{ background: "var(--hud-warn)" }} />
+                {tr("vpr.sum.noAccessLink", { count: noAccess.length })}
+              </button>
+            ) : (
+              <span className="vpr-leg static">
+                <i style={{ background: "var(--hud-warn)" }} />
+                {tr("vpr.sum.noAccess", { count: 0 })}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="vpr-col vpr-sum-third">
+          <span className="vpr-lbl">{tr("vpr.sum.profiles")}</span>
+          <span className="vpr-val">{profileList.length}</span>
+          <span className="vpr-sub vpr-small">{tr("vpr.sum.unused", { count: unusedProfiles.length })}</span>
+        </div>
+        <div className="vpr-col vpr-sum-fourth">
+          <span className="vpr-lbl">{tr("vpr.sum.terminal")}</span>
+          <span className="vpr-val" style={terminalWriters ? { color: "var(--hud-accent2)" } : undefined}>
+            {terminalWriters}
+          </span>
+          <span className="vpr-sub vpr-small">{tr("vpr.sum.terminalSub")}</span>
+        </div>
+      </section>
+
+      <p className="vpr-sub vpr-intro">
+        {trRich("vpr.intro", { profile: <b>{tr("vpr.intro.profile")}</b>, admin: <b>admin</b>, viewer: <b>{tr("vpr.intro.viewer")}</b> })}
+      </p>
+
+      <div className="vpr-split">
+        <section className="vpr-card vpr-list" aria-label={tr("vpr.listAria")}>
+          <div className="vpr-list-head">
+            <span className="vpr-seg" role="tablist" aria-label={tr("vpr.listAria")}>
+              <button type="button" role="tab" aria-selected={mode === "profiles"} className={mode === "profiles" ? "on" : ""} onClick={() => switchMode("profiles")}>
+                {tr("vpr.tab.profiles")}
+              </button>
+              <button type="button" role="tab" aria-selected={mode === "accounts"} className={mode === "accounts" ? "on" : ""} onClick={() => switchMode("accounts")}>
+                {tr("vpr.tab.accounts")}
+              </button>
+            </span>
+            <button type="button" className="vanitas-wiz-primary-btn" onClick={() => (mode === "profiles" ? setShowCreateProfile(true) : setShowCreateAccount(true))}>
+              {mode === "profiles" ? tr("vpr.addProfile") : tr("vpr.addAccount")}
+            </button>
+          </div>
+          <label className="vpr-search-wrap">
+            <span className="vpr-sr">{tr(mode === "profiles" ? "vpr.searchProfile" : "vpr.searchAccount")}</span>
+            <input
+              type="search"
+              className="vpr-input"
+              placeholder={tr(mode === "profiles" ? "vpr.searchProfile" : "vpr.searchAccount")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
+
+          {mode === "profiles" ? (
+            profiles.state.status === "loading" ? (
+              <p className="vpr-empty">{tr("v.loading")}</p>
+            ) : profileList.length === 0 ? (
+              <p className="vpr-empty">{tr("vpr.noProfile")}</p>
+            ) : (
+              <>
+                <div className="vpr-rows">
+                  {visibleProfiles.map((p) => {
+                    const isSel = selectedProfile?.id === p.id;
+                    return (
+                      <button key={p.id} type="button" className={`vpr-it${isSel ? " sel" : ""}`} aria-pressed={isSel} onClick={() => select(setSelectedProfileId, p.id)}>
+                        <span className="vpr-av sq" aria-hidden="true">
+                          {initials(p.name)}
+                        </span>
+                        <span className="vpr-name">{p.name}</span>
+                        <span className="vpr-sub vpr-small">{tr("vpr.assigned", { count: accountsByProfile[p.id]?.length ?? 0 })}</span>
+                        <span className="vpr-meta">
+                          <LevelDots perms={p.perms} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="vpr-sub vpr-small vpr-key">
+                  <span className="vpr-lv">
+                    <i style={{ background: LEVEL_COLOR.read }} />
+                    {LEVEL_LABELS.read}
+                  </span>
+                  <span className="vpr-lv">
+                    <i style={{ background: LEVEL_COLOR.write }} />
+                    {LEVEL_LABELS.write}
+                  </span>
+                </span>
+              </>
+            )
+          ) : accountsState.status === "loading" ? (
+            <p className="vpr-empty">{tr("v.loading")}</p>
+          ) : (
+            <div className="vpr-rows">
+              {visibleAccounts.map((u) => {
+                const isSel = account?.username === u.username;
+                const admin = u.role === "admin";
+                const prof = profileById.get(u.profile_id);
+                return (
+                  <button key={u.id ?? u.username} type="button" className={`vpr-it${isSel ? " sel" : ""}`} aria-pressed={isSel} onClick={() => select(setSelectedAccount, u.username)}>
+                    <span className="vpr-av" aria-hidden="true">
+                      {initials(u.username)}
+                    </span>
+                    <span className="vpr-name">
+                      {u.username}
+                      {isSelf(u) && <span className="vpr-sub vpr-normal">{tr("vpr.you")}</span>}
+                    </span>
+                    <span className="vpr-pill" style={{ "--c": admin ? "var(--hud-warn)" : "var(--hud-accent)" }}>
+                      {tr(admin ? "vpr.roleShort.admin" : "vpr.roleShort.viewer")}
+                    </span>
+                    <span className="vpr-meta">
+                      <span className={!admin && !prof ? "vpr-warn" : ""}>{admin ? tr("vpr.fullAccess") : prof ? prof.name : tr("vpr.level.none")}</span>
+                      <span>·</span>
+                      <span>{tr("vpr.createdOn", { date: fmtDate(u.created_at) })}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div ref={detailRef} className="vpr-detail-slot">
+          {mode === "profiles" ? (
+            selectedProfile ? (
+              <ProfileDetailPanel
+                key={selectedProfile.id}
+                profile={selectedProfile}
+                accountNames={accountsByProfile[selectedProfile.id] ?? []}
+                onSaved={profiles.refresh}
+                onDeleted={() => {
+                  setSelectedProfileId(null);
+                  profiles.refresh();
+                }}
+              />
+            ) : (
+              <div className="vpr-card vpr-empty-panel">
+                <p className="vpr-sub">{tr("vpr.pickProfile")}</p>
+              </div>
+            )
+          ) : account ? (
+            <AccountPanel
+              key={account.username}
+              account={account}
+              profiles={profileList}
+              isSelf={isSelf(account)}
+              onChanged={reloadAccounts}
+              onDeleted={() => {
+                setSelectedAccount(null);
+                reloadAccounts();
+              }}
+            />
+          ) : (
+            <div className="vpr-card vpr-empty-panel">
+              <p className="vpr-sub">{tr("vpr.pickAccount")}</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="vanitas-hud-chips" style={{ marginBottom: "20px" }}>
-        <button type="button" className={`vanitas-hud-chip${tab === "profiles" ? " active" : ""}`} onClick={() => setTab("profiles")}>
-          <span className="led" />
-          {tr("vpr.tab.profiles")}
-        </button>
-        <button type="button" className={`vanitas-hud-chip${tab === "accounts" ? " active" : ""}`} onClick={() => setTab("accounts")}>
-          <span className="led" />
-          {tr("vpr.tab.accounts")}
-        </button>
-      </div>
-
-      {tab === "profiles" ? (
-        <ProfilesPane profiles={profiles} accountsByProfile={accountsByProfile} />
-      ) : (
-        <AccountsPane profiles={profiles.state.data} accountsState={accountsState} reloadAccounts={reloadAccounts} />
+      {showCreateProfile && (
+        <CreateProfileModal
+          onClose={() => setShowCreateProfile(false)}
+          onCreated={(newId) => {
+            profiles.refresh();
+            setSelectedProfileId(newId);
+          }}
+        />
       )}
+      {showCreateAccount && <CreateAccountWizard profiles={profileList} onClose={() => setShowCreateAccount(false)} onCreated={reloadAccounts} />}
     </div>
   );
 }

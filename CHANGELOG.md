@@ -48,6 +48,13 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas profiles and accounts redesigned** as list + detail: a summary band (admins /
+  readers, readers with a profile vs. with no access — linking to the first one —, unused
+  profiles, non-admin accounts with terminal write access), a "Profiles / Accounts" switch, a
+  permission matrix with segmented None / Read / Read-write selectors, and the accounts table
+  replaced by a list + panel showing each account's effective access. Password reset now happens
+  in the panel (masked, confirmed, 8 characters minimum) instead of a browser prompt that showed
+  the password in clear.
 - **Vanitas Applications (installer management) redesigned** as list + detail: a summary band
   (formats with a clickable legend, installers already deployed, agent version and how many
   endpoints run it), an "Installers / Vanitas agent" switch, and a side panel instead of card

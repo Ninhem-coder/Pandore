@@ -855,6 +855,8 @@ function recentAlerts(limit) {
 const PROFILES = [
   { id: hex(32), name: "Support niveau 1", perms: { postes: "read", terminal: "none", applications: "read", conformite: "read", groupes: "read", activites_suspectes: "read" }, created_at: ago(40 * DAY), updated_at: ago(3 * DAY) },
   { id: hex(32), name: "Support niveau 2", perms: { postes: "write", terminal: "write", applications: "write", conformite: "read", groupes: "write", activites_suspectes: "write" }, created_at: ago(40 * DAY), updated_at: ago(3 * DAY) },
+  { id: hex(32), name: "Sécurité (SOC)", perms: { postes: "read", terminal: "none", applications: "none", conformite: "write", groupes: "read", activites_suspectes: "write" }, created_at: ago(30 * DAY), updated_at: ago(8 * DAY) },
+  { id: hex(32), name: "Auditeur externe", perms: { postes: "read", terminal: "none", applications: "read", conformite: "read", groupes: "read", activites_suspectes: "none" }, created_at: ago(12 * DAY), updated_at: ago(12 * DAY) },
 ];
 
 const AGENT_PACKAGES = [
@@ -873,7 +875,15 @@ const DEMO_USER = {
 
 const GET_ROUTES = [
   [/^\/api\/auth\/me$/, () => DEMO_USER],
-  [/^\/api\/auth\/users$/, () => [{ id: hex(32), username: "admin.demo", username_lower: "admin.demo", role: "admin", profile_id: null, created_at: ago(120 * DAY) }, { id: hex(32), username: "support.demo", username_lower: "support.demo", role: "viewer", profile_id: PROFILES[0].id, created_at: ago(60 * DAY) }]],
+  // Comptes fictifs (page Profils) — même forme que `backend/auth/store.py::list_users`, dont un
+  // lecteur sans aucun accès pour le bandeau « sans aucun accès ».
+  [/^\/api\/auth\/users$/, () => [
+    ["admin.demo", "admin", null, 120],
+    ["support.demo", "viewer", 0, 60],
+    ["tech.demo", "viewer", 1, 45],
+    ["soc.demo", "viewer", 2, 20],
+    ["nouveau.demo", "viewer", null, 2],
+  ].map(([username, role, profile, days]) => ({ id: `demo-user-${username}`, username, username_lower: username, role, profile_id: profile === null ? null : PROFILES[profile].id, created_at: ago(days * DAY) }))],
   [/^\/api\/health$/, () => ({ status: "ok" })],
   // Intune
   [/^\/api\/intune\/summary$/, intuneSummary],
