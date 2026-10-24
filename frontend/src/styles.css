@@ -21184,3 +21184,114 @@ button.vlg-leg:hover { color: var(--hud-accent); }
 @media (prefers-reduced-motion: reduce) {
   .vlg * { transition: none !important; }
 }
+
+/* ── Vanitas > Ajouter un poste — refonte en parcours (2026-10-24, maquette validée) ──
+   Scopée à `.ven` (VanitasEnrollTab.jsx). Réutilise `.vanitas-enroll-copy-btn`,
+   `.vanitas-wiz-primary-btn` ; les anciennes classes `.vanitas-enroll-*` (champ, callout)
+   ne sont plus utilisées par cette page. */
+.ven {
+  --ven-muted: #8fa3a8; /* --hud-ink-faint ne passe pas AA en petit texte */
+  font-family: var(--hud-sans);
+}
+.ven-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  background: var(--hud-panel);
+  color: var(--hud-ink);
+}
+.ven-split { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.ven-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ven-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 10px; }
+.ven-h2 { margin: 0; font: 600 12.5px var(--hud-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--hud-ink); }
+.ven-sub { font-size: 13px; line-height: 1.5; color: var(--ven-muted); }
+.ven-small { font-size: 12px; }
+.ven-italic { font-style: italic; }
+.ven-ok { color: var(--hud-good); }
+.ven-intro { margin: 0; }
+.ven-self-start { align-self: flex-start; }
+.ven code { font-family: var(--hud-mono); font-size: 12px; color: var(--hud-ink); }
+.ven b { color: var(--hud-ink); }
+
+/* Étapes */
+.ven-step { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 4px 14px; padding: 14px 0 4px; border-top: 1px solid rgba(57, 230, 210, 0.1); }
+.ven-num { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid rgba(143, 163, 168, 0.35); border-radius: 99px; color: var(--ven-muted); font: 700 13px var(--hud-mono); }
+.ven-num.on { border-color: var(--hud-accent); background: var(--hud-accent); color: var(--hud-bg); }
+.ven-num.done { border-color: var(--hud-good); background: color-mix(in srgb, var(--hud-good) 14%, transparent); color: var(--hud-good); }
+.ven-step h3 { margin: 6px 0 0; font-size: 15px; font-weight: 600; }
+.ven-body { grid-column: 2; display: flex; flex-direction: column; gap: 10px; min-width: 0; margin: 6px 0 10px; }
+.ven-input {
+  width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid var(--hud-line);
+  border-radius: 10px;
+  background: var(--hud-bg);
+  color: var(--hud-ink);
+  font: 13.5px var(--hud-mono);
+}
+.ven-code { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--hud-line); border-radius: 10px; background: rgba(0, 0, 0, 0.28); }
+.ven-code code { font-size: 12.5px; line-height: 1.5; color: #c7d4d6; overflow-wrap: anywhere; }
+.ven-hint { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45; }
+.ven-hint.warn { border: 1px solid rgba(231, 163, 60, 0.3); background: rgba(231, 163, 60, 0.08); color: var(--hud-warn); }
+.ven-hint.accent { border: 1px solid var(--hud-line-strong); background: var(--hud-accent-dim); color: var(--hud-ink); }
+.ven-seg { display: inline-flex; align-self: flex-start; border: 1px solid var(--hud-line); border-radius: 10px; overflow: hidden; }
+.ven-seg button { height: 32px; padding: 0 12px; border: 0; background: transparent; color: var(--ven-muted); font: 600 11.5px var(--hud-mono); cursor: pointer; }
+.ven-seg button:hover { color: var(--hud-ink); }
+.ven-seg button.on { background: var(--hud-accent-dim); color: var(--hud-accent); }
+.ven-help { padding-top: 10px; border-top: 1px solid rgba(57, 230, 210, 0.1); }
+.ven-help summary { cursor: pointer; font-size: 13px; color: #c7d4d6; list-style: none; }
+.ven-help summary::-webkit-details-marker { display: none; }
+.ven-help summary::before { content: "▸ "; color: var(--hud-accent); }
+.ven-help[open] summary::before { content: "▾ "; }
+.ven-help ul { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.45; color: var(--ven-muted); }
+.ven-help b { font-family: var(--hud-mono); }
+
+/* Suivi */
+.ven-watch { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px dashed var(--hud-line-strong); border-radius: 12px; background: rgba(57, 230, 210, 0.03); }
+.ven-watch-head { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.ven-pulse { width: 10px; height: 10px; border-radius: 99px; background: var(--hud-accent); animation: ven-pulse 1.6s ease-out infinite; }
+@keyframes ven-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(57, 230, 210, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(57, 230, 210, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(57, 230, 210, 0); }
+}
+.ven-new { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 10px 12px; border: 1px solid rgba(72, 201, 138, 0.28); border-radius: 10px; background: rgba(72, 201, 138, 0.07); }
+.ven-dot { width: 10px; height: 10px; border-radius: 99px; background: var(--hud-good); }
+.ven-new-host { font: 600 13.5px var(--hud-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ven-pill { height: 22px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--hud-good) 14%, transparent); color: var(--hud-good); font-size: 12px; font-weight: 600; }
+.ven-new-meta { grid-column: 2 / 4; }
+.ven-new-open { grid-column: 2 / 4; justify-self: start; margin-top: 4px; }
+
+/* Prérequis */
+.ven-check { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 10px; padding: 10px 0; border-top: 1px solid rgba(57, 230, 210, 0.08); font-size: 13.5px; }
+.ven-box { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 1px solid rgba(143, 163, 168, 0.4); border-radius: 6px; background: transparent; color: var(--hud-bg); font-size: 12px; font-weight: 700; cursor: pointer; }
+.ven-box.on { border-color: var(--hud-good); background: var(--hud-good); }
+.ven-check-title { font-weight: 600; }
+.ven-check-text,
+.ven-check-code { grid-column: 2; }
+.ven-check-text { font-size: 12.5px; }
+.ven-check-code code { font-size: 11.5px; }
+.ven-docs { align-self: flex-start; margin-top: 4px; }
+.ven button:focus-visible,
+.ven input:focus-visible,
+.ven summary:focus-visible { outline: 2px solid var(--hud-accent); outline-offset: 2px; }
+
+@media (max-width: 980px) {
+  .ven-split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .ven-card { padding: 14px; }
+  .ven-step { grid-template-columns: 28px minmax(0, 1fr); gap: 4px 10px; }
+  .ven-num { width: 28px; height: 28px; }
+  .ven-code { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ven-pulse { animation: none; }
+}

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import CopyButton from "../components/CopyButton.jsx";
-import { isErrorPayload } from "../hooks/useDashboardData.js";
+import { isErrorPayload, useVanitasAgents } from "../hooks/useDashboardData.js";
+import { fmtRelative } from "./vanitasShared.jsx";
 import { tr } from "../i18n/core.js";
 import { trRich } from "../i18n/rich.jsx";
 
@@ -35,46 +36,47 @@ function looksLikeHttpMismatch(serverUrl) {
   return /^http:\/\//i.test((serverUrl || "").trim());
 }
 
+const BUILD_COMMAND =
+  "cd EndpointAgent && dotnet publish -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -o publish && cd ../Installer && dotnet build";
+const WATCH_INTERVAL_MS = 10_000;
+// Marge sur l'heure d'enrôlement : horloges navigateur / serveur pas forcément synchrones.
+const CLOCK_SKEW_MS = 60_000;
+
+function StepNum({ state, n }) {
+  return (
+    <span className={`ven-num ${state}`} aria-hidden="true">
+      {state === "done" ? "✓" : n}
+    </span>
+  );
+}
+
 /**
  * "Vanitas" > Administration > "Ajouter un poste" (2026-09-11, demande de Nicolas — "un truc
  * pour que se soit plus simple à mettre en place via une page sur Vanitas directement").
  *
- * Périmètre tranché explicitement avec Nicolas (`AskUserQuestion`, une seule option retenue
- * sur trois proposées) : SEULEMENT générer un token d'enrôlement et afficher la commande
- * `msiexec` prête à copier — pas de téléchargement du MSI depuis cette page, pas de suivi des
- * tokens en attente. Remplace `scripts/create_enrollment_token.py` pour l'usage courant (le
- * script reste utilisable en ligne de commande, ex. hors réseau).
+ * Périmètre tranché avec Nicolas (`AskUserQuestion`) : SEULEMENT générer un token d'enrôlement et
+ * afficher la commande `msiexec` prête à copier — pas de téléchargement du MSI depuis cette page.
  *
- * Historique des correctifs sur cette page, tous issus d'un VRAI parcours d'installation testé
- * en direct avec Nicolas (pas de bugs hypothétiques) :
- * 1. L'URL du serveur est devenue un champ ÉDITABLE de la page (mémorisé en `localStorage`),
- *    plutôt que de dépendre uniquement de `VANITAS_AGENT_SERVER_URL` côté backend — sinon la
- *    commande n'apparaissait jamais sans configuration fichier préalable.
- * 2. Le champ, resté VIDE tant qu'aucun token n'avait encore été généré, a été rempli par
- *    erreur avec l'adresse DE CE DASHBOARD (`http://localhost:5173`) — Nicolas a confondu
- *    "l'adresse par laquelle un poste te joint" avec l'URL de la page qu'il regardait. Corrigé
- *    par DEUX garde-fous (`looksLikeThisDashboard`/`looksLikeHttpMismatch`) ET un
- *    PRÉ-REMPLISSAGE dès le montage de la page (`enrollmentDefaults`, pas seulement après un
- *    premier "Générer") avec `same_machine_url` (= `VANITAS_SERVER_URL` côté backend, TOUJOURS
- *    connue — `https://localhost:8443` par défaut) : la valeur correcte pour le cas de loin le
- *    plus fréquent, installer sur cette même machine, est maintenant déjà dans le champ à
- *    l'ouverture, jamais à deviner.
- * 3. Le MSI lui-même n'existait pas encore sur le poste de Nicolas (jamais buildé dans cette
- *    session) — la commande d'installation échouait donc avec `1619` (fichier introuvable),
- *    une erreur invisible sous `/qn`. La carte "Reste du processus" ci-dessous donne maintenant
- *    les commandes de build exactes plutôt que de supposer le MSI déjà présent.
- * 4. `ENROLLMENTTOKEN=<TOKEN>` envoyé littéralement (un gabarit de dépannage collé sans
- *    substitution) → 401 "Token d'enrôlement invalide" côté serveur, alors même que
- *    l'installation MSI avait réussi. Pas un bug de cette page (le token qu'elle affiche est
- *    TOUJOURS la vraie valeur, jamais un gabarit) — mais le rappel "copie-le depuis CETTE
- *    page, jamais retapé à la main" est maintenant explicite dans l'avertissement du token.
+ * Historique des correctifs, tous issus d'un VRAI parcours d'installation testé avec Nicolas :
+ * 1. L'URL du serveur est un champ ÉDITABLE (mémorisé en `localStorage`), pas seulement
+ *    `VANITAS_AGENT_SERVER_URL` côté backend.
+ * 2. Le champ a été rempli avec l'adresse DE CE DASHBOARD (`http://localhost:5173`) — deux
+ *    garde-fous (`looksLikeThisDashboard`/`looksLikeHttpMismatch`) + pré-remplissage dès le
+ *    montage (`enrollmentDefaults`, `same_machine_url`).
+ * 3. MSI jamais buildé → `1619` invisible sous `/qn` : la commande de build est donnée dans les
+ *    prérequis.
+ * 4. `ENROLLMENTTOKEN=<TOKEN>` collé littéralement → 401 : rappel "copie-le depuis CETTE page".
  *
- * Cette page NE COUVRE TOUJOURS PAS tout le processus (voir `endpoint-agent/MILESTONES.fr.md`, jalon
- * 5) — build/signature du MSI restent des commandes à lancer soi-même, données ci-dessous en
- * référence plutôt qu'automatisées depuis cette page (portée volontairement limitée, voir
- * point 1 plus haut).
+ * Refonte en parcours (2026-10-24, maquette canvas validée par Nicolas) : 3 étapes numérotées
+ * (adresse → token → installation, variante silencieuse / avec journal), dépannage repliable
+ * (1619/1603/401 — les codes réellement rencontrés), prérequis en aide-mémoire à cocher (non
+ * persistés) et carte "Suivi" : après génération, la liste des postes est rafraîchie toutes les
+ * 10 s jusqu'à l'arrivée d'un poste enrôlé APRÈS la génération. La route `/enrollment-tokens` ne
+ * relie pas un token à son poste côté dashboard — tout poste enrôlé depuis la génération est
+ * affiché (deux enrôlements simultanés apparaîtraient tous les deux). Classes `.ven-*`.
  */
 export default function VanitasEnrollTab({ onNavigateVanitas }) {
+  const agents = useVanitasAgents();
   const [serverUrl, setServerUrl] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEY) || "";
@@ -85,6 +87,9 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [generatedAt, setGeneratedAt] = useState(null);
+  const [withLog, setWithLog] = useState(false);
+  const [checks, setChecks] = useState([false, false, false]);
 
   function handleServerUrlChange(value) {
     setServerUrl(value);
@@ -92,16 +97,13 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
       if (value.trim()) localStorage.setItem(STORAGE_KEY, value.trim());
       else localStorage.removeItem(STORAGE_KEY);
     } catch {
-      // localStorage indisponible (navigateur restreint) — juste pas mémorisé d'une visite à
-      // l'autre, pas bloquant pour l'usage immédiat.
+      // localStorage indisponible — juste pas mémorisé d'une visite à l'autre.
     }
   }
 
-  // Pré-remplissage DÈS L'OUVERTURE de la page (pas seulement après un premier "Générer",
-  // contrairement au premier jet) — voir point 2 du commentaire d'en-tête. Ne touche JAMAIS une
-  // valeur déjà mémorisée/saisie.
+  // Pré-remplissage DÈS L'OUVERTURE (voir point 2) — ne touche jamais une valeur déjà saisie.
   useEffect(() => {
-    if (serverUrl.trim()) return;
+    if (serverUrl.trim()) return undefined;
     let cancelled = false;
     api.vanitas
       .enrollmentDefaults()
@@ -109,23 +111,39 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
         if (cancelled) return;
         const suggestion = defaults?.server_url || defaults?.same_machine_url;
         if (!suggestion) return;
-        // Updater FONCTIONNEL : on réévalue la valeur COURANTE au moment d'appliquer, pas celle
-        // capturée au montage (deps `[]`). Sinon une saisie de l'utilisateur pendant que la
-        // requête est en vol serait écrasée — le check `serverUrl.trim()` fermé sur la valeur
-        // du montage (vide) ne la verrait pas. On NE persiste PAS cette suggestion dans
-        // localStorage (défaut de confort, pas un choix explicite de l'utilisateur) : seule une
-        // vraie saisie via handleServerUrlChange mémorise.
+        // Updater fonctionnel : une saisie faite pendant la requête n'est jamais écrasée. La
+        // suggestion n'est PAS persistée (défaut de confort, pas un choix de l'utilisateur).
         setServerUrl((prev) => (prev.trim() ? prev : suggestion));
       })
       .catch(() => {
-        // Suggestion de confort seulement — un échec laisse simplement le champ vide, jamais
-        // bloquant pour le reste de la page.
+        // Suggestion de confort seulement — jamais bloquant.
       });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    agents.ensureLoaded();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const newAgents = useMemo(() => {
+    if (!generatedAt) return [];
+    return (agents.state.data ?? [])
+      .filter((a) => a.enrolled_at && new Date(a.enrolled_at).getTime() >= generatedAt - CLOCK_SKEW_MS)
+      .sort((a, b) => new Date(b.enrolled_at) - new Date(a.enrolled_at));
+  }, [agents.state.data, generatedAt]);
+
+  // Suivi : rafraîchit la liste des postes tant qu'aucun poste n'est arrivé depuis la génération.
+  const waiting = Boolean(generatedAt) && newAgents.length === 0;
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const id = setInterval(() => agents.refresh(), WATCH_INTERVAL_MS);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting]);
 
   async function handleGenerate() {
     setBusy(true);
@@ -136,6 +154,7 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
         setError(payload.message);
       } else {
         setResult(payload);
+        setGeneratedAt(Date.now());
       }
     } catch (err) {
       setError(err.message);
@@ -144,141 +163,190 @@ export default function VanitasEnrollTab({ onNavigateVanitas }) {
     }
   }
 
-  const installCommand = result ? buildInstallCommand(result.token, serverUrl) : null;
+  function reset() {
+    setResult(null);
+    setGeneratedAt(null);
+    setError(null);
+  }
+
+  const baseCommand = result ? buildInstallCommand(result.token, serverUrl) : null;
+  const installCommand = baseCommand && withLog ? `${baseCommand} /l*v install.log` : baseCommand;
   const urlLooksLikeDashboard = looksLikeThisDashboard(serverUrl);
   const urlLooksLikeHttp = !urlLooksLikeDashboard && looksLikeHttpMismatch(serverUrl);
+  const urlOk = !urlLooksLikeDashboard && !urlLooksLikeHttp && /^https:\/\//i.test(serverUrl.trim());
+
+  const prereqs = [
+    { title: tr("ven.pre.msi"), text: trRich("ven.pre.msiText", { dir: <code>endpoint-agent/agent/</code> }), code: BUILD_COMMAND },
+    {
+      title: tr("ven.pre.cert"),
+      text: trRich("ven.pre.certText", { root: <code>Cert:\LocalMachine\Root</code>, publisher: <code>Cert:\LocalMachine\TrustedPublisher</code> }),
+    },
+    { title: tr("ven.pre.admin"), text: tr("ven.pre.adminText") },
+  ];
 
   return (
-    <div className="vanitas-hud">
-      <p className="vanitas-enroll-intro">
-        {tr("ven.intro")}
-      </p>
+    <div className="vanitas-hud ven">
+      <div className="ven-split">
+        <section className="ven-card" aria-label={tr("ven.flowAria")}>
+          <div className="ven-head">
+            <h2 className="ven-h2">{tr("ven.flowTitle")}</h2>
+            <span className="ven-sub ven-small">{tr("ven.flowSub")}</span>
+          </div>
+          <p className="ven-sub ven-intro">{tr("ven.intro")}</p>
 
-      <div className="vanitas-hud-card vanitas-hud-frame">
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("ven.newEndpoint")}</h2>
-        </div>
-
-        <div style={{ padding: "16px" }}>
-          <div className="vanitas-enroll-field">
-            <span className="vanitas-enroll-label">
-              {tr("ven.urlLabel")}
-            </span>
-            <input
-              type="text"
-              className="filter-input"
-              style={{ width: "100%" }}
-              placeholder={tr("ven.urlPlaceholder")}
-              value={serverUrl}
-              onChange={(e) => handleServerUrlChange(e.target.value)}
-            />
-            {urlLooksLikeDashboard && (
-              <p className="vanitas-enroll-hint tone-warn">
-                {trRich("ven.warnDashboard", { origin: window.location.origin, url: <code>https://localhost:8443</code> })}
-              </p>
-            )}
-            {urlLooksLikeHttp && (
-              <p className="vanitas-enroll-hint tone-warn">
-                {trRich("ven.warnHttp", { http: <code>http://</code>, https: <code>https://</code> })}
-              </p>
-            )}
+          <div className="ven-step">
+            <StepNum state={urlOk ? "done" : "on"} n={1} />
+            <h3>{tr("ven.s1")}</h3>
+            <div className="ven-body">
+              <span className="ven-sub">{tr("ven.s1Hint")}</span>
+              <input
+                type="text"
+                className="ven-input"
+                placeholder={tr("ven.urlPlaceholder")}
+                aria-label={tr("ven.s1")}
+                value={serverUrl}
+                onChange={(e) => handleServerUrlChange(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {urlLooksLikeDashboard && (
+                <p className="ven-hint warn">{trRich("ven.warnDashboard", { origin: window.location.origin, url: <code>https://localhost:8443</code> })}</p>
+              )}
+              {urlLooksLikeHttp && <p className="ven-hint warn">{trRich("ven.warnHttp", { http: <code>http://</code>, https: <code>https://</code> })}</p>}
+              {urlOk && <span className="ven-sub ven-small ven-ok">{tr("ven.urlOk")}</span>}
+            </div>
           </div>
 
-          <button type="button" className="vanitas-wiz-primary-btn" onClick={handleGenerate} disabled={busy}>
-            {busy ? tr("ven.generating") : tr("ven.generate")}
-          </button>
-
-          {error && <p className="vanitas-hud-error" style={{ marginTop: "14px" }}>{error}</p>}
-
-          {result && (
-            <div style={{ marginTop: "18px" }}>
-              <div className="vanitas-enroll-callout tone-warn">
-                {tr("ven.tokenOnce")}
-              </div>
-
-              <div className="vanitas-enroll-field">
-                <span className="vanitas-enroll-label">{tr("ven.token")}</span>
-                <div className="vanitas-enroll-code-row">
-                  <code>{result.token}</code>
-                  <CopyButton className="vanitas-enroll-copy-btn" text={result.token} />
-                </div>
-              </div>
-
-              {installCommand ? (
-                <div className="vanitas-enroll-field">
-                  <span className="vanitas-enroll-label">{tr("ven.command")}</span>
-                  <div className="vanitas-enroll-code-row">
-                    <code>{installCommand}</code>
-                    <CopyButton className="vanitas-enroll-copy-btn" text={installCommand} />
+          <div className="ven-step">
+            <StepNum state={result ? "done" : "on"} n={2} />
+            <h3>{tr("ven.token")}</h3>
+            <div className="ven-body">
+              {result ? (
+                <>
+                  <div className="ven-code">
+                    <code>{result.token}</code>
+                    <CopyButton className="vanitas-enroll-copy-btn" text={result.token} />
                   </div>
+                  <p className="ven-hint warn">{tr("ven.tokenOnce")}</p>
+                </>
+              ) : (
+                <>
+                  <span className="ven-sub">{tr("ven.s2Hint")}</span>
+                  <button type="button" className="vanitas-wiz-primary-btn ven-self-start" onClick={handleGenerate} disabled={busy}>
+                    {busy ? tr("ven.generating") : tr("ven.generate")}
+                  </button>
+                </>
+              )}
+              {error && <p className="vanitas-hud-error" style={{ margin: 0 }}>{error}</p>}
+            </div>
+          </div>
+
+          <div className="ven-step">
+            <StepNum state={!result ? "" : newAgents.length ? "done" : "on"} n={3} />
+            <h3>{tr("ven.s3")}</h3>
+            <div className="ven-body">
+              <span className="ven-sub">{trRich("ven.s3Hint", { admin: <b>{tr("ven.admin")}</b>, msi: <code>EndpointAgent.msi</code> })}</span>
+              <span className="ven-seg" role="group" aria-label={tr("ven.variantAria")}>
+                <button type="button" className={withLog ? "" : "on"} aria-pressed={!withLog} onClick={() => setWithLog(false)}>
+                  {tr("ven.quiet")}
+                </button>
+                <button type="button" className={withLog ? "on" : ""} aria-pressed={withLog} onClick={() => setWithLog(true)}>
+                  {tr("ven.withLog")}
+                </button>
+              </span>
+              {!result ? (
+                <span className="ven-sub ven-italic">{tr("ven.cmdAfterToken")}</span>
+              ) : installCommand ? (
+                <div className="ven-code">
+                  <code>{installCommand}</code>
+                  <CopyButton className="vanitas-enroll-copy-btn" text={installCommand} />
                 </div>
               ) : (
-                <div className="vanitas-enroll-callout tone-accent">
-                  {tr("ven.fillUrl")}
-                </div>
+                <p className="ven-hint accent">{tr("ven.fillUrl")}</p>
               )}
+              <details className="ven-help">
+                <summary>{tr("ven.trouble")}</summary>
+                <ul>
+                  <li>{trRich("ven.t1619", { code: <b>1619</b> })}</li>
+                  <li>{trRich("ven.t1603", { code: <b>1603</b> })}</li>
+                  <li>{trRich("ven.t401", { code: <b>401</b> })}</li>
+                  <li>{trRich("ven.tService", { svc: <code>Get-Service EndpointAgent</code>, log: <code>install.log</code> })}</li>
+                </ul>
+              </details>
             </div>
-          )}
-        </div>
-      </div>
-
-      <div className="vanitas-hud-card vanitas-hud-frame" style={{ marginTop: "16px" }}>
-        <div className="vanitas-hud-card-head">
-          <h2>{tr("ven.rest")}</h2>
-          <span className="vanitas-hud-card-note">{tr("ven.restNote")}</span>
-        </div>
-        <div style={{ padding: "16px" }}>
-          <p className="vanitas-hud-empty-note" style={{ padding: 0, marginBottom: "6px" }}>
-            {trRich("ven.step1", { title: <strong>{tr("ven.step1.title")}</strong>, dir: <code>endpoint-agent/agent/</code> })}
-          </p>
-          <div className="vanitas-enroll-code-row" style={{ marginBottom: "10px" }}>
-            <code style={{ fontSize: "11px" }}>
-              cd EndpointAgent && dotnet publish -c Release -r win-x64 -p:SelfContained=true
-              -p:PublishSingleFile=true -o publish && cd ../Installer && dotnet build
-            </code>
-            <CopyButton className="vanitas-enroll-copy-btn" text="cd EndpointAgent && dotnet publish -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -o publish && cd ../Installer && dotnet build" />
           </div>
-          <p className="vanitas-hud-empty-note" style={{ padding: 0, marginBottom: "10px" }}>
-            {trRich("ven.step1.out", { path: <code>endpoint-agent/agent/Installer/bin/x64/Debug/EndpointAgent.msi</code> })}
-          </p>
+        </section>
 
-          <p className="vanitas-hud-empty-note" style={{ padding: 0, marginBottom: "10px" }}>
-            {trRich("ven.step2", {
-              title: <strong>{tr("ven.step2.title")}</strong>,
-              root: <code>Cert:\LocalMachine\Root</code>,
-              and: <strong>{tr("ven.and")}</strong>,
-              publisher: <code>Cert:\LocalMachine\TrustedPublisher</code>,
-            })}
-          </p>
+        <div className="ven-side">
+          <section className="ven-card ven-watch-card" aria-label={tr("ven.watchTitle")} aria-live="polite">
+            <h2 className="ven-h2">{tr("ven.watchTitle")}</h2>
+            {!generatedAt ? (
+              <span className="ven-sub">{tr("ven.watchIdle")}</span>
+            ) : newAgents.length === 0 ? (
+              <div className="ven-watch">
+                <div className="ven-watch-head">
+                  <span className="ven-pulse" aria-hidden="true" />
+                  <b>{tr("ven.watching")}</b>
+                </div>
+                <span className="ven-sub">{tr("ven.watchingHint")}</span>
+              </div>
+            ) : (
+              <>
+                {newAgents.map((a) => (
+                  <div key={a.id} className="ven-new">
+                    <span className="ven-dot" />
+                    <span className="ven-new-host">{a.hostname}</span>
+                    <span className="ven-pill">{tr("ven.enrolled")}</span>
+                    <span className="ven-sub ven-small ven-new-meta">
+                      {fmtRelative(a.enrolled_at)}
+                      {a.agent_version ? ` · agent v${a.agent_version}` : ""}
+                    </span>
+                    <button type="button" className="vanitas-queue-btn ven-new-open" onClick={() => onNavigateVanitas?.("vanitas-devices", { selectAgentId: a.id })}>
+                      {tr("ven.openDevice")}
+                    </button>
+                  </div>
+                ))}
+                {newAgents.length > 1 && <span className="ven-sub ven-small">{tr("ven.severalNote")}</span>}
+                <button type="button" className="vanitas-ghost-btn ven-self-start" onClick={reset}>
+                  {tr("ven.another")}
+                </button>
+              </>
+            )}
+          </section>
 
-          <p className="vanitas-hud-empty-note" style={{ padding: 0, marginBottom: "10px" }}>
-            {trRich("ven.step3", {
-              title: <strong>{tr("ven.step3.title")}</strong>,
-              msi: <code>EndpointAgent.msi</code>,
-              code: <code>1619</code>,
-              admin: <strong>{tr("ven.admin")}</strong>,
-            })}
-          </p>
-
-          <p className="vanitas-hud-empty-note" style={{ padding: 0 }}>
-            {trRich("ven.step4", {
-              title: <strong>{tr("ven.step4.title")}</strong>,
-              qn: <code>/qn</code>,
-              svc: <code>Get-Service EndpointAgent</code>,
-              log: <code>/l*v install.log</code>,
-            })}
-          </p>
-
-          {onNavigateVanitas && (
-            <button
-              type="button"
-              className="vanitas-ghost-btn"
-              style={{ marginTop: "14px" }}
-              onClick={() => onNavigateVanitas("vanitas-docs")}
-            >
-              {tr("ven.docs")}
-            </button>
-          )}
+          <section className="ven-card" aria-label={tr("ven.preTitle")}>
+            <div className="ven-head">
+              <h2 className="ven-h2">{tr("ven.preTitle")}</h2>
+              <span className="ven-sub ven-small">{tr("ven.preCount", { done: checks.filter(Boolean).length, count: prereqs.length })}</span>
+            </div>
+            {prereqs.map((p, i) => (
+              <div key={i} className="ven-check">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={checks[i]}
+                  aria-label={p.title}
+                  className={`ven-box${checks[i] ? " on" : ""}`}
+                  onClick={() => setChecks((c) => c.map((v, j) => (j === i ? !v : v)))}
+                >
+                  {checks[i] ? "✓" : ""}
+                </button>
+                <span className="ven-check-title">{p.title}</span>
+                <span className="ven-sub ven-check-text">{p.text}</span>
+                {p.code && (
+                  <div className="ven-code ven-check-code">
+                    <code>{p.code}</code>
+                    <CopyButton className="vanitas-enroll-copy-btn" text={p.code} />
+                  </div>
+                )}
+              </div>
+            ))}
+            {onNavigateVanitas && (
+              <button type="button" className="vanitas-ghost-btn ven-docs" onClick={() => onNavigateVanitas("vanitas-docs")}>
+                {tr("ven.docs")}
+              </button>
+            )}
+          </section>
         </div>
       </div>
     </div>

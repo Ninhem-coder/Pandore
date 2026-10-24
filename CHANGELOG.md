@@ -48,6 +48,11 @@ changes are listed under *Unreleased* until the first public version.
   endpoints split into compliant / non-compliant / not checked yet, active rules), filterable
   rules with a per-rule result bar, and the selected rule's detail (enable / disable, script
   editor, delete, results filtered by outcome) in a side panel instead of a popup.
+- **Vanitas "Add an endpoint" redesigned** as a 3-step flow (server address, token, install
+  command with a silent / with-install-log variant) with a collapsible troubleshooting list
+  (1619, 1603, 401), a prerequisites checklist with the MSI build command, and a live tracking
+  card: after generating a token, the endpoint list is refreshed every 10 s and the newly
+  enrolled endpoint appears with a link to its details.
 - **Vanitas activity log redesigned** as a day-grouped list + detail: a summary band (events over
   the period, category split with a clickable legend, failures, most active actor), outcome chips,
   the error line shown under each failed command, and the full detail in a side panel instead of
